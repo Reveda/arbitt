@@ -74,14 +74,18 @@ export function createApp() {
   app.use(requestLogger);
   app.use(apiActivityTracker);
 
-  app.get("/", (_req, res) => {
+  const sendApiRoot = (_req: express.Request, res: express.Response) => {
     res.json(
       apiResponse<ApiRootResponseDto>(200, "ARBITRUM backend API is running.", {
         apiBase: env.API_PREFIX,
       }),
     );
-  });
+  };
 
+  app.get(env.API_PREFIX, sendApiRoot);
+  if (env.NODE_ENV !== "production") {
+    app.get("/", sendApiRoot);
+  }
   app.use(env.API_PREFIX, apiRoutes);
   registerFrontendAssets(app);
   app.use(notFoundHandler);
