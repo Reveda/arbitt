@@ -1,0 +1,900 @@
+import { HTTP_STATUS } from "../../../constants/http";
+import { ApiError } from "../../../utils/ApiError";
+import { buildDateRangeFilter } from "../../../utils/dateRange";
+import { walletRepository } from "../../wallet/repositories/wallet.repository";
+import { planRepository } from "../../plans/repositories/plan.repository";
+import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
+import { rewardService } from "../../rewards/services/reward.service";
+import { getSalaryRoyaltyPeriod } from "../../rewards/utils/salaryRoyalty";
+import { adminRepository } from "../repositories/admin.repository";
+import { getPlatformPaymentWallet, updatePlatformPaymentWallet } from "./payment-wallet.service";
+import { toSafeUser } from "../../auth/dtos/auth.dto";
+
+type PopulatedAdminUser = {
+  _id?: unknown;
+  email?: string;
+  username?: string | null;
+  role?: string;
+  status?: string;
+  referralCode?: string | null;
+  invitedBy?: unknown;
+  emailVerifiedAt?: Date | string | null;
+  createdAt?: Date | string | null;
+};
+
+type AdminReferralRecord = {
+  _id?: unknown;
+  userId?: unknown;
+  parentUserId?: unknown;
+  level?: number;
+  path?: unknown[];
+  directCount?: number;
+  activeTeamCount?: number;
+  createdAt?: Date | string | null;
+};
+
+type AdminReferralLevelSummary = {
+  level: number;
+  count: number;
+  samples: Array<{
+    id?: unknown;
+    email?: string;
+    username?: string | null;
+    status?: string;
+  }>;
+};
+
+type AdminDepositRecord = {
+  _id?: unknown;
+  userId?: unknown;
+  amountUsdt?: number;
+  status?: string;
+  txnHash?: string | null;
+  network?: string | null;
+  notes?: string | null;
+  reviewedBy?: unknown;
+  reviewedAt?: Date | string | null;
+  createdAt?: Date | string | null;
+};
+
+type AdminPayoutRecord = AdminDepositRecord & {
+  payoutKind?: string | null;
+  payoutLevel?: number | null;
+  payoutPeriodStart?: Date | string | null;
+  payoutPeriodEnd?: Date | string | null;
+  payoutTier?: string | null;
+  payoutPercent?: number | null;
+  payoutPrincipalUsdt?: number | null;
+  payoutSourceTransactionId?: unknown;
+  payoutSourceUserId?: unknown;
+  updatedAt?: Date | string | null;
+};
+
+type AdminPlanPurchaseRecord = AdminPayoutRecord;
+
+type AdminWalletRecord = {
+  _id?: unknown;
+  userId?: unknown;
+  availableUsdt?: number;
+  lockedUsdt?: number;
+  lifetimeDepositsUsdt?: number;
+  lifetimeWithdrawalsUsdt?: number;
+  lifetimeRewardsUsdt?: number;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+};
+
+type ReturnStrategy = "min" | "average" | "max";
+
+const TOTAL_REWARD_EARNING_MULTIPLIER = 3;
+const TOTAL_REWARD_PAYOUT_KINDS = ["weekly", "level", "salary_royalty"];
+const TOTAL_REWARD_GENERATION_STATUSES = ["pending", "approved", "completed"];
+const TOTAL_REWARD_APPROVAL_STATUSES = ["approved", "completed"];
+
+function getPopulatedUser(value: unknown): PopulatedAdminUser | null {
+  if (!value || typeof value !== "object" || !("_id" in value)) {
+    return null;
+  }
+
+  return value as PopulatedAdminUser;
+}
+
+function toUserSummary(value: unknown) {
+  const user = getPopulatedUser(value);
+
+  if (!user) {
+    return null;
+  }
+
+  return {
+    id: String(user._id),
+    email: null,
+    username: user.username ?? null,
+    role: user.role ?? "user",
+    status: user.status ?? "unknown",
+    referralCode: user.referralCode ?? null,
+    emailVerified: Boolean(user.emailVerifiedAt),
+    joinedAt: user.createdAt ?? null,
+  };
+}
+
+function toReferralNode(record: AdminReferralRecord) {
+  const user = toUserSummary(record.userId);
+  const parent = toUserSummary(record.parentUserId);
+
+  return {
+    id: String(record._id),
+    user,
+    parent,
+    parentUserId: parent?.id ?? null,
+    level: record.level ?? 0,
+    path: (record.path ?? []).map((entry) => String(entry)),
+    directCount: record.directCount ?? 0,
+    activeTeamCount: record.activeTeamCount ?? 0,
+    createdAt: record.createdAt ?? null,
+  };
+}
+
+function toDepositNode(record: AdminDepositRecord) {
+  return {
+    id: String(record._id),
+    user: toUserSummary(record.userId),
+    amountUsdt: record.amountUsdt ?? 0,
+    status: record.status ?? "pending",
+    txnHash: record.txnHash ?? null,
+    network: record.network ?? "BEP20",
+    notes: record.notes ?? "",
+    reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
+    reviewedAt: record.reviewedAt ?? null,
+    createdAt: record.createdAt ?? null,
+  };
+}
+
+function toPayoutNode(record: AdminPayoutRecord) {
+  return {
+    id: String(record._id),
+    user: toUserSummary(record.userId),
+    amountUsdt: record.amountUsdt ?? 0,
+    status: record.status ?? "pending",
+    network: record.network ?? "SYSTEM",
+    notes: record.notes ?? "",
+    reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
+    reviewedAt: record.reviewedAt ?? null,
+    payoutKind: record.payoutKind ?? "weekly",
+    payoutLevel: record.payoutLevel ?? null,
+    payoutPeriodStart: record.payoutPeriodStart ?? null,
+    payoutPeriodEnd: record.payoutPeriodEnd ?? null,
+    payoutTier: record.payoutTier ?? null,
+    payoutPercent: record.payoutPercent ?? null,
+    payoutPrincipalUsdt: record.payoutPrincipalUsdt ?? null,
+    payoutSourceTransactionId: record.payoutSourceTransactionId
+      ? String(record.payoutSourceTransactionId)
+      : null,
+    payoutSourceUserId: record.payoutSourceUserId ? String(record.payoutSourceUserId) : null,
+    createdAt: record.createdAt ?? null,
+    updatedAt: record.updatedAt ?? null,
+  };
+}
+
+function toPlanPurchaseRequestNode(record: AdminPlanPurchaseRecord) {
+  const planName = record.notes?.replace(/^Plan purchase (request|approved):\s*/i, "") ?? "";
+
+  return {
+    id: String(record._id),
+    user: toUserSummary(record.userId),
+    amountUsdt: record.amountUsdt ?? 0,
+    status: record.status ?? "pending",
+    network: record.network ?? "SYSTEM",
+    notes: record.notes ?? "",
+    reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
+    reviewedAt: record.reviewedAt ?? null,
+    planName,
+    tier: record.payoutTier ?? null,
+    weeklyReturnPercent: record.payoutPercent ?? null,
+    createdAt: record.createdAt ?? null,
+    updatedAt: record.updatedAt ?? null,
+  };
+}
+
+function toWalletNode(record: AdminWalletRecord) {
+  return {
+    id: String(record._id),
+    user: toUserSummary(record.userId),
+    availableUsdt: record.availableUsdt ?? 0,
+    lockedUsdt: record.lockedUsdt ?? 0,
+    lifetimeDepositsUsdt: record.lifetimeDepositsUsdt ?? 0,
+    lifetimeWithdrawalsUsdt: record.lifetimeWithdrawalsUsdt ?? 0,
+    lifetimeRewardsUsdt: record.lifetimeRewardsUsdt ?? 0,
+    createdAt: record.createdAt ?? null,
+    updatedAt: record.updatedAt ?? null,
+  };
+}
+
+function roundUsdt(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+function getPayoutWeekStart(value?: string) {
+  const start = value ? new Date(`${value}T00:00:00.000Z`) : new Date();
+  const normalizedStart = new Date(
+    Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()),
+  );
+  const daysSinceMonday = (normalizedStart.getUTCDay() + 6) % 7;
+  normalizedStart.setUTCDate(normalizedStart.getUTCDate() - daysSinceMonday);
+
+  return normalizedStart;
+}
+
+function getPeriodEnd(periodStart: Date) {
+  const periodEnd = new Date(periodStart);
+  periodEnd.setUTCDate(periodEnd.getUTCDate() + 5);
+  return periodEnd;
+}
+
+function getPeriodCutoff(periodEnd: Date) {
+  const cutoff = new Date(periodEnd);
+  cutoff.setUTCHours(23, 59, 59, 999);
+  return cutoff;
+}
+
+function formatPeriodDate(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function getReturnPercent(
+  tier: { weeklyReturnMinPercent: number; weeklyReturnMaxPercent: number },
+  strategy: ReturnStrategy,
+) {
+  if (strategy === "max") {
+    return tier.weeklyReturnMaxPercent;
+  }
+
+  if (strategy === "average") {
+    return roundUsdt((tier.weeklyReturnMinPercent + tier.weeklyReturnMaxPercent) / 2);
+  }
+
+  return tier.weeklyReturnMinPercent;
+}
+
+function hasWeeklyPayoutChanged(
+  record: AdminPayoutRecord,
+  payout: {
+    amountUsdt: number;
+    payoutPercent: number;
+    payoutPrincipalUsdt: number;
+    payoutTier: string;
+  },
+) {
+  return (
+    roundUsdt(record.amountUsdt ?? 0) !== payout.amountUsdt ||
+    roundUsdt(record.payoutPrincipalUsdt ?? 0) !== payout.payoutPrincipalUsdt ||
+    roundUsdt(record.payoutPercent ?? 0) !== payout.payoutPercent ||
+    record.payoutTier !== payout.payoutTier
+  );
+}
+
+export class AdminService {
+  getOverview() {
+    return adminRepository.getOverviewCounts();
+  }
+
+  async listUsers(input: { page: number; limit: number; search?: string }) {
+    const page = input.page;
+    const limit = input.limit;
+    const skip = (page - 1) * limit;
+    const { users, total } = await adminRepository.listUsers({
+      search: input.search,
+      skip,
+      limit,
+    });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      users: users.map((user) => ({
+        ...toSafeUser(user),
+        email: "",
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async listDeposits(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    const page = input.page;
+    const limit = input.limit;
+    const skip = (page - 1) * limit;
+    const { deposits, total } = await adminRepository.listDeposits({
+      search: input.search,
+      status: input.status,
+      dateRange: buildDateRangeFilter({ fromDate: input.fromDate, toDate: input.toDate }),
+      skip,
+      limit,
+    });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      deposits: deposits.map((deposit) => toDepositNode(deposit as AdminDepositRecord)),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async listPlanPurchases(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    const page = input.page;
+    const limit = input.limit;
+    const skip = (page - 1) * limit;
+    const { planPurchases, total } = await adminRepository.listPlanPurchases({
+      search: input.search,
+      status: input.status,
+      dateRange: buildDateRangeFilter({ fromDate: input.fromDate, toDate: input.toDate }),
+      skip,
+      limit,
+    });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      planPurchases: planPurchases.map((purchase) =>
+        toPlanPurchaseRequestNode(purchase as AdminPlanPurchaseRecord),
+      ),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async listWallets(input: { page: number; limit: number; search?: string }) {
+    const page = input.page;
+    const limit = input.limit;
+    const skip = (page - 1) * limit;
+    const { summary, wallets } = await adminRepository.listWallets({
+      search: input.search,
+      skip,
+      limit,
+    });
+    const totalPages = Math.max(1, Math.ceil(summary.total / limit));
+
+    return {
+      summary,
+      wallets: wallets.map((wallet) => toWalletNode(wallet as AdminWalletRecord)),
+      pagination: {
+        page,
+        limit,
+        total: summary.total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async listPayouts(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+    fromDate?: string;
+    weekStart?: string;
+    toDate?: string;
+  }) {
+    const page = input.page;
+    const limit = input.limit;
+    const skip = (page - 1) * limit;
+    const payoutPeriodStart = input.weekStart ? getPayoutWeekStart(input.weekStart) : null;
+    const payoutPeriodEnd = payoutPeriodStart ? getPeriodEnd(payoutPeriodStart) : null;
+    const { payouts, summary, total } = await adminRepository.listPayouts({
+      search: input.search,
+      status: input.status,
+      dateRange: buildDateRangeFilter({ fromDate: input.fromDate, toDate: input.toDate }),
+      payoutPeriod:
+        payoutPeriodStart && payoutPeriodEnd
+          ? {
+              end: payoutPeriodEnd,
+              start: payoutPeriodStart,
+            }
+          : undefined,
+      skip,
+      limit,
+    });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      payouts: payouts.map((payout) => toPayoutNode(payout as AdminPayoutRecord)),
+      summary: {
+        pendingCount: summary.pendingCount ?? 0,
+        approvedCount: summary.approvedCount ?? 0,
+        rejectedCount: summary.rejectedCount ?? 0,
+        totalPayoutUsdt: summary.totalPayoutUsdt ?? 0,
+        totalPendingUsdt: summary.totalPendingUsdt ?? 0,
+        totalApprovedUsdt: summary.totalApprovedUsdt ?? 0,
+      },
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async generateWeeklyPayouts(input: {
+    weekStart?: string;
+    returnStrategy: ReturnStrategy;
+    adminUserId: string;
+    ipAddress?: string;
+  }) {
+    const periodStart = getPayoutWeekStart(input.weekStart);
+    const periodEnd = getPeriodEnd(periodStart);
+    const periodCutoff = getPeriodCutoff(periodEnd);
+    const eligibleUntil = periodStart;
+
+    if (periodCutoff.getTime() > Date.now()) {
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        "Weekly payout period is not complete yet. Select a completed week.",
+      );
+    }
+
+    const ruleSet = await planRepository.ensureDefaultRuleSet();
+    const activeTiers = [...ruleSet.investmentTiers]
+      .filter((tier) => tier.isActive !== false)
+      .sort((tierA, tierB) => tierA.minUsdt - tierB.minUsdt);
+    const minimumPrincipalUsdt = activeTiers[0]?.minUsdt;
+
+    if (!minimumPrincipalUsdt) {
+      throw new ApiError(HTTP_STATUS.BAD_REQUEST, "No active investment tiers are configured.");
+    }
+
+    const [eligibleWallets, existingWeeklyPayouts] = await Promise.all([
+      adminRepository.listPayoutEligibleWallets({
+        eligibleUntil,
+        minimumPrincipalUsdt,
+      }),
+      adminRepository.listWeeklyPayoutsForPeriod({
+        payoutPeriodEnd: periodEnd,
+        payoutPeriodStart: periodStart,
+      }),
+    ]);
+    const existingWeeklyPayoutByUserId = new Map(
+      existingWeeklyPayouts.map((payout) => [String(payout.userId), payout as AdminPayoutRecord]),
+    );
+    const rewardPayoutTotalsByUserId = await adminRepository.sumRewardPayoutsByUserIds({
+      payoutKinds: TOTAL_REWARD_PAYOUT_KINDS,
+      statuses: TOTAL_REWARD_GENERATION_STATUSES,
+      userIds: eligibleWallets.map((wallet) => String(wallet.userId)),
+    });
+    const highestTier = activeTiers[activeTiers.length - 1];
+    const payoutCandidates = eligibleWallets
+      .map((wallet) => {
+        const userId = String(wallet.userId);
+        const lifetimeDepositsUsdt = wallet.lifetimeDepositsUsdt ?? 0;
+        const existingPayout = existingWeeklyPayoutByUserId.get(userId);
+        const existingCurrentPeriodAmountUsdt = existingPayout?.amountUsdt ?? 0;
+        const earnedOrQueuedUsdt = Math.max(
+          0,
+          roundUsdt(
+            (rewardPayoutTotalsByUserId.get(userId) ?? 0) - existingCurrentPeriodAmountUsdt,
+          ),
+        );
+        const maxEarningUsdt = roundUsdt(lifetimeDepositsUsdt * TOTAL_REWARD_EARNING_MULTIPLIER);
+        const remainingEarningUsdt = roundUsdt(maxEarningUsdt - earnedOrQueuedUsdt);
+        const tier =
+          activeTiers.find(
+            (candidate) =>
+              lifetimeDepositsUsdt >= candidate.minUsdt &&
+              lifetimeDepositsUsdt <= candidate.maxUsdt,
+          ) ?? (highestTier && lifetimeDepositsUsdt > highestTier.maxUsdt ? highestTier : null);
+
+        if (!tier) {
+          return null;
+        }
+
+        const payoutPercent = getReturnPercent(tier, input.returnStrategy);
+        const payoutPrincipalUsdt = Math.min(lifetimeDepositsUsdt, tier.maxUsdt);
+        const uncappedAmountUsdt = roundUsdt((payoutPrincipalUsdt * payoutPercent) / 100);
+        const amountUsdt = roundUsdt(Math.min(uncappedAmountUsdt, remainingEarningUsdt));
+
+        if (amountUsdt <= 0) {
+          return null;
+        }
+
+        const capNote =
+          amountUsdt < uncappedAmountUsdt
+            ? ` Capped by ${TOTAL_REWARD_EARNING_MULTIPLIER}x total earning limit.`
+            : "";
+
+        return {
+          amountUsdt,
+          notes: `Weekly payout ${tier.tier} ${formatPeriodDate(periodStart)} to ${formatPeriodDate(periodEnd)} (${payoutPercent}%).${capNote}`,
+          payoutPercent,
+          payoutPeriodEnd: periodEnd,
+          payoutPeriodStart: periodStart,
+          payoutPrincipalUsdt,
+          payoutTier: tier.tier,
+          userId,
+        };
+      })
+      .filter((payout): payout is NonNullable<typeof payout> => Boolean(payout));
+    const payoutsToCreate: typeof payoutCandidates = [];
+    const payoutsToUpdate: Array<(typeof payoutCandidates)[number] & { transactionId: string }> =
+      [];
+
+    for (const payout of payoutCandidates) {
+      const existingPayout = existingWeeklyPayoutByUserId.get(payout.userId);
+
+      if (!existingPayout) {
+        payoutsToCreate.push(payout);
+        continue;
+      }
+
+      if (existingPayout.status === "pending" && hasWeeklyPayoutChanged(existingPayout, payout)) {
+        payoutsToUpdate.push({
+          ...payout,
+          transactionId: String(existingPayout._id),
+        });
+      }
+    }
+
+    const [createdPayouts, updatedPayoutResults] = await Promise.all([
+      payoutsToCreate.length ? adminRepository.createPayoutTransactions(payoutsToCreate) : [],
+      Promise.all(
+        payoutsToUpdate.map((payout) => adminRepository.updatePendingWeeklyPayout(payout)),
+      ),
+    ]);
+    const updatedPayouts = updatedPayoutResults.filter(Boolean);
+    const salaryRoyaltyPeriod = getSalaryRoyaltyPeriod(periodStart);
+    const salaryRoyaltyPayouts = await rewardService.generateSalaryRoyaltyRewards({
+      periodEnd: salaryRoyaltyPeriod.end,
+      periodStart: salaryRoyaltyPeriod.start,
+    });
+    const allGeneratedPayouts = [...createdPayouts, ...updatedPayouts, ...salaryRoyaltyPayouts];
+    const skippedCount = eligibleWallets.length - createdPayouts.length - updatedPayouts.length;
+
+    await adminRepository.recordAuditLog({
+      actorUserId: input.adminUserId,
+      action: "admin.payouts.generated",
+      entityType: "weekly_payout",
+      entityId: `${formatPeriodDate(periodStart)}:${formatPeriodDate(periodEnd)}`,
+      ipAddress: input.ipAddress,
+      metadata: {
+        createdCount: createdPayouts.length + salaryRoyaltyPayouts.length,
+        eligibleCount: eligibleWallets.length,
+        salaryRoyaltyCreatedCount: salaryRoyaltyPayouts.length,
+        skippedCount,
+        weeklyCreatedCount: createdPayouts.length,
+        weeklyUpdatedCount: updatedPayouts.length,
+        eligibleUntil: eligibleUntil.toISOString(),
+        periodCutoff: periodCutoff.toISOString(),
+        returnStrategy: input.returnStrategy,
+        weekStart: formatPeriodDate(periodStart),
+      },
+    });
+
+    return {
+      createdCount: createdPayouts.length + salaryRoyaltyPayouts.length,
+      eligibleCount: eligibleWallets.length,
+      salaryRoyaltyCreatedCount: salaryRoyaltyPayouts.length,
+      skippedCount,
+      updatedCount: updatedPayouts.length,
+      weeklyCreatedCount: createdPayouts.length,
+      weeklyUpdatedCount: updatedPayouts.length,
+      period: {
+        start: periodStart,
+        end: periodEnd,
+      },
+      payouts: allGeneratedPayouts.map((payout) => toPayoutNode(payout as AdminPayoutRecord)),
+    };
+  }
+
+  getPaymentWallet() {
+    return getPlatformPaymentWallet();
+  }
+
+  async updatePaymentWallet(input: {
+    address: string;
+    network: string;
+    adminUserId: string;
+    ipAddress?: string;
+  }) {
+    const wallet = await updatePlatformPaymentWallet({
+      address: input.address,
+      network: input.network,
+      updatedBy: input.adminUserId,
+    });
+
+    await adminRepository.recordAuditLog({
+      actorUserId: input.adminUserId,
+      action: "admin.payment_wallet.updated",
+      entityType: "platform_setting",
+      entityId: "payment_wallet",
+      ipAddress: input.ipAddress,
+      metadata: {
+        network: wallet.network,
+      },
+    });
+
+    return { wallet };
+  }
+
+  async reviewPlanPurchase(input: {
+    transactionId: string;
+    adminUserId: string;
+    action: "approve" | "reject";
+    notes?: string;
+    ipAddress?: string;
+  }) {
+    const reviewedPurchase =
+      input.action === "approve"
+        ? await adminRepository.approvePendingPlanPurchase(input)
+        : await adminRepository.rejectPendingPlanPurchase(input);
+
+    if (!reviewedPurchase) {
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        "Plan purchase request is not pending or was not found.",
+      );
+    }
+
+    if (input.action === "approve") {
+      const tier = [...(await planRepository.ensureDefaultRuleSet()).investmentTiers].find(
+        (candidate) => candidate.tier === reviewedPurchase.payoutTier,
+      );
+
+      await Promise.all([
+        UserPlanPurchaseModel.findOneAndUpdate(
+          { sourceTransactionId: reviewedPurchase._id },
+          {
+            $set: {
+              amountUsdt: reviewedPurchase.amountUsdt,
+              name: tier?.name ?? reviewedPurchase.payoutTier ?? "Investment Pool",
+              sourceTransactionId: reviewedPurchase._id,
+              status: "active",
+              tier: reviewedPurchase.payoutTier ?? tier?.tier ?? "POOL",
+              userId: reviewedPurchase.userId,
+              weeklyReturnPercent:
+                reviewedPurchase.payoutPercent ?? tier?.weeklyReturnMaxPercent ?? 0,
+            },
+            $setOnInsert: {
+              purchasedAt: new Date(),
+            },
+          },
+          { new: true, upsert: true },
+        ),
+        walletRepository.creditAdminPlanPurchase(reviewedPurchase.amountUsdt),
+      ]);
+
+      await rewardService.createLevelIncomeRewardsForPlanPurchase({
+        amountUsdt: reviewedPurchase.amountUsdt,
+        transactionId: input.transactionId,
+        userId: String(reviewedPurchase.userId),
+      });
+    } else {
+      await walletRepository.unlockPlanAmount(
+        String(reviewedPurchase.userId),
+        reviewedPurchase.amountUsdt,
+      );
+    }
+
+    await adminRepository.recordAuditLog({
+      actorUserId: input.adminUserId,
+      action: `admin.plan_purchase.${input.action === "approve" ? "approved" : "rejected"}`,
+      entityType: "transaction",
+      entityId: input.transactionId,
+      ipAddress: input.ipAddress,
+      metadata: {
+        amountUsdt: reviewedPurchase.amountUsdt,
+        payoutTier: reviewedPurchase.payoutTier,
+        userId: String(reviewedPurchase.userId),
+      },
+    });
+
+    const planPurchase = await adminRepository.findPlanPurchaseById(input.transactionId);
+
+    return {
+      planPurchase: planPurchase
+        ? toPlanPurchaseRequestNode(planPurchase as AdminPlanPurchaseRecord)
+        : toPlanPurchaseRequestNode(reviewedPurchase),
+    };
+  }
+
+  async reviewPayout(input: {
+    transactionId: string;
+    adminUserId: string;
+    action: "approve" | "reject";
+    notes?: string;
+    ipAddress?: string;
+  }) {
+    let reviewedPayout: AdminPayoutRecord | null = null;
+
+    if (input.action === "approve") {
+      const pendingPayout = await adminRepository.findPendingPayoutById(input.transactionId);
+
+      if (!pendingPayout) {
+        throw new ApiError(
+          HTTP_STATUS.BAD_REQUEST,
+          "Payout request is not pending or was not found.",
+        );
+      }
+
+      if (TOTAL_REWARD_PAYOUT_KINDS.includes(pendingPayout.payoutKind ?? "")) {
+        const isWeeklyPayout = pendingPayout.payoutKind === "weekly";
+        const periodStart =
+          isWeeklyPayout && pendingPayout.payoutPeriodStart
+            ? new Date(pendingPayout.payoutPeriodStart)
+            : null;
+
+        if (isWeeklyPayout && (!periodStart || Number.isNaN(periodStart.getTime()))) {
+          throw new ApiError(
+            HTTP_STATUS.BAD_REQUEST,
+            "Weekly payout period is missing or invalid.",
+          );
+        }
+
+        const payoutCap = await adminRepository.getRewardPayoutCap({
+          earningMultiplier: TOTAL_REWARD_EARNING_MULTIPLIER,
+          eligibleUntil: periodStart ?? undefined,
+          excludeTransactionId: input.transactionId,
+          payoutKinds: TOTAL_REWARD_PAYOUT_KINDS,
+          statuses: TOTAL_REWARD_APPROVAL_STATUSES,
+          userId: String(pendingPayout.userId),
+        });
+        const remainingUsdt = roundUsdt(payoutCap.remainingUsdt);
+        const payoutAmountUsdt = roundUsdt(pendingPayout.amountUsdt ?? 0);
+
+        if (payoutAmountUsdt > remainingUsdt) {
+          throw new ApiError(
+            HTTP_STATUS.BAD_REQUEST,
+            `Payout exceeds ${TOTAL_REWARD_EARNING_MULTIPLIER}x total earning cap. Weekly, level, and royalty income combined can only use ${remainingUsdt} USDT remaining capacity for ${roundUsdt(payoutCap.principalUsdt)} USDT eligible principal.`,
+          );
+        }
+      }
+
+      reviewedPayout = await adminRepository.approvePendingPayout(input);
+    } else {
+      reviewedPayout = await adminRepository.rejectPendingPayout(input);
+    }
+
+    if (!reviewedPayout) {
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        "Payout request is not pending or was not found.",
+      );
+    }
+
+    const reviewedPayoutAmountUsdt = reviewedPayout.amountUsdt ?? 0;
+
+    if (input.action === "approve") {
+      await Promise.all([
+        walletRepository.creditReward(String(reviewedPayout.userId), reviewedPayoutAmountUsdt),
+        walletRepository.debitAdminPayout(reviewedPayoutAmountUsdt),
+      ]);
+    }
+
+    await adminRepository.recordAuditLog({
+      actorUserId: input.adminUserId,
+      action: input.action === "approve" ? "admin.payout.approved" : "admin.payout.rejected",
+      entityType: "transaction",
+      entityId: input.transactionId,
+      ipAddress: input.ipAddress,
+      metadata: {
+        amountUsdt: reviewedPayoutAmountUsdt,
+        payoutPeriodStart: reviewedPayout.payoutPeriodStart,
+        payoutTier: reviewedPayout.payoutTier,
+        userId: String(reviewedPayout.userId),
+      },
+    });
+
+    const payout = await adminRepository.findPayoutById(input.transactionId);
+
+    return {
+      payout: payout
+        ? toPayoutNode(payout as AdminPayoutRecord)
+        : toPayoutNode(reviewedPayout as AdminPayoutRecord),
+    };
+  }
+
+  async listReferralNetwork(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    parentUserId?: string;
+    rootOnly?: boolean;
+    level?: number;
+    status?: string;
+  }) {
+    const page = input.page;
+    const limit = input.limit;
+    const skip = (page - 1) * limit;
+    const {
+      activeUsers,
+      levelSummaries,
+      linkedUsers,
+      maxLevel,
+      referrals,
+      rootUsers,
+      total,
+      totalUsers,
+    } = await adminRepository.listReferralNetwork({
+      search: input.search,
+      parentUserId: input.parentUserId,
+      rootOnly: input.rootOnly,
+      level: input.level,
+      limit,
+      skip,
+      status: input.status,
+    });
+    const nodes = referrals.map((record) => toReferralNode(record as AdminReferralRecord));
+    const levels = nodes.reduce<Record<string, typeof nodes>>((levelMap, node) => {
+      const key = `L${node.level}`;
+      levelMap[key] = [...(levelMap[key] ?? []), node];
+      return levelMap;
+    }, {});
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      summary: {
+        totalUsers,
+        activeUsers,
+        linkedUsers,
+        rootUsers,
+        totalReferralRecords: total,
+        maxLevel,
+      },
+      nodes,
+      levels,
+      levelSummaries: (levelSummaries as AdminReferralLevelSummary[]).map((summary) => ({
+        level: summary.level,
+        key: `L${summary.level}`,
+        count: summary.count,
+        samples: summary.samples.map((sample) => ({
+          id: String(sample.id),
+          email: null,
+          username: sample.username ?? null,
+          status: sample.status ?? "unknown",
+        })),
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+}
+
+export const adminService = new AdminService();

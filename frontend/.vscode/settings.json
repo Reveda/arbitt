@@ -1,0 +1,11 @@
+{
+  "css.customData": [".vscode/css_custom_data.json"],
+  "scss.customData": [".vscode/css_custom_data.json"],
+  "less.customData": [".vscode/css_custom_data.json"],
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "terminal.integrated.profiles.windows": {
+    "Command Prompt": {
+      "path": "C:\\Windows\\System32\\cmd.exe"
+    }
+  }
+}

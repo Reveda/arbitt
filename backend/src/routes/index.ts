@@ -1,0 +1,32 @@
+import { Router } from "express";
+import { apiRateLimiter } from "../middlewares/rateLimiter";
+import { adminRoutes } from "../modules/admin/routes/admin.routes";
+import { authRoutes } from "../modules/auth/routes/auth.routes";
+import { healthRoutes } from "../modules/health/routes/health.routes";
+import { notificationRoutes } from "../modules/notifications/routes/notification.routes";
+import { paymentRoutes } from "../modules/payments/routes/payment.routes";
+import { planRoutes } from "../modules/plans/routes/plan.routes";
+import { referralRoutes } from "../modules/referrals/routes/referral.routes";
+import { reportRoutes } from "../modules/reports/routes/report.routes";
+import { roleRoutes } from "../modules/roles/routes/role.routes";
+import { superAdminRoutes } from "../modules/super-admin/routes/super-admin.routes";
+import { transactionRoutes } from "../modules/transactions/routes/transaction.routes";
+import { userRoutes } from "../modules/users/routes/user.routes";
+import { walletRoutes } from "../modules/wallet/routes/wallet.routes";
+
+export const apiRoutes = Router();
+
+apiRoutes.use("/health", healthRoutes);
+apiRoutes.use(apiRateLimiter);
+apiRoutes.use("/auth", authRoutes);
+apiRoutes.use("/users", userRoutes);
+apiRoutes.use("/plans", planRoutes);
+apiRoutes.use("/wallet", walletRoutes);
+apiRoutes.use("/payments", paymentRoutes);
+apiRoutes.use("/transactions", transactionRoutes);
+apiRoutes.use("/referrals", referralRoutes);
+apiRoutes.use("/admin", adminRoutes);
+apiRoutes.use("/super-admin", superAdminRoutes);
+apiRoutes.use("/notifications", notificationRoutes);
+apiRoutes.use("/reports", reportRoutes);
+apiRoutes.use("/roles", roleRoutes);
