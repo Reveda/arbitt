@@ -24,6 +24,7 @@ const optionalBooleanString = z.preprocess((value) => {
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+    APP_ENV: z.enum(["development", "test", "production"]).default("development"),
     PORT: z.coerce.number().int().positive().default(5000),
     API_PREFIX: z.string().startsWith("/").default("/api/v1"),
     FRONTEND_URL: z.string().default("http://localhost:5173"),
@@ -87,10 +88,11 @@ const envSchema = z
       });
     }
 
-    if (value.EXPOSE_AUTH_OTP_IN_TEST_MODE) {
+    if (value.EXPOSE_AUTH_OTP_IN_TEST_MODE && value.APP_ENV !== "test") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "EXPOSE_AUTH_OTP_IN_TEST_MODE cannot be enabled in production.",
+        message:
+          "EXPOSE_AUTH_OTP_IN_TEST_MODE can only be enabled in production when APP_ENV=test.",
         path: ["EXPOSE_AUTH_OTP_IN_TEST_MODE"],
       });
     }

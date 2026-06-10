@@ -760,7 +760,10 @@ export class AuthService {
   }
 
   private getTestOtpPayload(otp: string) {
-    if (env.NODE_ENV === "production" || !env.EXPOSE_AUTH_OTP_IN_TEST_MODE) {
+    const productionTestMode = env.NODE_ENV === "production" && env.APP_ENV === "test";
+    const nonProductionMode = env.NODE_ENV !== "production";
+
+    if (!env.EXPOSE_AUTH_OTP_IN_TEST_MODE || (!nonProductionMode && !productionTestMode)) {
       return {};
     }
 
