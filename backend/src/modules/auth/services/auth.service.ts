@@ -52,6 +52,8 @@ type OtpPurpose = "email-verification" | "password-reset";
 
 type OtpDispatchResult = {
   expiresAt: Date;
+  testMode?: boolean;
+  testOtp?: string;
 };
 
 const OTP_EXPIRES_IN_MINUTES = 10;
@@ -80,6 +82,15 @@ function normalizeUsername(username: string) {
 
 function getOtpExpiresAt() {
   return new Date(Date.now() + OTP_EXPIRES_IN_MINUTES * 60_000);
+}
+
+function getOtpTestFields(result: OtpDispatchResult) {
+  return result.testOtp
+    ? {
+        testMode: true,
+        testOtp: result.testOtp,
+      }
+    : {};
 }
 
 export class AuthService {
@@ -161,6 +172,7 @@ export class AuthService {
       emailVerification: {
         required: true,
         expiresAt: emailVerification.expiresAt,
+        ...getOtpTestFields(emailVerification),
       },
     };
   }
@@ -230,6 +242,7 @@ export class AuthService {
             emailVerification: {
               required: true,
               expiresAt: emailVerification.expiresAt,
+              ...getOtpTestFields(emailVerification),
             },
           }
         : {}),
@@ -317,6 +330,7 @@ export class AuthService {
     return {
       accepted: true,
       expiresAt: emailVerification.expiresAt,
+      ...getOtpTestFields(emailVerification),
     };
   }
 
@@ -662,6 +676,7 @@ export class AuthService {
 
     return {
       expiresAt,
+      ...this.getTestOtpPayload(otp),
     };
   }
 
@@ -677,6 +692,7 @@ export class AuthService {
 
     return {
       expiresAt,
+      ...this.getTestOtpPayload(otp),
     };
   }
 
@@ -741,6 +757,17 @@ export class AuthService {
 
   private hashOtp(purpose: OtpPurpose, email: string, otp: string) {
     return hashToken(`${purpose}:${normalizeEmail(email)}:${otp}`);
+  }
+
+  private getTestOtpPayload(otp: string) {
+    if (env.NODE_ENV === "production" || !env.EXPOSE_AUTH_OTP_IN_TEST_MODE) {
+      return {};
+    }
+
+    return {
+      testMode: true,
+      testOtp: otp,
+    };
   }
 
   private logDevelopmentOtp(purpose: OtpPurpose, email: string, otp: string, expiresAt: Date) {

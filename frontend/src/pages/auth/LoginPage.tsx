@@ -56,6 +56,7 @@ export function LoginPage() {
           state: {
             email: values.email,
             expiresAt: result.data.emailVerification?.expiresAt ?? null,
+            testOtp: result.data.emailVerification?.testOtp ?? null,
           },
         });
         return;

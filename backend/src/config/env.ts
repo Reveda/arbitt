@@ -52,6 +52,7 @@ const envSchema = z
     AUTH_IDENTIFIER_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
     OTP_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(600000),
     OTP_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(6),
+    EXPOSE_AUTH_OTP_IN_TEST_MODE: optionalBooleanString.default(false),
     REFRESH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
     REFRESH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
     FINANCIAL_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
@@ -83,6 +84,14 @@ const envSchema = z
         code: z.ZodIssueCode.custom,
         message: "PAYMENT_WALLET_ENCRYPTION_KEY is required in production.",
         path: ["PAYMENT_WALLET_ENCRYPTION_KEY"],
+      });
+    }
+
+    if (value.EXPOSE_AUTH_OTP_IN_TEST_MODE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "EXPOSE_AUTH_OTP_IN_TEST_MODE cannot be enabled in production.",
+        path: ["EXPOSE_AUTH_OTP_IN_TEST_MODE"],
       });
     }
   });

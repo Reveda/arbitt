@@ -18,6 +18,8 @@
     "admin:promote": "tsx src/scripts/promoteAdmin.ts",
     "super-admin:create": "tsx src/scripts/createAdmin.ts --role=super_admin",
     "super-admin:promote": "tsx src/scripts/promoteAdmin.ts --role=super_admin",
+    "auth:check-otp-hash": "tsx src/scripts/checkLocalOtpHash.ts",
+    "auth:set-test-otp": "tsx src/scripts/setLocalTestOtp.ts",
     "seed:payout-test": "tsx src/scripts/seedPayoutTestData.ts",
     "test:payout-logic": "tsx src/scripts/testPayoutLogic.ts",
     "test:moralis-webhook": "tsx src/scripts/sendMoralisWebhookTest.ts",

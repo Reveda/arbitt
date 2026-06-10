@@ -51,6 +51,8 @@ export type ForgotPasswordPayload = {
 export type OtpDelivery = {
   accepted?: boolean;
   expiresAt?: string | null;
+  testMode?: boolean;
+  testOtp?: string;
 };
 
 export type EmailVerificationPayload = {
@@ -91,12 +93,13 @@ export type UpdateTransactionPasswordPayload = {
 const CURRENT_USER_CACHE_TTL_MS = 30_000;
 
 let currentUserCache: { user: AuthUser; cachedAt: number } | null = null;
-let currentUserRequest: Promise<ApiSuccessResponse<{ user: AuthUser }>> | null = null;
+let currentUserRequest: Promise<ApiSuccessResponse<{ user: AuthUser }>> | null =
+  null;
 
 function setCurrentUserCache(user: AuthUser) {
   currentUserCache = {
     cachedAt: Date.now(),
-    user
+    user,
   };
 }
 
@@ -110,7 +113,8 @@ function getCachedCurrentUserResponse() {
     return null;
   }
 
-  const isFresh = Date.now() - currentUserCache.cachedAt < CURRENT_USER_CACHE_TTL_MS;
+  const isFresh =
+    Date.now() - currentUserCache.cachedAt < CURRENT_USER_CACHE_TTL_MS;
 
   if (!isFresh) {
     return null;
@@ -121,8 +125,8 @@ function getCachedCurrentUserResponse() {
     success: true,
     message: "Current user loaded.",
     data: {
-      user: currentUserCache.user
-    }
+      user: currentUserCache.user,
+    },
   } satisfies ApiSuccessResponse<{ user: AuthUser }>;
 }
 
@@ -135,35 +139,41 @@ export const authService = {
   register(payload: RegisterPayload) {
     return apiRequest<AuthPayload>(API_ENDPOINTS.auth.register, {
       method: "POST",
-      body: payload
+      body: payload,
     }).then(cacheAuthResponse);
   },
 
   login(payload: LoginPayload) {
     return apiRequest<AuthPayload>(API_ENDPOINTS.auth.login, {
       method: "POST",
-      body: payload
+      body: payload,
     }).then(cacheAuthResponse);
   },
 
   forgotPassword(payload: ForgotPasswordPayload) {
-    return apiRequest<OtpDelivery & { accepted: boolean }>(API_ENDPOINTS.auth.forgotPassword, {
-      method: "POST",
-      body: payload
-    });
+    return apiRequest<OtpDelivery & { accepted: boolean }>(
+      API_ENDPOINTS.auth.forgotPassword,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
   },
 
   requestEmailVerificationOtp(payload: EmailVerificationPayload) {
-    return apiRequest<OtpDelivery & { accepted: boolean }>(API_ENDPOINTS.auth.requestEmailVerification, {
-      method: "POST",
-      body: payload
-    });
+    return apiRequest<OtpDelivery & { accepted: boolean }>(
+      API_ENDPOINTS.auth.requestEmailVerification,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
   },
 
   verifyEmail(payload: VerifyEmailPayload) {
     return apiRequest<VerifyEmailResult>(API_ENDPOINTS.auth.verifyEmail, {
       method: "POST",
-      body: payload
+      body: payload,
     }).then((response) => {
       setCurrentUserCache(response.data.user);
       return response;
@@ -173,7 +183,7 @@ export const authService = {
   resetPassword(payload: ResetPasswordPayload) {
     return apiRequest<ResetPasswordResult>(API_ENDPOINTS.auth.resetPassword, {
       method: "POST",
-      body: payload
+      body: payload,
     }).then((response) => {
       clearCurrentUserCache();
       return response;
@@ -183,13 +193,13 @@ export const authService = {
   refreshToken() {
     return apiRequest<AuthPayload>(API_ENDPOINTS.auth.refreshToken, {
       method: "POST",
-      skipAuthRefresh: true
+      skipAuthRefresh: true,
     }).then(cacheAuthResponse);
   },
 
   logout() {
     return apiRequest<{ loggedOut: boolean }>(API_ENDPOINTS.auth.logout, {
-      method: "POST"
+      method: "POST",
     }).then((response) => {
       clearCurrentUserCache();
       return response;
@@ -224,7 +234,7 @@ export const authService = {
   updateWalletAddress(payload: UpdateWalletAddressPayload) {
     return apiRequest<{ user: AuthUser }>(API_ENDPOINTS.users.walletAddress, {
       method: "PATCH",
-      body: payload
+      body: payload,
     }).then((response) => {
       setCurrentUserCache(response.data.user);
       return response;
@@ -232,12 +242,15 @@ export const authService = {
   },
 
   updateTransactionPassword(payload: UpdateTransactionPasswordPayload) {
-    return apiRequest<{ user: AuthUser }>(API_ENDPOINTS.users.transactionPassword, {
-      method: "PATCH",
-      body: payload
-    }).then((response) => {
+    return apiRequest<{ user: AuthUser }>(
+      API_ENDPOINTS.users.transactionPassword,
+      {
+        method: "PATCH",
+        body: payload,
+      },
+    ).then((response) => {
       setCurrentUserCache(response.data.user);
       return response;
     });
-  }
+  },
 };

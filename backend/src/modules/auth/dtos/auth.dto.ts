@@ -48,6 +48,8 @@ export type InternalAuthSessionDto = AuthSessionDto & {
 export type OtpDeliveryDto = {
   accepted?: boolean;
   expiresAt?: Date | string | null;
+  testMode?: boolean;
+  testOtp?: string;
 };
 
 export type AuthResponseDto = {
