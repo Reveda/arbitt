@@ -91,6 +91,8 @@ export type AdminPlanPurchasesParams = {
   toDate?: string;
 };
 
+export type AdminWithdrawalsParams = AdminPlanPurchasesParams;
+
 export type AdminWalletsParams = {
   page: number;
   limit: number;
@@ -210,6 +212,38 @@ export type AdminPlanPurchasesResponse = {
 
 export type AdminPlanPurchaseReviewResponse = {
   planPurchase: AdminPlanPurchaseRequest;
+};
+
+export type AdminWithdrawalRequest = {
+  id: string;
+  user: AdminReferralUser | null;
+  amountUsdt: number;
+  grossAmountUsdt: number;
+  chargeUsdt: number;
+  withdrawalChargePercent: number;
+  status: string;
+  network: string;
+  notes: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type AdminWithdrawalsResponse = {
+  withdrawals: AdminWithdrawalRequest[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+};
+
+export type AdminWithdrawalReviewResponse = {
+  withdrawal: AdminWithdrawalRequest;
 };
 
 export type AdminPayoutGenerateResponse = {
@@ -337,6 +371,7 @@ const referralRequests = new Map<string, Promise<ApiSuccessResponse<AdminReferra
 const depositRequests = new Map<string, Promise<ApiSuccessResponse<AdminDepositsResponse>>>();
 const planPurchaseRequests = new Map<string, Promise<ApiSuccessResponse<AdminPlanPurchasesResponse>>>();
 const payoutRequests = new Map<string, Promise<ApiSuccessResponse<AdminPayoutsResponse>>>();
+const withdrawalRequests = new Map<string, Promise<ApiSuccessResponse<AdminWithdrawalsResponse>>>();
 const walletRequests = new Map<string, Promise<ApiSuccessResponse<AdminWalletsResponse>>>();
 
 function buildAdminUsersPath(params: AdminUsersParams) {
@@ -460,6 +495,31 @@ function buildAdminPlanPurchasesPath(params: AdminPlanPurchasesParams) {
   return `${API_ENDPOINTS.admin.planPurchases}?${query.toString()}`;
 }
 
+function buildAdminWithdrawalsPath(params: AdminWithdrawalsParams) {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit)
+  });
+
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+
+  if (params.status?.trim()) {
+    query.set("status", params.status.trim());
+  }
+
+  if (params.fromDate?.trim()) {
+    query.set("fromDate", params.fromDate.trim());
+  }
+
+  if (params.toDate?.trim()) {
+    query.set("toDate", params.toDate.trim());
+  }
+
+  return `${API_ENDPOINTS.admin.withdrawals}?${query.toString()}`;
+}
+
 function buildAdminWalletsPath(params: AdminWalletsParams) {
   const query = new URLSearchParams({
     page: String(params.page),
@@ -578,6 +638,22 @@ export const adminService = {
     return request;
   },
 
+  listWithdrawals(params: AdminWithdrawalsParams) {
+    const path = buildAdminWithdrawalsPath(params);
+    const existingRequest = withdrawalRequests.get(path);
+
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const request = apiRequest<AdminWithdrawalsResponse>(path).finally(() => {
+      withdrawalRequests.delete(path);
+    });
+
+    withdrawalRequests.set(path, request);
+    return request;
+  },
+
   listWallets(params: AdminWalletsParams) {
     const path = buildAdminWalletsPath(params);
     const existingRequest = walletRequests.get(path);
@@ -624,6 +700,20 @@ export const adminService = {
 
     return apiRequest<AdminPlanPurchaseReviewResponse>(
       `${API_ENDPOINTS.admin.planPurchases}/${transactionId}/review`,
+      {
+        method: "PATCH",
+        body: { action, notes }
+      }
+    );
+  },
+
+  reviewWithdrawal(transactionId: string, action: "approve" | "reject", notes?: string) {
+    overviewCache = null;
+    withdrawalRequests.clear();
+    walletRequests.clear();
+
+    return apiRequest<AdminWithdrawalReviewResponse>(
+      `${API_ENDPOINTS.admin.withdrawals}/${transactionId}/review`,
       {
         method: "PATCH",
         body: { action, notes }

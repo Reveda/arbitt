@@ -12,13 +12,16 @@ import {
   listAdminReferrals,
   listAdminUsers,
   listAdminWallets,
+  listAdminWithdrawals,
   reviewAdminPlanPurchase,
   reviewAdminPayout,
+  reviewAdminWithdrawal,
   updateAdminPaymentWallet,
 } from "../controllers/admin.controller";
 import {
   adminPlanPurchaseParamsSchema,
   adminPayoutParamsSchema,
+  adminWithdrawalParamsSchema,
   generateAdminPayoutsBodySchema,
   listAdminDepositsQuerySchema,
   listAdminPlanPurchasesQuerySchema,
@@ -26,8 +29,10 @@ import {
   listAdminReferralsQuerySchema,
   listAdminUsersQuerySchema,
   listAdminWalletsQuerySchema,
+  listAdminWithdrawalsQuerySchema,
   reviewAdminPlanPurchaseBodySchema,
   reviewAdminPayoutBodySchema,
+  reviewAdminWithdrawalBodySchema,
   updateAdminPaymentWalletBodySchema,
 } from "../validations/admin.validation";
 
@@ -80,6 +85,22 @@ adminRoutes.patch(
     body: reviewAdminPlanPurchaseBodySchema,
   }),
   reviewAdminPlanPurchase,
+);
+adminRoutes.get(
+  "/withdrawals",
+  requirePermissions("admin:withdrawals:review"),
+  validateRequest({ query: listAdminWithdrawalsQuerySchema }),
+  listAdminWithdrawals,
+);
+adminRoutes.patch(
+  "/withdrawals/:transactionId/review",
+  requirePermissions("admin:withdrawals:review"),
+  financialActionRateLimiter,
+  validateRequest({
+    params: adminWithdrawalParamsSchema,
+    body: reviewAdminWithdrawalBodySchema,
+  }),
+  reviewAdminWithdrawal,
 );
 adminRoutes.get(
   "/payouts",

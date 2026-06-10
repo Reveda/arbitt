@@ -10,6 +10,7 @@ import { ReferralModel } from "../modules/referrals/models/referral.model";
 import { rewardService } from "../modules/rewards/services/reward.service";
 import { TransactionModel } from "../modules/transactions/models/transaction.model";
 import { UserModel } from "../modules/users/models/user.model";
+import { walletService } from "../modules/wallet/services/wallet.service";
 import { WalletModel } from "../modules/wallet/models/wallet.model";
 import { hashPassword } from "../utils/password";
 import { generateReferralCode } from "../utils/referralCode";
@@ -481,6 +482,79 @@ async function assertTotalRewardCapIncludesLevelAndRoyalty(input: {
   );
 }
 
+async function assertWithdrawalChargeFlow(input: {
+  adminUserId: string;
+  userId: string;
+}) {
+  await Promise.all([
+    TransactionModel.deleteMany({ type: "withdrawal", userId: input.userId }),
+    WalletModel.updateOne(
+      { userId: input.userId },
+      {
+        $set: {
+          availableUsdt: 1000,
+          lifetimeWithdrawalsUsdt: 0,
+          lockedUsdt: 0,
+        },
+      },
+    ),
+  ]);
+
+  const withdrawal = await walletService.createWithdrawalRequest(input.userId, {
+    amountUsdt: 100,
+    network: "Arbitrum",
+  });
+
+  assert.equal(withdrawal.grossAmountUsdt, 100, "Withdrawal gross amount should be locked.");
+  assert.equal(withdrawal.chargeUsdt, 10, "Withdrawal charge should be 10%.");
+  assert.equal(withdrawal.netAmountUsdt, 90, "Withdrawal net payout should be after 10% charge.");
+  assert.equal(withdrawal.amountUsdt, 90, "Withdrawal transaction amount should be net payout.");
+  assert.equal(withdrawal.wallet.availableUsdt, 900, "Withdrawal request should reduce available balance.");
+  assert.equal(withdrawal.wallet.lockedUsdt, 100, "Withdrawal request should lock gross amount.");
+
+  const pendingWithdrawal = await TransactionModel.findById(withdrawal.id).lean();
+
+  assert.equal(pendingWithdrawal?.payoutPrincipalUsdt, 100, "Gross amount should be stored on withdrawal.");
+  assert.equal(pendingWithdrawal?.payoutPercent, 10, "Withdrawal fee percent should be stored.");
+
+  await adminService.reviewWithdrawal({
+    action: "approve",
+    adminUserId: input.adminUserId,
+    transactionId: withdrawal.id,
+  });
+
+  const approvedWallet = await WalletModel.findOne({ userId: input.userId }).lean();
+
+  assert.equal(approvedWallet?.availableUsdt, 900, "Approved withdrawal should keep available balance debited.");
+  assert.equal(approvedWallet?.lockedUsdt, 0, "Approved withdrawal should release locked gross amount.");
+  assert.equal(
+    approvedWallet?.lifetimeWithdrawalsUsdt,
+    100,
+    "Approved withdrawal should count gross amount as lifetime withdrawn.",
+  );
+
+  const rejectedWithdrawal = await walletService.createWithdrawalRequest(input.userId, {
+    amountUsdt: 50,
+    network: "Arbitrum",
+  });
+
+  await adminService.reviewWithdrawal({
+    action: "reject",
+    adminUserId: input.adminUserId,
+    transactionId: rejectedWithdrawal.id,
+  });
+
+  const rejectedWallet = await WalletModel.findOne({ userId: input.userId }).lean();
+
+  assert.equal(rejectedWallet?.availableUsdt, 900, "Rejected withdrawal should unlock gross amount.");
+  assert.equal(rejectedWallet?.lockedUsdt, 0, "Rejected withdrawal should leave no withdrawal lock.");
+  assert.equal(
+    rejectedWallet?.lifetimeWithdrawalsUsdt,
+    100,
+    "Rejected withdrawal should not increase lifetime withdrawals.",
+  );
+}
+
 async function runPayoutLogicTest() {
   await connectDatabase();
   await cleanupTestData();
@@ -560,7 +634,7 @@ async function runPayoutLogicTest() {
     payoutKind: "salary_royalty",
     payoutPeriodEnd: royaltyPeriodEnd,
     payoutPeriodStart: royaltyPeriodStart,
-    payoutTier: "R1",
+    payoutTier: "M1",
     userId: sponsor._id,
   }).lean();
   const duplicateSalaryRewards = await rewardService.generateSalaryRoyaltyRewards({
@@ -580,15 +654,15 @@ async function runPayoutLogicTest() {
     periodStart: mismatchRoyaltyPeriodStart,
     userIds: [String(sponsor._id)],
   });
-  const mismatchR1SalaryReward = await TransactionModel.findOne({
+  const mismatchM1SalaryReward = await TransactionModel.findOne({
     payoutKind: "salary_royalty",
     payoutPeriodEnd: mismatchRoyaltyPeriodEnd,
     payoutPeriodStart: mismatchRoyaltyPeriodStart,
-    payoutTier: "R1",
+    payoutTier: "M1",
     userId: sponsor._id,
   }).lean();
 
-  // Restore child and direct01 purchases to 25k USDT, and build M1 structures under child and direct01 to qualify sponsor for M2 (R2) in March
+  // Restore child and direct01 purchases to 25k USDT, and build M1 structures under child and direct01 to qualify sponsor for M2 in March
   await UserPlanPurchaseModel.updateMany(
     { userId: { $in: [child._id, d01?._id] } },
     { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } }
@@ -601,45 +675,53 @@ async function runPayoutLogicTest() {
     periodStart: nextRoyaltyPeriodStart,
     userIds: [String(sponsor._id)],
   });
-  const nextMonthR1SalaryReward = await TransactionModel.findOne({
+  const nextMonthM1SalaryReward = await TransactionModel.findOne({
     payoutKind: "salary_royalty",
     payoutPeriodEnd: nextRoyaltyPeriodEnd,
     payoutPeriodStart: nextRoyaltyPeriodStart,
-    payoutTier: "R1",
+    payoutTier: "M1",
     userId: sponsor._id,
   }).lean();
-  const nextMonthR2SalaryReward = await TransactionModel.findOne({
+  const nextMonthM2SalaryReward = await TransactionModel.findOne({
     payoutKind: "salary_royalty",
     payoutPeriodEnd: nextRoyaltyPeriodEnd,
     payoutPeriodStart: nextRoyaltyPeriodStart,
-    payoutTier: "R2",
+    payoutTier: "M2",
     userId: sponsor._id,
   }).lean();
 
-  assert.equal(salaryRewards.length, 1, "Sponsor should receive one R1 royalty reward.");
-  assert.equal(sponsorSalaryReward?.amountUsdt, 1550, "R1 royalty bonus should be 1550 USDT (50 * 31 days).");
+  assert.equal(salaryRewards.length, 1, "Sponsor should receive one M1 royalty reward.");
+  assert.equal(sponsorSalaryReward?.amountUsdt, 1550, "M1 royalty bonus should be 1550 USDT (50 * 31 days).");
   assert.equal(
     duplicateSalaryRewards.length,
     0,
-    "Sponsor should not receive duplicate R1 royalty in the same month.",
+    "Sponsor should not receive duplicate M1 royalty in the same month.",
   );
   assert.equal(
     mismatchSalaryRewards.length,
     0,
-    "Emerging directs should not count as Initial directs for R1 royalty.",
+    "Sub-threshold team business should not create M1 royalty.",
   );
-  assert.equal(mismatchR1SalaryReward, null, "R2 direct members should not create R1 royalty.");
+  assert.equal(mismatchM1SalaryReward, null, "M2 direct members should not create M1 royalty.");
   assert.equal(
     nextMonthSalaryRewards.length,
     1,
     "Sponsor should receive one highest qualified royalty reward in the next month.",
   );
   assert.equal(
-    nextMonthR1SalaryReward,
+    nextMonthM1SalaryReward,
     null,
-    "Sponsor should not receive lower R1 when R2 qualifies.",
+    "Sponsor should not receive lower M1 when M2 qualifies.",
   );
-  assert.equal(nextMonthR2SalaryReward?.amountUsdt, 4650, "R2 royalty bonus should be 4650 USDT (150 * 31 days).");
+  assert.equal(
+    nextMonthM2SalaryReward?.amountUsdt,
+    1448,
+    "M2 royalty bonus should be capped to the sponsor's remaining 3x earning capacity.",
+  );
+  await assertWithdrawalChargeFlow({
+    adminUserId: String(sponsor._id),
+    userId: String(child._id),
+  });
   await assertTotalRewardCapIncludesLevelAndRoyalty({
     adminUserId: String(sponsor._id),
     childUserId: String(child._id),

@@ -74,6 +74,8 @@ export const listAdminPlanPurchasesQuerySchema = z
     path: ["toDate"],
   });
 
+export const listAdminWithdrawalsQuerySchema = listAdminPlanPurchasesQuerySchema;
+
 export const listAdminWalletsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
@@ -88,6 +90,8 @@ export const adminPlanPurchaseParamsSchema = z.object({
   transactionId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid transaction id."),
 });
 
+export const adminWithdrawalParamsSchema = adminPlanPurchaseParamsSchema;
+
 export const reviewAdminPayoutBodySchema = z.object({
   action: z.enum(["approve", "reject"]),
   notes: z.string().trim().max(500).optional(),
@@ -97,6 +101,8 @@ export const reviewAdminPlanPurchaseBodySchema = z.object({
   action: z.enum(["approve", "reject"]),
   notes: z.string().trim().max(500).optional(),
 });
+
+export const reviewAdminWithdrawalBodySchema = reviewAdminPlanPurchaseBodySchema;
 
 export const generateAdminPayoutsBodySchema = z.object({
   weekStart: dateFilterSchema,

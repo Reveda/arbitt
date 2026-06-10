@@ -53,6 +53,43 @@ type RewardCapTotalRecord = {
 const TOTAL_REWARD_EARNING_MULTIPLIER = 3;
 const TOTAL_REWARD_PAYOUT_KINDS = ["weekly", "level", "salary_royalty"];
 const TOTAL_REWARD_CAP_STATUSES = ["pending", "approved", "completed"];
+const ROYALTY_RANK_REQUIREMENTS = [
+  {
+    directRequired: 10,
+    rank: 1,
+    requiredQualifiedLegs: 0,
+    requiredSubtreeRank: 0,
+    targetBusinessUsdt: 50000,
+  },
+  {
+    directRequired: 0,
+    rank: 2,
+    requiredQualifiedLegs: 2,
+    requiredSubtreeRank: 1,
+    targetBusinessUsdt: 150000,
+  },
+  {
+    directRequired: 0,
+    rank: 3,
+    requiredQualifiedLegs: 2,
+    requiredSubtreeRank: 2,
+    targetBusinessUsdt: 500000,
+  },
+  {
+    directRequired: 0,
+    rank: 4,
+    requiredQualifiedLegs: 2,
+    requiredSubtreeRank: 3,
+    targetBusinessUsdt: 2000000,
+  },
+  {
+    directRequired: 0,
+    rank: 5,
+    requiredQualifiedLegs: 2,
+    requiredSubtreeRank: 4,
+    targetBusinessUsdt: 5000000,
+  },
+] as const;
 
 function roundUsdt(value: number) {
   return Math.round(value * 100) / 100;
@@ -101,6 +138,12 @@ function getRequiredDirectCount(
     const directTier = userTierMap.get(userId);
     return getTierRank(directTier, tiers) === requiredRank;
   }).length;
+}
+
+function getSingleLegCappedBusiness(legVolumes: number[], targetBusinessUsdt: number) {
+  const singleLegCapUsdt = targetBusinessUsdt / 2;
+
+  return legVolumes.reduce((sum, volume) => sum + Math.min(volume, singleLegCapUsdt), 0);
 }
 
 function getPeriodKey(
@@ -420,41 +463,27 @@ export class RewardService {
 
       let qualifiedRank = 0;
 
-      const cappedVolM1 = legVolumes.reduce((sum, v) => sum + Math.min(v, 25000), 0);
-      if (directCount >= 10 && cappedVolM1 >= 50000) {
-        qualifiedRank = 1;
-      }
+      for (const requirement of ROYALTY_RANK_REQUIREMENTS) {
+        const cappedTeamBusiness = getSingleLegCappedBusiness(
+          legVolumes,
+          requirement.targetBusinessUsdt,
+        );
+        const qualifiedLegs =
+          requirement.requiredSubtreeRank > 0
+            ? children.filter(
+                (child) =>
+                  (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >=
+                  requirement.requiredSubtreeRank,
+              ).length
+            : 0;
 
-      const cappedVolM2 = legVolumes.reduce((sum, v) => sum + Math.min(v, 75000), 0);
-      const m1Legs = children.filter(
-        (child) => (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >= 1,
-      ).length;
-      if (m1Legs >= 2 && cappedVolM2 >= 150000) {
-        qualifiedRank = 2;
-      }
-
-      const cappedVolM3 = legVolumes.reduce((sum, v) => sum + Math.min(v, 250000), 0);
-      const m2Legs = children.filter(
-        (child) => (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >= 2,
-      ).length;
-      if (m2Legs >= 2 && cappedVolM3 >= 500000) {
-        qualifiedRank = 3;
-      }
-
-      const cappedVolM4 = legVolumes.reduce((sum, v) => sum + Math.min(v, 1000000), 0);
-      const m3Legs = children.filter(
-        (child) => (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >= 3,
-      ).length;
-      if (m3Legs >= 2 && cappedVolM4 >= 2000000) {
-        qualifiedRank = 4;
-      }
-
-      const cappedVolM5 = legVolumes.reduce((sum, v) => sum + Math.min(v, 2500000), 0);
-      const m4Legs = children.filter(
-        (child) => (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >= 4,
-      ).length;
-      if (m4Legs >= 2 && cappedVolM5 >= 5000000) {
-        qualifiedRank = 5;
+        if (
+          directCount >= requirement.directRequired &&
+          qualifiedLegs >= requirement.requiredQualifiedLegs &&
+          cappedTeamBusiness >= requirement.targetBusinessUsdt
+        ) {
+          qualifiedRank = requirement.rank;
+        }
       }
 
       userRoyaltyRankMap.set(userIdStr, qualifiedRank);
@@ -506,7 +535,7 @@ export class RewardService {
 
     for (const userId of qualifiedCandidates) {
       const rank = userRoyaltyRankMap.get(userId) ?? 0;
-      const rule = activeSalaryRules.find((r) => r.royaltyPool === `R${rank}`);
+      const rule = activeSalaryRules.find((r) => r.royaltyPool === `M${rank}`);
 
       if (!rule) {
         continue;

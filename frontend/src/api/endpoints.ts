@@ -21,12 +21,14 @@ export const API_ENDPOINTS = {
     deposits: "/admin/deposits",
     planPurchases: "/admin/plan-purchases",
     payouts: "/admin/payouts",
+    withdrawals: "/admin/withdrawals",
     wallets: "/admin/wallets",
     paymentWallet: "/admin/payment-wallet"
   },
   wallet: {
     summary: "/wallet/summary",
-    deposits: "/wallet/deposits"
+    deposits: "/wallet/deposits",
+    withdrawals: "/wallet/withdrawals"
   },
   payments: {
     depositIntents: "/payments/deposit-intents",
@@ -104,10 +106,8 @@ export const APP_ROUTES = {
     transactions: "/admin/transactions",
     plans: "/admin/plans",
     analytics: "/admin/analytics",
-    auditLogs: "/admin/audit-logs",
     support: "/admin/support",
-    notifications: "/admin/notifications",
-    settings: "/admin/settings"
+    notifications: "/admin/notifications"
   },
   superAdmin: {
     dashboard: "/super-admin",

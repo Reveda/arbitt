@@ -10,18 +10,52 @@ import { cn } from "@/lib/utils";
 import { adminService, type AdminPlanPurchaseRequest } from "@/services/admin.service";
 import { planService, type PlanRuleSet } from "@/services/plan.service";
 
-const POOL_UNIT = "ARB";
+const POOL_UNIT = "USDT";
+const ROYALTY_REQUIREMENTS: Record<
+  string,
+  {
+    detail: string;
+    label: string;
+    requirement: string;
+  }
+> = {
+  M1: {
+    detail: "50% max count from one leg",
+    label: "M1",
+    requirement: "10 direct + 50000 team business",
+  },
+  M2: {
+    detail: "2 M1 legs + 50% single-leg cap",
+    label: "M2",
+    requirement: "150000 team business",
+  },
+  M3: {
+    detail: "2 M2 legs + 50% single-leg cap",
+    label: "M3",
+    requirement: "500000 team business",
+  },
+  M4: {
+    detail: "2 M3 legs + 50% single-leg cap",
+    label: "M4",
+    requirement: "2000000 team business",
+  },
+  M5: {
+    detail: "2 M4 legs + 50% single-leg cap",
+    label: "M5",
+    requirement: "5000000 team business",
+  },
+};
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
+  return new Intl.NumberFormat("en-US", { useGrouping: false }).format(value);
 }
 
 function formatPoolAmount(value: number) {
   return `${formatNumber(value)} ${POOL_UNIT}`;
 }
 
-function formatMonthly(value: number) {
-  return `${formatNumber(value)} monthly`;
+function formatDaily(value: number) {
+  return `${formatNumber(value)} daily`;
 }
 
 function formatRange(min: number, max: number, suffix = "") {
@@ -64,7 +98,6 @@ export function AdminPlansPage() {
     royaltyWithdrawal: "Monthly",
     levelIncomeCycle: "Once per sale and daily withdrawable"
   };
-  const tierNameByCode = new Map(adminPlans.map((plan) => [plan.tier, plan.name]));
   const minEntry = Math.min(...adminPlans.map((plan) => plan.minUsdt));
   const maxEntry = Math.max(...adminPlans.map((plan) => plan.maxUsdt));
   const minReturn = Math.min(...adminPlans.map((plan) => plan.returnMinPercent));
@@ -127,17 +160,17 @@ export function AdminPlansPage() {
   }, [loadPlanPurchaseRequests]);
 
   const metrics = [
-    { title: "Active Tiers", value: isRuleSetLoading ? "Loading..." : String(adminPlans.length), icon: Layers3, tone: "cyan" },
-    { title: "Investment Range", value: `${formatPoolAmount(minEntry)} - ${formatPoolAmount(maxEntry)}`, icon: WalletCards, tone: "emerald" },
-    { title: "Level Depth", value: `L1 - L${levelIncomeRules.length}`, icon: Network, tone: "violet" },
-    { title: "Max Royalty", value: formatMonthly(maxSalary), icon: Gift, tone: "orange" },
-    { title: "Weekly ROI", value: `${minReturn}% - ${maxReturn}%`, icon: Percent, tone: "pink" }
+    { title: "ACTIVE TIERS", value: isRuleSetLoading ? "LOADING..." : String(adminPlans.length), icon: Layers3, tone: "cyan" },
+    { title: "INVESTMENT RANGE", value: `${formatPoolAmount(minEntry)} - ${formatPoolAmount(maxEntry)}`, icon: WalletCards, tone: "emerald" },
+    { title: "LEVEL DEPTH", value: `L1 - L${levelIncomeRules.length}`, icon: Network, tone: "violet" },
+    { title: "MAX ROYALTY", value: formatDaily(maxSalary).toUpperCase(), icon: Gift, tone: "orange" },
+    { title: "WEEKLY ROI", value: `${minReturn}% - ${maxReturn}%`, icon: Percent, tone: "pink" }
   ];
 
   return (
     <section className="space-y-3 sm:space-y-4">
       <AdminPageHeader
-        description="Control finalized investment pools, level rewards, monthly royalty pools, and withdrawal terms."
+        description="Control finalized investment pools, level rewards, daily royalty club rates, and withdrawal terms."
         title="Plan Management"
       />
 
@@ -355,8 +388,8 @@ export function AdminPlansPage() {
         <AdminCard>
           <div className="flex flex-col gap-2 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-black text-slate-950">Royalty Pools</h2>
-              <p className="mt-1 text-xs font-semibold text-slate-500">Direct pool requirement and monthly royalty amount.</p>
+              <h2 className="text-base font-black text-slate-950">Royalty Club</h2>
+              <p className="mt-1 text-xs font-semibold text-slate-500">M1-M5 qualification, team business, and daily income.</p>
             </div>
             <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
               <Gift className="size-3.5" />
@@ -368,43 +401,44 @@ export function AdminPlansPage() {
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] uppercase text-slate-500">
-                  <th className="px-4 py-3 font-black">Royalty Pool</th>
-                  <th className="px-4 py-3 font-black">Requirement</th>
-                  <th className="px-4 py-3 font-black">Royalty</th>
+                  <th className="px-4 py-3 font-black">Club Level</th>
+                  <th className="px-4 py-3 font-black">Qualification</th>
+                  <th className="px-4 py-3 font-black">Daily Income</th>
                   <th className="px-4 py-3 font-black">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {salaryRoyaltyRules.map((rule) => (
-                  <tr className="border-b border-slate-100 last:border-0" key={rule.tier}>
-                    <td className="px-4 py-4">
-                      <span className="grid size-10 place-items-center rounded-xl border border-orange-100 bg-orange-50 text-sm font-black text-orange-800">
-                        {rule.royaltyPool}
-                      </span>
-                      <p className="mt-1 text-xs font-semibold text-slate-500">
-                        {tierNameByCode.get(rule.tier) ?? rule.tier}
-                      </p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="font-black text-slate-950">{rule.directRequired} direct</p>
-                      <p className="text-xs font-semibold text-slate-500">
-                        {rule.requiredDirectTier
-                          ? `${tierNameByCode.get(rule.requiredDirectTier) ?? rule.requiredDirectTier} directs`
-                          : "Any active directs"}
-                      </p>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                        {formatMonthly(rule.bonusUsdt)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                        {rule.status ?? "Active"}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {salaryRoyaltyRules.map((rule) => {
+                  const royaltyRequirement = ROYALTY_REQUIREMENTS[rule.royaltyPool];
+
+                  return (
+                    <tr className="border-b border-slate-100 last:border-0" key={rule.tier}>
+                      <td className="px-4 py-4">
+                        <span className="grid size-10 place-items-center rounded-xl border border-orange-100 bg-orange-50 text-sm font-black text-orange-800">
+                          {royaltyRequirement?.label ?? rule.royaltyPool}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <p className="font-black text-slate-950">
+                          {royaltyRequirement?.requirement ?? `${rule.directRequired} direct`}
+                        </p>
+                        <p className="text-xs font-semibold text-slate-500">
+                          {royaltyRequirement?.detail ?? "Active team requirement"}
+                        </p>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                          {formatDaily(rule.bonusUsdt)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
+                          {rule.status ?? "Active"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

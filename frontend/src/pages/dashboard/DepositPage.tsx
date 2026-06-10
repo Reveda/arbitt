@@ -60,7 +60,8 @@ const hashTextClass =
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 2,
-    minimumFractionDigits: 2
+    minimumFractionDigits: 2,
+    useGrouping: false
   }).format(value)} USDT`;
 }
 

@@ -19,7 +19,11 @@ const testUsers = [
     lifetimeDepositsUsdt: 150,
     parentEmail: "test@gmail.com",
   },
-  { email: "nitesh.emerging@payout.test", username: "nitesh_emerging", lifetimeDepositsUsdt: 500 },
+  {
+    email: "nitesh.initial_mid@payout.test",
+    username: "nitesh_initial_mid",
+    lifetimeDepositsUsdt: 500,
+  },
   { email: "nitesh.growth@payout.test", username: "nitesh_growth", lifetimeDepositsUsdt: 1200 },
   { email: "nitesh.premium@payout.test", username: "nitesh_premium", lifetimeDepositsUsdt: 2500 },
   { email: "nitesh.apex@payout.test", username: "nitesh_apex", lifetimeDepositsUsdt: 7500 },

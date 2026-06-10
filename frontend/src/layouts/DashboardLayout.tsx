@@ -75,10 +75,8 @@ const adminLinks: DashboardNavLink[] = [
   { to: APP_ROUTES.admin.transactions, label: "Transactions", icon: Activity },
   { to: APP_ROUTES.admin.plans, label: "Plan Management", icon: FileText, badgeKey: "pendingPlanPurchases" },
   { to: APP_ROUTES.admin.analytics, label: "Revenue Analytics", icon: BarChart3 },
-  { to: APP_ROUTES.admin.auditLogs, label: "Audit Logs", icon: ClipboardList },
   { to: APP_ROUTES.admin.support, label: "Support Tickets", icon: LifeBuoy },
-  { to: APP_ROUTES.admin.notifications, label: "Notifications", icon: Bell },
-  { to: APP_ROUTES.admin.settings, label: "Platform Settings", icon: Settings }
+  { to: APP_ROUTES.admin.notifications, label: "Notifications", icon: Bell }
 ];
 
 const superAdminLinks: DashboardNavLink[] = [

@@ -13,6 +13,7 @@ import type {
   AdminListDepositsRepositoryResult,
   AdminListPayoutsRepositoryResult,
   AdminListPlanPurchasesRepositoryResult,
+  AdminListWithdrawalsRepositoryResult,
   AdminListUsersInput,
   AdminListUsersRepositoryResult,
   AdminListWalletsRepositoryResult,
@@ -23,6 +24,7 @@ import type {
   AdminReferralNetworkRepositoryResult,
   AdminReferralRepositoryRecord,
   AdminTransactionRepositoryRecord,
+  AdminWithdrawalListInput,
   AdminWalletListInput,
   AdminWalletRepositoryRecord,
   CreatePayoutTransactionInput,
@@ -527,6 +529,93 @@ export class AdminRepository {
     };
   }
 
+  async listWithdrawals(
+    input: AdminWithdrawalListInput,
+  ): Promise<AdminListWithdrawalsRepositoryResult> {
+    const search = input.search?.trim();
+    const match: Record<string, unknown> = { type: "withdrawal" };
+    const pipeline: PipelineStage[] = [];
+
+    if (input.status) {
+      match.status = input.status;
+    }
+
+    if (input.dateRange) {
+      match.createdAt = input.dateRange;
+    }
+
+    pipeline.push(
+      { $match: match },
+      {
+        $lookup: {
+          as: "user",
+          foreignField: "_id",
+          from: "users",
+          localField: "userId",
+        },
+      },
+      { $unwind: "$user" },
+    );
+
+    if (search) {
+      const regex = new RegExp(escapeRegex(search), "i");
+      pipeline.push({
+        $match: {
+          $or: [
+            { "user.username": regex },
+            { "user.referralCode": regex },
+            { network: regex },
+            { notes: regex },
+          ],
+        },
+      });
+    }
+
+    pipeline.push(
+      { $sort: { updatedAt: -1, createdAt: -1 } },
+      {
+        $facet: {
+          counts: [{ $count: "total" }],
+          data: [
+            { $skip: input.skip },
+            { $limit: input.limit },
+            {
+              $project: {
+                _id: 1,
+                amountUsdt: 1,
+                createdAt: 1,
+                network: 1,
+                notes: 1,
+                payoutPercent: 1,
+                payoutPrincipalUsdt: 1,
+                reviewedAt: 1,
+                reviewedBy: 1,
+                status: 1,
+                updatedAt: 1,
+                userId: {
+                  _id: "$user._id",
+                  createdAt: "$user.createdAt",
+                  emailVerifiedAt: "$user.emailVerifiedAt",
+                  referralCode: "$user.referralCode",
+                  role: "$user.role",
+                  status: "$user.status",
+                  username: "$user.username",
+                },
+              },
+            },
+          ],
+        },
+      },
+    );
+
+    const [result] = await TransactionModel.aggregate<DepositAggregationResult>(pipeline);
+
+    return {
+      total: result?.counts[0]?.total ?? 0,
+      withdrawals: (result?.data ?? []) as AdminTransactionRepositoryRecord[],
+    };
+  }
+
   async listPayouts(input: AdminPayoutListInput): Promise<AdminListPayoutsRepositoryResult> {
     const search = input.search?.trim();
     const match: Record<string, unknown> = {
@@ -843,6 +932,65 @@ export class AdminRepository {
     transactionId: string,
   ): Promise<AdminTransactionRepositoryRecord | null> {
     return TransactionModel.findOne({ _id: transactionId, type: "plan_purchase" })
+      .populate({
+        path: "userId",
+        select: "username role status referralCode emailVerifiedAt createdAt",
+      })
+      .lean() as Promise<AdminTransactionRepositoryRecord | null>;
+  }
+
+  findPendingWithdrawalById(
+    transactionId: string,
+  ): Promise<AdminTransactionRepositoryRecord | null> {
+    return TransactionModel.findOne({
+      _id: transactionId,
+      status: "pending",
+      type: "withdrawal",
+    }).lean() as Promise<AdminTransactionRepositoryRecord | null>;
+  }
+
+  approvePendingWithdrawal(input: {
+    transactionId: string;
+    adminUserId: string;
+    notes?: string;
+  }): Promise<AdminTransactionRepositoryRecord | null> {
+    return TransactionModel.findOneAndUpdate(
+      { _id: input.transactionId, status: "pending", type: "withdrawal" },
+      {
+        $set: {
+          status: "completed",
+          reviewedAt: new Date(),
+          reviewedBy: input.adminUserId,
+          ...(input.notes ? { notes: input.notes } : {}),
+        },
+      },
+      { new: true },
+    ).lean() as Promise<AdminTransactionRepositoryRecord | null>;
+  }
+
+  rejectPendingWithdrawal(input: {
+    transactionId: string;
+    adminUserId: string;
+    notes?: string;
+  }): Promise<AdminTransactionRepositoryRecord | null> {
+    return TransactionModel.findOneAndUpdate(
+      { _id: input.transactionId, status: "pending", type: "withdrawal" },
+      {
+        $set: {
+          status: "rejected",
+          reviewedAt: new Date(),
+          reviewedBy: input.adminUserId,
+          ...(input.notes ? { notes: input.notes } : {}),
+        },
+      },
+      { new: true },
+    ).lean() as Promise<AdminTransactionRepositoryRecord | null>;
+  }
+
+  async findWithdrawalById(
+    transactionId: string,
+  ): Promise<AdminTransactionRepositoryRecord | null> {
+    return TransactionModel.findOne({ _id: transactionId, type: "withdrawal" })
       .populate({
         path: "userId",
         select: "username role status referralCode emailVerifiedAt createdAt",

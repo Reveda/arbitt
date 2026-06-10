@@ -232,8 +232,8 @@ export function AdminReferralNetworkPage() {
           </span>
         </div>
 
-        <div className="max-h-[590px] overflow-y-auto">
-          <table className="w-full table-fixed text-left">
+        <div className="max-h-[590px] overflow-auto">
+          <table className="w-full min-w-[860px] table-fixed text-left">
             <thead className="sticky top-0 z-10 bg-white text-xs text-slate-500 shadow-[0_1px_0_#e2e8f0]">
               <tr>
                 <th className="w-10 px-3 py-3 font-black">#</th>

@@ -23,6 +23,10 @@ export type ListDepositsResponseDto = {
   pagination: PaginationDto;
 };
 
-export type CreateWithdrawalResponseDto = {
-  status: "pending";
+export type CreateWithdrawalResponseDto = TransactionDto & {
+  chargeUsdt: number;
+  grossAmountUsdt: number;
+  netAmountUsdt: number;
+  wallet: WalletBalanceDto;
+  withdrawalChargePercent: number;
 };

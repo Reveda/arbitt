@@ -60,10 +60,11 @@ export const defaultPlanRuleSet = {
     { level: 6, percent: 0.5, isActive: true },
     { level: 7, percent: 0.5, isActive: true },
   ],
+  // bonusUsdt is the daily Royalty Club rate; monthly jobs multiply it by days in period.
   salaryRoyaltyRules: [
     {
       tier: "INITIAL",
-      royaltyPool: "R1",
+      royaltyPool: "M1",
       directRequired: 10,
       requiredDirectTier: null,
       bonusUsdt: 50,
@@ -71,7 +72,7 @@ export const defaultPlanRuleSet = {
     },
     {
       tier: "GROWTH",
-      royaltyPool: "R2",
+      royaltyPool: "M2",
       directRequired: 0,
       requiredDirectTier: null,
       bonusUsdt: 150,
@@ -79,7 +80,7 @@ export const defaultPlanRuleSet = {
     },
     {
       tier: "PREMIUM",
-      royaltyPool: "R3",
+      royaltyPool: "M3",
       directRequired: 0,
       requiredDirectTier: null,
       bonusUsdt: 600,
@@ -87,7 +88,7 @@ export const defaultPlanRuleSet = {
     },
     {
       tier: "APEX",
-      royaltyPool: "R4",
+      royaltyPool: "M4",
       directRequired: 0,
       requiredDirectTier: null,
       bonusUsdt: 1500,
@@ -95,7 +96,7 @@ export const defaultPlanRuleSet = {
     },
     {
       tier: "ELITE",
-      royaltyPool: "R5",
+      royaltyPool: "M5",
       directRequired: 0,
       requiredDirectTier: null,
       bonusUsdt: 10000,

@@ -11,6 +11,7 @@ import type {
 import { walletService } from "../services/wallet.service";
 import {
   createDepositRequestSchema,
+  createWithdrawalRequestSchema,
   listDepositRequestsQuerySchema,
 } from "../validations/wallet.validation";
 
@@ -40,7 +41,8 @@ export const listDepositRequests = catchAsync(async (req: Request, res: Response
 });
 
 export const createWithdrawalRequest = catchAsync(async (req: Request, res: Response) => {
-  const result = await walletService.createWithdrawalRequest(req.user!.id);
+  const input = createWithdrawalRequestSchema.parse(req.body);
+  const result = await walletService.createWithdrawalRequest(req.user!.id, input);
   res
     .status(HTTP_STATUS.ACCEPTED)
     .json(

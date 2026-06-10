@@ -71,6 +71,7 @@ type AdminPayoutRecord = AdminDepositRecord & {
 };
 
 type AdminPlanPurchaseRecord = AdminPayoutRecord;
+type AdminWithdrawalRecord = AdminPayoutRecord;
 
 type AdminWalletRecord = {
   _id?: unknown;
@@ -196,6 +197,28 @@ function toPlanPurchaseRequestNode(record: AdminPlanPurchaseRecord) {
   };
 }
 
+function toWithdrawalRequestNode(record: AdminWithdrawalRecord) {
+  const grossAmountUsdt = record.payoutPrincipalUsdt ?? record.amountUsdt ?? 0;
+  const withdrawalChargePercent = record.payoutPercent ?? 0;
+  const chargeUsdt = roundUsdt(grossAmountUsdt - (record.amountUsdt ?? 0));
+
+  return {
+    id: String(record._id),
+    user: toUserSummary(record.userId),
+    amountUsdt: record.amountUsdt ?? 0,
+    grossAmountUsdt,
+    chargeUsdt,
+    withdrawalChargePercent,
+    status: record.status ?? "pending",
+    network: record.network ?? "Arbitrum",
+    notes: record.notes ?? "",
+    reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
+    reviewedAt: record.reviewedAt ?? null,
+    createdAt: record.createdAt ?? null,
+    updatedAt: record.updatedAt ?? null,
+  };
+}
+
 function toWalletNode(record: AdminWalletRecord) {
   return {
     id: String(record._id),
@@ -212,6 +235,23 @@ function toWalletNode(record: AdminWalletRecord) {
 
 function roundUsdt(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+async function ensurePlatformReserveForDebit(amountUsdt: number, actionLabel: string) {
+  const requiredUsdt = roundUsdt(amountUsdt);
+
+  if (requiredUsdt <= 0) {
+    return;
+  }
+
+  const availableUsdt = roundUsdt(await walletRepository.getPrimaryAdminAvailableUsdt());
+
+  if (availableUsdt < requiredUsdt) {
+    throw new ApiError(
+      HTTP_STATUS.BAD_REQUEST,
+      `Platform reserve is ${availableUsdt} USDT. Need ${requiredUsdt} USDT before approving this ${actionLabel}.`,
+    );
+  }
 }
 
 function getPayoutWeekStart(value?: string) {
@@ -361,6 +401,41 @@ export class AdminService {
     return {
       planPurchases: planPurchases.map((purchase) =>
         toPlanPurchaseRequestNode(purchase as AdminPlanPurchaseRecord),
+      ),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  }
+
+  async listWithdrawals(input: {
+    page: number;
+    limit: number;
+    search?: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) {
+    const page = input.page;
+    const limit = input.limit;
+    const skip = (page - 1) * limit;
+    const { total, withdrawals } = await adminRepository.listWithdrawals({
+      search: input.search,
+      status: input.status,
+      dateRange: buildDateRangeFilter({ fromDate: input.fromDate, toDate: input.toDate }),
+      skip,
+      limit,
+    });
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      withdrawals: withdrawals.map((withdrawal) =>
+        toWithdrawalRequestNode(withdrawal as AdminWithdrawalRecord),
       ),
       pagination: {
         page,
@@ -725,7 +800,85 @@ export class AdminService {
     return {
       planPurchase: planPurchase
         ? toPlanPurchaseRequestNode(planPurchase as AdminPlanPurchaseRecord)
-        : toPlanPurchaseRequestNode(reviewedPurchase),
+      : toPlanPurchaseRequestNode(reviewedPurchase),
+    };
+  }
+
+  async reviewWithdrawal(input: {
+    transactionId: string;
+    adminUserId: string;
+    action: "approve" | "reject";
+    notes?: string;
+    ipAddress?: string;
+  }) {
+    const pendingWithdrawal = await adminRepository.findPendingWithdrawalById(input.transactionId);
+
+    if (!pendingWithdrawal) {
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        "Withdrawal request is not pending or was not found.",
+      );
+    }
+
+    const grossAmountUsdt = pendingWithdrawal.payoutPrincipalUsdt ?? pendingWithdrawal.amountUsdt;
+    const netAmountUsdt = pendingWithdrawal.amountUsdt ?? 0;
+    const userId = String(pendingWithdrawal.userId);
+    let reviewedWithdrawal: AdminWithdrawalRecord | null = null;
+
+    if (input.action === "approve") {
+      await ensurePlatformReserveForDebit(netAmountUsdt, "withdrawal");
+
+      const wallet = await walletRepository.completeWithdrawalAmount(userId, grossAmountUsdt);
+
+      if (!wallet) {
+        throw new ApiError(
+          HTTP_STATUS.BAD_REQUEST,
+          "Withdrawal amount is no longer locked in the user wallet.",
+        );
+      }
+
+      await walletRepository.debitAdminWithdrawal(netAmountUsdt);
+      reviewedWithdrawal = await adminRepository.approvePendingWithdrawal(input);
+    } else {
+      const wallet = await walletRepository.unlockWithdrawalAmount(userId, grossAmountUsdt);
+
+      if (!wallet) {
+        throw new ApiError(
+          HTTP_STATUS.BAD_REQUEST,
+          "Withdrawal amount is no longer locked in the user wallet.",
+        );
+      }
+
+      reviewedWithdrawal = await adminRepository.rejectPendingWithdrawal(input);
+    }
+
+    if (!reviewedWithdrawal) {
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        "Withdrawal request is not pending or was not found.",
+      );
+    }
+
+    await adminRepository.recordAuditLog({
+      actorUserId: input.adminUserId,
+      action: `admin.withdrawal.${input.action === "approve" ? "approved" : "rejected"}`,
+      entityType: "transaction",
+      entityId: input.transactionId,
+      ipAddress: input.ipAddress,
+      metadata: {
+        chargeUsdt: roundUsdt(grossAmountUsdt - netAmountUsdt),
+        grossAmountUsdt,
+        netAmountUsdt,
+        userId,
+      },
+    });
+
+    const withdrawal = await adminRepository.findWithdrawalById(input.transactionId);
+
+    return {
+      withdrawal: withdrawal
+        ? toWithdrawalRequestNode(withdrawal as AdminWithdrawalRecord)
+        : toWithdrawalRequestNode(reviewedWithdrawal),
     };
   }
 
@@ -780,6 +933,8 @@ export class AdminService {
           );
         }
       }
+
+      await ensurePlatformReserveForDebit(pendingPayout.amountUsdt ?? 0, "payout");
 
       reviewedPayout = await adminRepository.approvePendingPayout(input);
     } else {

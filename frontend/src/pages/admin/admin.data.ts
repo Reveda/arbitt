@@ -8,10 +8,10 @@ import {
 
 export const adminMetrics = [
   { title: "Total Users", value: "25,430", icon: UserRoundCheck, tone: "violet" },
-  { title: "Total Top-ups", value: "1,245,678 USDT", icon: WalletCards, tone: "emerald" },
-  { title: "Total Withdrawals", value: "856,230 USDT", icon: HandCoins, tone: "orange" },
+  { title: "Total Top-ups", value: "1245678 USDT", icon: WalletCards, tone: "emerald" },
+  { title: "Total Withdrawals", value: "856230 USDT", icon: HandCoins, tone: "orange" },
   { title: "Platform Earnings", value: "0 USDT", icon: CircleDollarSign, tone: "cyan" },
-  { title: "Earnings Paid", value: "389,448 USDT", icon: BadgeDollarSign, tone: "pink" }
+  { title: "Earnings Paid", value: "389448 USDT", icon: BadgeDollarSign, tone: "pink" }
 ];
 
 export const recentDeposits = [
@@ -54,11 +54,11 @@ export const levelIncomeRules = [
 ];
 
 export const salaryRoyaltyRules = [
-  { tier: "INITIAL", royaltyPool: "R1", directRequired: 10, requiredDirectTier: null, bonusUsdt: 50, status: "Active" },
-  { tier: "GROWTH", royaltyPool: "R2", directRequired: 0, requiredDirectTier: null, bonusUsdt: 150, status: "Active" },
-  { tier: "PREMIUM", royaltyPool: "R3", directRequired: 0, requiredDirectTier: null, bonusUsdt: 600, status: "Active" },
-  { tier: "APEX", royaltyPool: "R4", directRequired: 0, requiredDirectTier: null, bonusUsdt: 1500, status: "Active" },
-  { tier: "ELITE", royaltyPool: "R5", directRequired: 0, requiredDirectTier: null, bonusUsdt: 10000, status: "Active" }
+  { tier: "INITIAL", royaltyPool: "M1", directRequired: 10, requiredDirectTier: null, bonusUsdt: 50, status: "Active" },
+  { tier: "GROWTH", royaltyPool: "M2", directRequired: 0, requiredDirectTier: null, bonusUsdt: 150, status: "Active" },
+  { tier: "PREMIUM", royaltyPool: "M3", directRequired: 0, requiredDirectTier: null, bonusUsdt: 600, status: "Active" },
+  { tier: "APEX", royaltyPool: "M4", directRequired: 0, requiredDirectTier: null, bonusUsdt: 1500, status: "Active" },
+  { tier: "ELITE", royaltyPool: "M5", directRequired: 0, requiredDirectTier: null, bonusUsdt: 10000, status: "Active" }
 ];
 
 export const toneClasses: Record<string, string> = {

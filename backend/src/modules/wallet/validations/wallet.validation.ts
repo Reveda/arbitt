@@ -27,6 +27,16 @@ export const createDepositRequestSchema = z.object({
   txnHash: optionalText(180),
 });
 
+export const createWithdrawalRequestSchema = z.object({
+  amountUsdt: z.coerce
+    .number()
+    .positive("Withdrawal amount must be greater than 0.")
+    .min(10, "Minimum withdrawal amount is 10 USDT.")
+    .max(50000, "Maximum withdrawal amount is 50000 USDT."),
+  network: z.enum(["BEP20", "Arbitrum"]).default("Arbitrum"),
+  notes: optionalText(500),
+});
+
 export const listDepositRequestsQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),

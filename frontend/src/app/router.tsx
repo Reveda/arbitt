@@ -176,20 +176,12 @@ export const router = createBrowserRouter([
         element: <AdminModulePage description="Track revenue, user growth, deposit flow, withdrawals, and operational KPIs." icon={BarChart3} title="Revenue Analytics" />
       },
       {
-        path: "audit-logs",
-        element: <AdminModulePage description="Review admin actions, authentication events, system changes, and operational history." icon={ClipboardList} title="Audit Logs" />
-      },
-      {
         path: "support",
         element: <AdminModulePage description="Handle contact requests, account issues, payment support, and ticket queues." icon={LifeBuoy} title="Support Tickets" />
       },
       {
         path: "notifications",
         element: <AdminModulePage description="Manage deposit alerts, withdrawal updates, referral events, and security messages." icon={Bell} title="Notifications" />
-      },
-      {
-        path: "settings",
-        element: <AdminModulePage description="Control platform settings, payment wallet settings, limits, and operational switches." icon={Settings} title="Platform Settings" />
       }
     ]
   },

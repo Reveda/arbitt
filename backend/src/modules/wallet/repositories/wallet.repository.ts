@@ -86,6 +86,60 @@ export class WalletRepository {
     ).lean();
   }
 
+  lockWithdrawalAmount(userId: string, amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+    return WalletModel.findOneAndUpdate(
+      {
+        availableUsdt: { $gte: amountUsdt },
+        userId,
+      },
+      {
+        $inc: {
+          availableUsdt: -amountUsdt,
+          lockedUsdt: amountUsdt,
+        },
+      },
+      { new: true },
+    ).lean();
+  }
+
+  unlockWithdrawalAmount(
+    userId: string,
+    amountUsdt: number,
+  ): Promise<WalletRepositoryRecord | null> {
+    return WalletModel.findOneAndUpdate(
+      {
+        lockedUsdt: { $gte: amountUsdt },
+        userId,
+      },
+      {
+        $inc: {
+          availableUsdt: amountUsdt,
+          lockedUsdt: -amountUsdt,
+        },
+      },
+      { new: true },
+    ).lean();
+  }
+
+  completeWithdrawalAmount(
+    userId: string,
+    amountUsdt: number,
+  ): Promise<WalletRepositoryRecord | null> {
+    return WalletModel.findOneAndUpdate(
+      {
+        lockedUsdt: { $gte: amountUsdt },
+        userId,
+      },
+      {
+        $inc: {
+          lifetimeWithdrawalsUsdt: amountUsdt,
+          lockedUsdt: -amountUsdt,
+        },
+      },
+      { new: true },
+    ).lean();
+  }
+
   async creditAdminPlanPurchase(amountUsdt: number): Promise<WalletRepositoryRecord | null> {
     const adminUserId = await this.findPrimaryAdminUserId();
 
@@ -119,6 +173,40 @@ export class WalletRepository {
         $inc: {
           availableUsdt: -amountUsdt,
           lifetimeRewardsUsdt: amountUsdt,
+        },
+        $setOnInsert: { userId: adminUserId },
+      },
+      { new: true, upsert: true },
+    ).lean();
+  }
+
+  async getPrimaryAdminAvailableUsdt(): Promise<number> {
+    const adminUserId = await this.findPrimaryAdminUserId();
+
+    if (!adminUserId) {
+      return 0;
+    }
+
+    const wallet = await WalletModel.findOne({ userId: adminUserId })
+      .select("availableUsdt")
+      .lean();
+
+    return wallet?.availableUsdt ?? 0;
+  }
+
+  async debitAdminWithdrawal(amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+    const adminUserId = await this.findPrimaryAdminUserId();
+
+    if (!adminUserId) {
+      return null;
+    }
+
+    return WalletModel.findOneAndUpdate(
+      { userId: adminUserId },
+      {
+        $inc: {
+          availableUsdt: -amountUsdt,
+          lifetimeWithdrawalsUsdt: amountUsdt,
         },
         $setOnInsert: { userId: adminUserId },
       },

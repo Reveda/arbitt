@@ -8,7 +8,10 @@ import {
   getWalletSummary,
   listDepositRequests,
 } from "../controllers/wallet.controller";
-import { createDepositRequestSchema } from "../validations/wallet.validation";
+import {
+  createDepositRequestSchema,
+  createWithdrawalRequestSchema,
+} from "../validations/wallet.validation";
 
 export const walletRoutes = Router();
 
@@ -26,5 +29,6 @@ walletRoutes.post(
   "/withdrawals",
   requirePermissions("wallet:withdrawal:create"),
   financialActionRateLimiter,
+  validateRequest({ body: createWithdrawalRequestSchema }),
   createWithdrawalRequest,
 );

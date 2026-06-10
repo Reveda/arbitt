@@ -29,7 +29,8 @@ function normalizeWalletNetwork(value?: string): (typeof WALLET_NETWORK_OPTIONS)
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
     maximumFractionDigits: 2,
-    minimumFractionDigits: 2
+    minimumFractionDigits: 2,
+    useGrouping: false
   }).format(value)} USDT`;
 }
 
@@ -151,13 +152,17 @@ export function AdminWalletsPage() {
   };
   const firstRow = pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
   const lastRow = Math.min(pagination.page * pagination.limit, pagination.total);
+  const platformReserveUsdt = Math.max(summary.platformAvailableUsdt, 0);
+  const platformReserveDeficitUsdt = Math.max(-summary.platformAvailableUsdt, 0);
   const metricCards = [
     {
       label: "Platform Reserve",
-      value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.platformAvailableUsdt),
-      caption: "Admin ledger balance",
+      value: walletsQuery.isLoading ? "Loading..." : formatUsdt(platformReserveUsdt),
+      caption: platformReserveDeficitUsdt > 0
+        ? `Ledger deficit: ${formatUsdt(platformReserveDeficitUsdt)}`
+        : "Admin ledger balance",
       icon: Wallet,
-      tone: "bg-cyan-50 text-cyan-700"
+      tone: platformReserveDeficitUsdt > 0 ? "bg-rose-50 text-rose-700" : "bg-cyan-50 text-cyan-700"
     },
     {
       label: "User Available",

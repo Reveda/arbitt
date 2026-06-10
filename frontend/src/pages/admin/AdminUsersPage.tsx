@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, Search, Trash2, UserPlus } from "lucide-react";
+import { Edit3, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAdminUsers } from "@/hooks/useAdminQueries";
@@ -74,10 +74,6 @@ export function AdminUsersPage() {
               value={searchValue}
             />
           </label>
-          <Button className="h-10 bg-cyan-500 px-4 text-sm font-bold text-slate-950 hover:bg-cyan-400">
-            <UserPlus className="size-4" />
-            Add User
-          </Button>
         </div>
 
         {usersQuery.error ? (

@@ -156,6 +156,11 @@ export type AdminListPlanPurchasesRepositoryResult = {
   total: number;
 };
 
+export type AdminListWithdrawalsRepositoryResult = {
+  withdrawals: AdminTransactionRepositoryRecord[];
+  total: number;
+};
+
 export type PayoutAggregationSummary = {
   pendingCount?: number;
   approvedCount?: number;
@@ -216,6 +221,8 @@ export type AdminDepositListInput = {
 };
 
 export type AdminPlanPurchaseListInput = AdminDepositListInput;
+
+export type AdminWithdrawalListInput = AdminDepositListInput;
 
 export type AdminPayoutListInput = {
   search?: string;

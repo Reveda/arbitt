@@ -20,7 +20,9 @@ function formatNumber(value: number) {
 }
 
 function formatUsdt(value: number) {
-  return `${formatNumber(Number(value.toFixed(2)))} USDT`;
+  return `${new Intl.NumberFormat("en-US", {
+    useGrouping: false,
+  }).format(Number(value.toFixed(2)))} USDT`;
 }
 
 function formatDate(value: string | null) {

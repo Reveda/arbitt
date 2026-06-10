@@ -25,6 +25,12 @@ export type CreateDepositInput = {
   notes?: string;
 };
 
+export type CreateWithdrawalInput = {
+  amountUsdt: number;
+  network?: "BEP20" | "Arbitrum";
+  notes?: string;
+};
+
 export type DepositRequest = {
   id: string;
   type: string;
@@ -44,6 +50,13 @@ export type DepositRequest = {
     lifetimeWithdrawalsUsdt: number;
     lifetimeRewardsUsdt: number;
   };
+};
+
+export type WithdrawalRequest = DepositRequest & {
+  chargeUsdt: number;
+  grossAmountUsdt: number;
+  netAmountUsdt: number;
+  withdrawalChargePercent: number;
 };
 
 export type UserDeposit = Omit<DepositRequest, "platformDepositWallet">;
@@ -100,6 +113,13 @@ export const walletService = {
 
   createDeposit(input: CreateDepositInput) {
     return apiRequest<DepositRequest>(API_ENDPOINTS.wallet.deposits, {
+      method: "POST",
+      body: input
+    });
+  },
+
+  createWithdrawal(input: CreateWithdrawalInput) {
+    return apiRequest<WithdrawalRequest>(API_ENDPOINTS.wallet.withdrawals, {
       method: "POST",
       body: input
     });

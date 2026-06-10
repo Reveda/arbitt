@@ -15,11 +15,14 @@ import type {
   AdminReferralNetworkResponseDto,
   AdminUsersResponseDto,
   AdminWalletsResponseDto,
+  AdminWithdrawalReviewResponseDto,
+  AdminWithdrawalsResponseDto,
 } from "../dtos/admin-response.dto";
 import { adminService } from "../services/admin.service";
 import {
   adminPlanPurchaseParamsSchema,
   adminPayoutParamsSchema,
+  adminWithdrawalParamsSchema,
   generateAdminPayoutsBodySchema,
   listAdminDepositsQuerySchema,
   listAdminPlanPurchasesQuerySchema,
@@ -27,8 +30,10 @@ import {
   listAdminReferralsQuerySchema,
   listAdminUsersQuerySchema,
   listAdminWalletsQuerySchema,
+  listAdminWithdrawalsQuerySchema,
   reviewAdminPlanPurchaseBodySchema,
   reviewAdminPayoutBodySchema,
+  reviewAdminWithdrawalBodySchema,
   updateAdminPaymentWalletBodySchema,
 } from "../validations/admin.validation";
 
@@ -74,6 +79,20 @@ export const listAdminPlanPurchases = catchAsync(async (req: Request, res: Respo
       apiResponse<AdminPlanPurchasesResponseDto>(
         HTTP_STATUS.OK,
         "Admin plan purchases loaded.",
+        result,
+      ),
+    );
+});
+
+export const listAdminWithdrawals = catchAsync(async (req: Request, res: Response) => {
+  const query = listAdminWithdrawalsQuerySchema.parse(req.query);
+  const result = await adminService.listWithdrawals(query);
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      apiResponse<AdminWithdrawalsResponseDto>(
+        HTTP_STATUS.OK,
+        "Admin withdrawals loaded.",
         result,
       ),
     );
@@ -173,6 +192,28 @@ export const reviewAdminPlanPurchase = catchAsync(async (req: Request, res: Resp
       apiResponse<AdminPlanPurchaseReviewResponseDto>(
         HTTP_STATUS.OK,
         "Plan purchase reviewed.",
+        result,
+      ),
+    );
+});
+
+export const reviewAdminWithdrawal = catchAsync(async (req: Request, res: Response) => {
+  const params = adminWithdrawalParamsSchema.parse(req.params);
+  const body = reviewAdminWithdrawalBodySchema.parse(req.body);
+  const result = await adminService.reviewWithdrawal({
+    transactionId: params.transactionId,
+    adminUserId: req.user!.id,
+    action: body.action,
+    notes: body.notes,
+    ipAddress: req.ip,
+  });
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      apiResponse<AdminWithdrawalReviewResponseDto>(
+        HTTP_STATUS.OK,
+        "Withdrawal reviewed.",
         result,
       ),
     );
