@@ -68,7 +68,7 @@ async function main() {
   const networkConfig = PAYMENT_NETWORK_CONFIGS[network];
 
   if (!networkConfig) {
-    throw new Error("network must be BEP20 or Arbitrum.");
+    throw new Error("network must be BEP20.");
   }
 
   const secret = requireValue(

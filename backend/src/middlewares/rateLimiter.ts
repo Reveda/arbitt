@@ -1,6 +1,98 @@
 import type { Request } from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { Store, IncrementResponse, Options, MemoryStore } from "express-rate-limit";
 import { env } from "../config/env";
+import { getRedisClient } from "../config/redis";
+import { logger } from "../config/logger";
+
+const normalizedPrefix = env.CACHE_KEY_PREFIX.replace(/:+$/u, "");
+
+class RedisStoreWithFallback implements Store {
+  private windowMs!: number;
+  prefix: string;
+  private memoryStore: Store;
+
+  constructor(prefix: string) {
+    this.prefix = prefix;
+    this.memoryStore = new MemoryStore();
+  }
+
+  async init(options: Options) {
+    this.windowMs = options.windowMs;
+    if (this.memoryStore.init) {
+      await this.memoryStore.init(options);
+    }
+  }
+
+  async increment(key: string): Promise<IncrementResponse> {
+    const client = getRedisClient();
+    if (!client) {
+      return this.memoryStore.increment(key);
+    }
+
+    try {
+      const prefixedKey = `${normalizedPrefix}:limiter:${this.prefix}:${key}`;
+      const expireSeconds = Math.ceil(this.windowMs / 1000);
+
+      const [totalHits, , ttl] = (await client
+        .multi()
+        .incr(prefixedKey)
+        .expire(prefixedKey, expireSeconds, "NX")
+        .ttl(prefixedKey)
+        .exec()) as unknown as [number, boolean, number];
+
+      const resetTime = new Date(Date.now() + (ttl > 0 ? ttl : expireSeconds) * 1000);
+      return {
+        totalHits,
+        resetTime,
+      };
+    } catch (error) {
+      logger.warn({ error, key }, "Redis rate limiter error, falling back to memory store");
+      return this.memoryStore.increment(key);
+    }
+  }
+
+  async decrement(key: string): Promise<void> {
+    const client = getRedisClient();
+    if (!client) {
+      if (this.memoryStore.decrement) {
+        await this.memoryStore.decrement(key);
+      }
+      return;
+    }
+
+    try {
+      const prefixedKey = `${normalizedPrefix}:limiter:${this.prefix}:${key}`;
+      await client.decr(prefixedKey);
+    } catch (error) {
+      logger.warn(
+        { error, key },
+        "Redis rate limiter decrement error, falling back to memory store",
+      );
+      if (this.memoryStore.decrement) {
+        await this.memoryStore.decrement(key);
+      }
+    }
+  }
+
+  async resetKey(key: string): Promise<void> {
+    const client = getRedisClient();
+    if (!client) {
+      await this.memoryStore.resetKey(key);
+      return;
+    }
+
+    try {
+      const prefixedKey = `${normalizedPrefix}:limiter:${this.prefix}:${key}`;
+      await client.del(prefixedKey);
+    } catch (error) {
+      logger.warn(
+        { error, key },
+        "Redis rate limiter resetKey error, falling back to memory store",
+      );
+      await this.memoryStore.resetKey(key);
+    }
+  }
+}
 
 type RateLimiterInput = {
   identifier: string;
@@ -13,7 +105,7 @@ type RateLimiterInput = {
 
 function createRateLimiter(input: RateLimiterInput) {
   return rateLimit({
-    identifier: input.identifier,
+    store: new RedisStoreWithFallback(input.identifier),
     windowMs: input.windowMs,
     limit: input.limit,
     standardHeaders: "draft-7",

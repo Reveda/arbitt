@@ -837,50 +837,63 @@ export class AdminRepository {
       },
     );
 
-    const [walletStatsResult, platformStatsResult] = await Promise.all([
+    const [walletStatsResult, platformFlowResult] = await Promise.all([
       WalletModel.aggregate<WalletAggregationResult>(pipeline),
-      WalletModel.aggregate<PlatformWalletAggregationStats>([
-        {
-          $lookup: {
-            as: "user",
-            foreignField: "_id",
-            from: "users",
-            localField: "userId",
-          },
-        },
-        { $unwind: "$user" },
+      TransactionModel.aggregate<{
+        totalDepositsUsdt: number;
+        totalWithdrawalsUsdt: number;
+        totalRewardsUsdt: number;
+      }>([
         {
           $match: {
-            "user.role": { $in: ["admin", "super_admin"] },
+            status: { $in: ["approved", "completed"] },
+            type: { $in: ["deposit", "withdrawal", "reward"] },
           },
         },
         {
           $group: {
             _id: null,
-            platformWalletCount: { $sum: 1 },
-            platformAvailableUsdt: { $sum: "$availableUsdt" },
-            platformLockedUsdt: { $sum: "$lockedUsdt" },
-            platformLifetimeDepositsUsdt: { $sum: "$lifetimeDepositsUsdt" },
-            platformLifetimeRewardsUsdt: { $sum: "$lifetimeRewardsUsdt" },
-            platformLifetimeWithdrawalsUsdt: { $sum: "$lifetimeWithdrawalsUsdt" },
+            totalDepositsUsdt: {
+              $sum: {
+                $cond: [{ $eq: ["$type", "deposit"] }, "$amountUsdt", 0],
+              },
+            },
+            totalWithdrawalsUsdt: {
+              $sum: {
+                $cond: [{ $eq: ["$type", "withdrawal"] }, "$amountUsdt", 0],
+              },
+            },
+            totalRewardsUsdt: {
+              $sum: {
+                $cond: [{ $eq: ["$type", "reward"] }, "$amountUsdt", 0],
+              },
+            },
           },
         },
       ]),
     ]);
     const [result] = walletStatsResult;
     const stats = result?.counts[0] ?? {};
-    const platformStats = platformStatsResult[0] ?? {};
+    const flow = platformFlowResult[0] ?? {
+      totalDepositsUsdt: 0,
+      totalWithdrawalsUsdt: 0,
+      totalRewardsUsdt: 0,
+    };
+    const platformReserveUsdt =
+      (flow.totalDepositsUsdt ?? 0) -
+      (flow.totalWithdrawalsUsdt ?? 0) -
+      (flow.totalRewardsUsdt ?? 0);
 
     return {
       wallets: (result?.data ?? []) as AdminWalletRepositoryRecord[],
       summary: {
         total: stats.total ?? 0,
-        platformAvailableUsdt: platformStats.platformAvailableUsdt ?? 0,
-        platformLifetimeDepositsUsdt: platformStats.platformLifetimeDepositsUsdt ?? 0,
-        platformLifetimeRewardsUsdt: platformStats.platformLifetimeRewardsUsdt ?? 0,
-        platformLifetimeWithdrawalsUsdt: platformStats.platformLifetimeWithdrawalsUsdt ?? 0,
-        platformLockedUsdt: platformStats.platformLockedUsdt ?? 0,
-        platformWalletCount: platformStats.platformWalletCount ?? 0,
+        platformAvailableUsdt: Math.round(platformReserveUsdt * 100) / 100,
+        platformLifetimeDepositsUsdt: flow.totalDepositsUsdt ?? 0,
+        platformLifetimeRewardsUsdt: flow.totalRewardsUsdt ?? 0,
+        platformLifetimeWithdrawalsUsdt: flow.totalWithdrawalsUsdt ?? 0,
+        platformLockedUsdt: 0,
+        platformWalletCount: 0,
         totalAvailableUsdt: stats.totalAvailableUsdt ?? 0,
         totalLockedUsdt: stats.totalLockedUsdt ?? 0,
         totalLifetimeDepositsUsdt: stats.totalLifetimeDepositsUsdt ?? 0,

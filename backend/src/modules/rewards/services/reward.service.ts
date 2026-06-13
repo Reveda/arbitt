@@ -19,6 +19,7 @@ type SalaryRoyaltyRewardInput = {
   periodEnd?: Date;
   periodStart?: Date;
   userIds?: string[];
+  royaltyCutoff?: Date;
 };
 
 type WalletWithUser = {
@@ -358,12 +359,17 @@ export class RewardService {
         (1000 * 60 * 60 * 24),
     ) + 1;
 
+    const walletMatch: Record<string, any> = {
+      status: "active",
+      amountUsdt: { $gt: 0 },
+    };
+    if (input.royaltyCutoff) {
+      walletMatch.purchasedAt = { $lt: input.royaltyCutoff };
+    }
+
     const wallets = await UserPlanPurchaseModel.aggregate<WalletWithUser>([
       {
-        $match: {
-          status: "active",
-          amountUsdt: { $gt: 0 },
-        },
+        $match: walletMatch,
       },
       {
         $group: {
@@ -419,7 +425,11 @@ export class RewardService {
     }
 
     const referrals = await ReferralModel.find().lean();
-    const activePurchases = await UserPlanPurchaseModel.find({ status: "active" }).lean();
+    const activePurchasesQuery: Record<string, any> = { status: "active" };
+    if (input.royaltyCutoff) {
+      activePurchasesQuery.purchasedAt = { $lt: input.royaltyCutoff };
+    }
+    const activePurchases = await UserPlanPurchaseModel.find(activePurchasesQuery).lean();
 
     const purchaseMap = new Map<string, number>();
     for (const p of activePurchases) {

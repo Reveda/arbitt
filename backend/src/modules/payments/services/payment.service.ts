@@ -200,6 +200,166 @@ async function expireOldIntent(intent: PaymentIntentRecord) {
   return true;
 }
 
+const NETWORK_RPC_ENDPOINTS: Record<PaymentNetwork, string[]> = {
+  BEP20: [
+    env.BSC_PRIMARY_RPC_URL,
+    env.BSC_BACKUP_RPC_URL,
+  ],
+};
+
+async function fetchRpc(url: string, method: string, params: any[]): Promise<any> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      method,
+      params,
+      id: 1,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`RPC request failed with status: ${response.status}`);
+  }
+
+  const json = (await response.json()) as any;
+  if (json.error) {
+    throw new Error(`RPC returned error: ${JSON.stringify(json.error)}`);
+  }
+
+  return json.result;
+}
+
+async function callRpcWithFallback(network: PaymentNetwork, method: string, params: any[]): Promise<any> {
+  const endpoints = NETWORK_RPC_ENDPOINTS[network];
+  let lastError: any = null;
+
+  for (const url of endpoints) {
+    try {
+      return await fetchRpc(url, method, params);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error(`All RPC endpoints for network ${network} failed.`);
+}
+
+type VerificationResult =
+  | { status: "verified"; senderAddress: string; logIndex: string }
+  | { status: "failed"; reason: string }
+  | { status: "pending_node"; reason: string };
+
+async function verifyUSDTTransfer(input: {
+  network: PaymentNetwork;
+  txnHash: string;
+  expectedReceiver: string;
+  expectedContract: string;
+  expectedAmountUnits: string;
+}): Promise<VerificationResult> {
+  try {
+    const receipt = await callRpcWithFallback(
+      input.network,
+      "eth_getTransactionReceipt",
+      [input.txnHash],
+    );
+
+    if (!receipt) {
+      return {
+        status: "pending_node",
+        reason: "Transaction receipt not found on-chain.",
+      };
+    }
+
+    const status = receipt.status;
+    const isSuccess =
+      status === "0x1" ||
+      status === 1 ||
+      status === "1" ||
+      status === true;
+
+    if (!isSuccess) {
+      return {
+        status: "failed",
+        reason: `Transaction reverted on-chain with status: ${status}`,
+      };
+    }
+
+    const logs = Array.isArray(receipt.logs) ? receipt.logs : [];
+    const expectedContractNormalized = input.expectedContract.toLowerCase();
+    const expectedReceiverNormalized = input.expectedReceiver.toLowerCase();
+    const expectedAmountUnits = input.expectedAmountUnits;
+    const transferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
+
+    for (const log of logs) {
+      if (log.address?.toLowerCase() !== expectedContractNormalized) {
+        continue;
+      }
+
+      const topics = Array.isArray(log.topics) ? log.topics : [];
+      if (topics[0]?.toLowerCase() !== transferTopic) {
+        continue;
+      }
+
+      if (topics.length < 3) {
+        continue;
+      }
+
+      const logReceiver = "0x" + topics[2].slice(-40).toLowerCase();
+      if (logReceiver !== expectedReceiverNormalized) {
+        continue;
+      }
+
+      let logValue: string;
+      try {
+        const dataHex = log.data || "0x";
+        logValue = BigInt(dataHex.startsWith("0x") ? dataHex : `0x${dataHex}`).toString();
+      } catch {
+        continue;
+      }
+
+      if (logValue !== expectedAmountUnits) {
+        continue;
+      }
+
+      const senderAddress = "0x" + topics[1].slice(-40).toLowerCase();
+      
+      let logIndexDecimal = "0";
+      if (log.logIndex !== undefined && log.logIndex !== null) {
+        const indexStr = String(log.logIndex);
+        if (indexStr.startsWith("0x") || indexStr.startsWith("0X")) {
+          try {
+            logIndexDecimal = BigInt(indexStr).toString();
+          } catch {
+            logIndexDecimal = indexStr;
+          }
+        } else {
+          logIndexDecimal = indexStr;
+        }
+      }
+
+      return {
+        status: "verified",
+        senderAddress,
+        logIndex: logIndexDecimal,
+      };
+    }
+
+    return {
+      status: "failed",
+      reason: "No matching USDT transfer found in transaction logs.",
+    };
+  } catch (error: any) {
+    return {
+      status: "pending_node",
+      reason: `RPC node error: ${error?.message || "Unknown error"}`,
+    };
+  }
+}
+
 export class PaymentService {
   async createDepositPaymentIntent(
     userId: string,
@@ -296,12 +456,80 @@ export class PaymentService {
 
     await expireOldIntent(intent);
 
+    if (
+      (intent.status === "pending" ||
+        intent.status === "detected" ||
+        intent.status === "ambiguous") &&
+      intent.txnHash
+    ) {
+      const verifiedIntent = await this.verifyPaymentIntentOnChain(String(intent._id));
+      return { intent: toPaymentIntentDto(verifiedIntent ?? intent) };
+    }
+
     if (intent.status === "pending" || intent.status === "detected") {
       const refreshedIntent = await PaymentIntentModel.findById(intent._id).lean();
       return { intent: toPaymentIntentDto(refreshedIntent ?? intent) };
     }
 
     return { intent: toPaymentIntentDto(intent) };
+  }
+
+  async verifyPaymentIntentOnChain(intentId: string): Promise<PaymentIntentRecord | null> {
+    const intent = await PaymentIntentModel.findById(intentId);
+    if (!intent) return null;
+
+    if (
+      !MATCHABLE_INTENT_STATUSES.includes(
+        intent.status as (typeof MATCHABLE_INTENT_STATUSES)[number],
+      ) ||
+      !intent.txnHash
+    ) {
+      return intent.toObject ? intent.toObject() : intent;
+    }
+
+    const verification = await verifyUSDTTransfer({
+      network: intent.network,
+      txnHash: intent.txnHash,
+      expectedReceiver: intent.receiverAddressNormalized,
+      expectedContract: intent.tokenContract,
+      expectedAmountUnits: intent.amountTokenUnits,
+    });
+
+    if (verification.status === "verified") {
+      const senderAddressNormalized = normalizeEvmAddress(verification.senderAddress);
+      const completeInput = {
+        intent: intent.toObject ? intent.toObject() : intent,
+        logIndex: verification.logIndex,
+        senderAddress: verification.senderAddress,
+        senderAddressNormalized,
+        streamId: "rpc-verification",
+        tag: "rpc-verification",
+        txnHash: intent.txnHash,
+        txnHashNormalized: intent.txnHashNormalized || normalizeHash(intent.txnHash),
+      };
+
+      if (intent.type === WALLET_DEPOSIT_INTENT_TYPE) {
+        await this.completeWalletDepositIntent(completeInput);
+      } else {
+        await this.completePaymentIntent(completeInput);
+      }
+
+      return await PaymentIntentModel.findById(intentId).lean();
+    } else if (verification.status === "failed") {
+      const failedIntent = await PaymentIntentModel.findByIdAndUpdate(
+        intentId,
+        {
+          $set: {
+            status: "failed",
+            failureReason: verification.reason,
+          },
+        },
+        { new: true },
+      ).lean();
+      return failedIntent;
+    }
+
+    return intent.toObject ? intent.toObject() : intent;
   }
 
   async submitPaymentIntentTxHash(input: {
@@ -353,6 +581,15 @@ export class PaymentService {
       },
       { new: true },
     ).lean();
+
+    if (updatedIntent) {
+      this.verifyPaymentIntentOnChain(String(updatedIntent._id)).catch((err) => {
+        console.error(
+          `Background on-chain verification failed for intent ${updatedIntent._id}:`,
+          err,
+        );
+      });
+    }
 
     return { intent: toPaymentIntentDto(updatedIntent ?? intent) };
   }

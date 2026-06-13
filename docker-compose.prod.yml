@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: arbitrum-mongo-prod
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-prod-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: arbitrum-redis-prod
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-prod-data:/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: arbitrum-backend-prod
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/arbitrum
+      - REDIS_URL=redis://redis:6379
+      - REDIS_ENABLED=true
+      - NODE_ENV=production
+    depends_on:
+      - mongo
+      - redis
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_API_BASE_URL=/api/v1
+    container_name: arbitrum-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  mongo-prod-data:
+  redis-prod-data:

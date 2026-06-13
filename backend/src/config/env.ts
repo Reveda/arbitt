@@ -36,6 +36,8 @@ const envSchema = z
     JWT_ACCESS_SECRET: z.string().min(32).default("change-me-local-access-secret-32chars"),
     JWT_REFRESH_SECRET: z.string().min(32).default("change-me-local-refresh-secret-32chars"),
     MORALIS_STREAM_WEBHOOK_SECRET: z.string().min(16).optional(),
+    BSC_PRIMARY_RPC_URL: z.string().url().default("https://bsc-dataseed.binance.org/"),
+    BSC_BACKUP_RPC_URL: z.string().url().default("https://bsc.publicnode.com"),
     PAYMENT_INTENT_EXPIRES_MINUTES: z.coerce.number().int().positive().default(60),
     PAYMENT_WALLET_ENCRYPTION_KEY: z.string().min(32).optional(),
     JWT_ACCESS_EXPIRES_IN: z.string().regex(durationPattern).default("15m"),

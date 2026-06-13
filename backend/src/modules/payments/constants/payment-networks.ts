@@ -1,4 +1,4 @@
-export const PAYMENT_NETWORKS = ["BEP20", "Arbitrum"] as const;
+export const PAYMENT_NETWORKS = ["BEP20"] as const;
 
 export type PaymentNetwork = (typeof PAYMENT_NETWORKS)[number];
 
@@ -20,15 +20,6 @@ export const PAYMENT_NETWORK_CONFIGS: Record<PaymentNetwork, PaymentNetworkConfi
     network: "BEP20",
     tokenContract: "0x55d398326f99059ff775485246999027b3197955",
     tokenDecimals: 18,
-    tokenSymbol: "USDT",
-  },
-  Arbitrum: {
-    chainId: "0xa4b1",
-    chainName: "Arbitrum One",
-    gasToken: "ETH",
-    network: "Arbitrum",
-    tokenContract: "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
-    tokenDecimals: 6,
     tokenSymbol: "USDT",
   },
 };

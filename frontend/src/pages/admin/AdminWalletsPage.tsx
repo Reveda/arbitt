@@ -18,7 +18,7 @@ import type { PlatformDepositWallet } from "@/services/wallet.service";
 import { AdminCard, AdminPageHeader } from "./admin.components";
 
 const PAGE_SIZE = 12;
-const WALLET_NETWORK_OPTIONS = ["BEP20", "Arbitrum"] as const;
+const WALLET_NETWORK_OPTIONS = ["BEP20"] as const;
 
 function normalizeWalletNetwork(value?: string): (typeof WALLET_NETWORK_OPTIONS)[number] {
   return WALLET_NETWORK_OPTIONS.includes(value as (typeof WALLET_NETWORK_OPTIONS)[number])

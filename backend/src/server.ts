@@ -8,7 +8,7 @@ import { roleService } from "./modules/roles/services/role.service";
 
 async function bootstrap() {
   await connectDatabase();
-  // await connectRedis();
+  await connectRedis();
   await roleService.seedDefaultRoles();
 
   const app = createApp();

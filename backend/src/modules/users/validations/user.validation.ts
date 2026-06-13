@@ -10,7 +10,7 @@ export const updateWalletAddressSchema = z.object({
   walletAddress: z
     .string({ required_error: "Wallet address is required." })
     .trim()
-    .regex(/^0x[a-fA-F0-9]{40}$/, "Wallet address must be a valid BEP20 or Arbitrum address."),
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Wallet address must be a valid BEP20 address."),
 });
 
 export const updateTransactionPasswordSchema = z

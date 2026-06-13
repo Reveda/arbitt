@@ -1,7 +1,7 @@
 import { apiRequest } from "@/api/apiClient";
 import { API_ENDPOINTS } from "@/api/endpoints";
 
-export type PaymentNetwork = "BEP20" | "Arbitrum";
+export type PaymentNetwork = "BEP20";
 
 export type PaymentIntent = {
   id: string;

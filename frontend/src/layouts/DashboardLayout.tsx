@@ -478,7 +478,7 @@ export function DashboardLayout({ role }: DashboardLayoutProps) {
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-black leading-none tracking-wide text-white drop-shadow">ARBITRUM</p>
-            <p className="mt-1 text-[11px] font-semibold text-cyan-100/80">User Dashboard</p>
+            <p className="mt-1 text-[11px] font-semibold text-cyan-100/80 truncate">{userDisplayName}</p>
           </div>
         </div>
         <button
@@ -603,7 +603,7 @@ export function DashboardLayout({ role }: DashboardLayoutProps) {
             </span>
             <div className={cn("min-w-0", isUserSidebarCollapsed && "lg:hidden")}>
               <p className="truncate text-sm font-bold leading-none tracking-wide">ARBITRUM</p>
-              <p className="mt-1 text-[11px] font-medium text-cyan-100/65">User Console</p>
+              <p className="mt-1 text-[11px] font-medium text-cyan-100/65 truncate">{userDisplayName}</p>
             </div>
           </div>
           <button

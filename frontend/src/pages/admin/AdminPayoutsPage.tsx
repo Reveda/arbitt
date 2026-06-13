@@ -51,11 +51,11 @@ const STATUS_FILTERS = [
   { label: "Completed", value: "completed" },
   { label: "Failed", value: "failed" },
 ];
-const RETURN_STRATEGY_OPTIONS: Array<{
-  label: string;
-  note: string;
-  value: ReturnStrategy;
-}> = [{ label: "Fixed Return", note: "Final pool return", value: "min" }];
+const PAYOUT_TYPE_OPTIONS = [
+  { label: "Pool Return (Daily ROI)", note: "Generate Daily ROI for active plans", value: "roi" as const },
+  { label: "Level Income (Daily Level)", note: "Generate Daily Level Income", value: "level" as const },
+  { label: "Weekly Royalty (M1-M5)", note: "Generate Weekly Royalty (Fridays only)", value: "royalty" as const },
+];
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
@@ -112,27 +112,7 @@ function getTodayInputValue() {
 }
 
 function getPayoutWeekStartForDateInput(value: string) {
-  if (!value) {
-    return "";
-  }
-
-  const selectedDate = new Date(`${value}T00:00:00.000Z`);
-
-  if (Number.isNaN(selectedDate.getTime())) {
-    return "";
-  }
-
-  const weekStart = new Date(
-    Date.UTC(
-      selectedDate.getUTCFullYear(),
-      selectedDate.getUTCMonth(),
-      selectedDate.getUTCDate(),
-    ),
-  );
-  const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
-  weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
-
-  return weekStart.toISOString().slice(0, 10);
+  return value;
 }
 
 function getUserName(payout: AdminPayout) {
@@ -164,7 +144,7 @@ function getPayoutKindLabel(kind: string) {
     return "Royalty";
   }
 
-  return "Weekly";
+  return "ROI";
 }
 
 function getReturnPercent(tier: InvestmentTierRule, strategy: ReturnStrategy) {
@@ -188,8 +168,8 @@ export function AdminPayoutsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [weekStart, setWeekStart] = useState(getPayoutWeekStartInputValue);
-  const [returnStrategy, setReturnStrategy] = useState<ReturnStrategy>("min");
+  const [weekStart, setWeekStart] = useState(getTodayInputValue);
+  const [payoutType, setPayoutType] = useState<"roi" | "level" | "royalty">("roi");
   const [planRuleSet, setPlanRuleSet] = useState<PlanRuleSet | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [message, setMessage] = useState<ToastMessageValue | null>(null);
@@ -268,12 +248,12 @@ export function AdminPayoutsPage() {
   const investmentTiers = (
     planRuleSet?.investmentTiers ?? fallbackInvestmentTiers
   ).filter((tier) => tier.status.toLowerCase() === "active");
-  const selectedReturnOption =
-    RETURN_STRATEGY_OPTIONS.find((option) => option.value === returnStrategy) ??
-    RETURN_STRATEGY_OPTIONS[0];
+  const selectedPayoutOption =
+    PAYOUT_TYPE_OPTIONS.find((option) => option.value === payoutType) ??
+    PAYOUT_TYPE_OPTIONS[0];
   const selectedPayoutWeekStart = getPayoutWeekStartForDateInput(weekStart);
   const canGenerateSelectedWeek =
-    Boolean(selectedPayoutWeekStart) && selectedPayoutWeekStart <= lastCompletedWeekStart;
+    Boolean(selectedPayoutWeekStart) && selectedPayoutWeekStart <= maxSelectableDate;
   const stats = [
     {
       icon: HandCoins,
@@ -308,10 +288,35 @@ export function AdminPayoutsPage() {
     try {
       const response = await generateAdminPayouts({
         weekStart: selectedPayoutWeekStart || weekStart,
-        returnStrategy,
+        returnStrategy: "min",
+        payoutType,
       }).unwrap();
+
+      if (response.success === false) {
+        setMessage({
+          text: response.message || "Unable to generate payouts.",
+          tone: "error",
+        });
+        return;
+      }
+
+      const weeklyCreated = response.data.weeklyCreatedCount ?? 0;
+      const levelCreated = response.data.levelCreatedCount ?? 0;
+      const royaltyCreated = response.data.salaryRoyaltyCreatedCount ?? 0;
+      const updated = response.data.updatedCount ?? response.data.weeklyUpdatedCount ?? 0;
+      const skipped = response.data.skippedCount ?? 0;
+
+      let msg = "";
+      if (payoutType === "roi") {
+        msg = `${weeklyCreated} daily ROI payouts generated.`;
+      } else if (payoutType === "level") {
+        msg = `${levelCreated} daily level payouts generated.`;
+      } else if (payoutType === "royalty") {
+        msg = `${royaltyCreated} weekly royalty payouts generated.`;
+      }
+
       setMessage({
-        text: `${response.data.weeklyCreatedCount} weekly payouts and ${response.data.salaryRoyaltyCreatedCount} royalty payouts generated, ${response.data.weeklyUpdatedCount} pending weekly payouts updated. ${response.data.skippedCount} already approved, unchanged, or not eligible.`,
+        text: `${msg} ${updated} updated. ${skipped} skipped or already processed.`,
         tone: "info",
       });
     } catch (caughtError) {
@@ -416,18 +421,18 @@ export function AdminPayoutsPage() {
 
             <label className="block">
               <span className="mb-2 block text-xs font-black text-slate-500">
-                Return
+                Payout Type
               </span>
               <select
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 shadow-sm outline-none transition-colors focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
                 onChange={(event) =>
-                  setReturnStrategy(event.target.value as ReturnStrategy)
+                  setPayoutType(event.target.value as "roi" | "level" | "royalty")
                 }
-                value={returnStrategy}
+                value={payoutType}
               >
-                {RETURN_STRATEGY_OPTIONS.map((option) => (
+                {PAYOUT_TYPE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
-                    {option.label} ({option.note})
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -455,10 +460,10 @@ export function AdminPayoutsPage() {
           <div className="rounded-2xl border border-cyan-100 bg-cyan-50/45 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-black text-slate-700">
-                {selectedReturnOption.label}
+                {selectedPayoutOption.label}
               </p>
               <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-cyan-700 ring-1 ring-cyan-100">
-                {selectedReturnOption.note}
+                {selectedPayoutOption.note}
               </span>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
@@ -471,7 +476,7 @@ export function AdminPayoutsPage() {
                     {tier.name}
                   </span>
                   <span className="text-sm font-black text-slate-950">
-                    {formatPercent(getReturnPercent(tier, returnStrategy))}
+                    {formatPercent(getReturnPercent(tier, "min"))}
                   </span>
                 </div>
               ))}

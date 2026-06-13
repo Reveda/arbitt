@@ -202,19 +202,7 @@ async function archiveCurrentWallet(input: {
 }
 
 export async function getPlatformPaymentWallet(): Promise<PlatformPaymentWallet> {
-  const bep20Wallet = await getPlatformPaymentWalletForNetwork("BEP20");
-
-  if (bep20Wallet.configured) {
-    return bep20Wallet;
-  }
-
-  const arbitrumWallet = await getPlatformPaymentWalletForNetwork("Arbitrum");
-
-  if (arbitrumWallet.configured) {
-    return arbitrumWallet;
-  }
-
-  return bep20Wallet;
+  return getPlatformPaymentWalletForNetwork("BEP20");
 }
 
 export async function getPlatformPaymentWalletForNetwork(

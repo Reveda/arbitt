@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from "@/api/endpoints";
-import type { ApiSuccessResponse } from "@/api/types";
+import type { ApiSuccessResponse, ApiResponse } from "@/api/types";
 import type {
   AdminDepositsParams,
   AdminDepositsResponse,
@@ -67,8 +67,8 @@ export const adminApi = baseApi.injectEndpoints({
       providesTags: ["AdminPayouts"],
     }),
     generateAdminPayouts: builder.mutation<
-      ApiSuccessResponse<AdminPayoutGenerateResponse>,
-      { returnStrategy: "min" | "average" | "max"; weekStart?: string }
+      ApiResponse<AdminPayoutGenerateResponse>,
+      { returnStrategy: "min" | "average" | "max"; weekStart?: string; payoutType?: "roi" | "level" | "royalty" }
     >({
       query: (body) => ({
         body,

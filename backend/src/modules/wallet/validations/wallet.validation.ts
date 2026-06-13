@@ -22,7 +22,7 @@ export const createDepositRequestSchema = z.object({
     .positive("Deposit amount must be greater than 0.")
     .min(100, "Minimum deposit amount is 100 USDT.")
     .max(50000, "Maximum deposit amount is 50000 USDT."),
-  network: z.enum(["APP", "BEP20", "Arbitrum"]).default("APP"),
+  network: z.enum(["APP", "BEP20"]).default("APP"),
   notes: optionalText(500),
   txnHash: optionalText(180),
 });
@@ -33,7 +33,7 @@ export const createWithdrawalRequestSchema = z.object({
     .positive("Withdrawal amount must be greater than 0.")
     .min(10, "Minimum withdrawal amount is 10 USDT.")
     .max(50000, "Maximum withdrawal amount is 50000 USDT."),
-  network: z.enum(["BEP20", "Arbitrum"]).default("Arbitrum"),
+  network: z.enum(["BEP20"]).default("BEP20"),
   notes: optionalText(500),
 });
 

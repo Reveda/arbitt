@@ -50,7 +50,7 @@ const modalHeaderClass =
 const modalBodyClass = "min-h-0 flex-1";
 const modalContentClass = "p-4 sm:p-5";
 const modalFooterClass =
-  "sticky bottom-0 -mx-4 -mb-4 mt-auto flex flex-col-reverse gap-2 border-t border-slate-100 bg-white/95 p-4 backdrop-blur sm:-mx-5 sm:-mb-5 sm:flex-row sm:justify-end sm:p-5";
+  "sticky bottom-0 -mx-4 -mb-4 mt-auto border-t border-slate-100 bg-white/95 p-4 backdrop-blur sm:-mx-5 sm:-mb-5 sm:p-5";
 const compactMetricCardClass = "min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4";
 const compactWhiteCardClass = "min-w-0 rounded-2xl border border-slate-200 bg-white p-4";
 const copyButtonClass = "size-9 shrink-0 rounded-xl p-0";
@@ -504,8 +504,32 @@ export function DepositPage() {
 
     try {
       const response = await paymentService.submitIntentTxHash(depositIntent.id, depositTxHash.trim());
-      setDepositIntent(response.data.intent);
-      showToast("Transaction hash linked. Waiting for Moralis confirmation.", "success");
+      let currentIntent = response.data.intent;
+      setDepositIntent(currentIntent);
+      showToast("Transaction hash linked. Querying blockchain RPC nodes...", "info");
+
+      let attempts = 0;
+      const maxAttempts = 6;
+
+      while (
+        attempts < maxAttempts &&
+        (currentIntent.status === "pending" || currentIntent.status === "detected")
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const refreshResponse = await paymentService.getIntent(depositIntent.id);
+        currentIntent = refreshResponse.data.intent;
+        setDepositIntent(currentIntent);
+        attempts++;
+      }
+
+      if (currentIntent.status === "completed") {
+        await refreshWalletAndDeposits();
+        showToast("Payment confirmed successfully! Wallet balance credited.", "success");
+      } else if (currentIntent.status === "failed") {
+        showToast(currentIntent.failureReason || "Transaction verification failed on-chain.", "error");
+      } else {
+        showToast("Verification is taking longer than expected. You can check again later.", "info");
+      }
     } catch (caughtError) {
       showToast(caughtError instanceof Error ? caughtError.message : "Unable to link transaction hash.", "error");
     } finally {
@@ -533,7 +557,7 @@ export function DepositPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.32em] text-cyan-100/82 sm:text-xs">User Panel</p>
             <h1 className="mt-1 text-[1.35rem] font-black leading-tight tracking-tight sm:text-2xl">Wallet Top Up</h1>
             <p className="mt-1 max-w-2xl text-[13px] font-semibold leading-relaxed text-cyan-50/88 sm:text-sm">
-              Add wallet balance or purchase plans with on-chain USDT verified by Moralis.
+              Add wallet balance or purchase plans with on-chain USDT verified directly on-chain.
             </p>
           </div>
           <Button
@@ -869,7 +893,7 @@ export function DepositPage() {
                 <X className="size-4" />
               </button>
             </CardHeader>
-            <ScrollArea className={modalBodyClass}>
+            <div className={cn("overflow-y-auto", modalBodyClass)}>
               <CardContent className={modalContentClass}>
                 <form className="flex min-h-full flex-col gap-4" onSubmit={submitPlanPurchase}>
                   <label className="block">
@@ -926,42 +950,64 @@ export function DepositPage() {
                         then purchase the plan from balance.
                       </p>
                     </div>
-                  ) : (
-                    <div className="rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4">
-                      <p className="text-xs font-bold text-cyan-700">
-                        This will debit your internal wallet balance only. No new tx hash is required here.
-                      </p>
-                    </div>
-                  )}
+                  ) : null}
 
                 <div className={modalFooterClass}>
-                  <Button className="h-11 w-full rounded-xl px-5 sm:w-auto" onClick={closePurchaseModal} type="button" variant="outline">
-                    Cancel
-                  </Button>
                   {!hasEnoughBalanceForPurchase ? (
-                    <Button
-                      className="h-11 w-full rounded-xl px-5 sm:w-auto"
-                      disabled={isPurchasingPlan}
-                      onClick={openAddBalanceFromPurchase}
-                      type="button"
-                      variant="outline"
-                    >
-                      <ArrowDownLeft className="size-4" />
-                      Add Balance
-                    </Button>
-                  ) : null}
-                  <Button
-                    className="h-11 w-full rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 sm:w-auto"
-                    disabled={isPurchasingPlan || !hasValidPurchaseAmount || !hasEnoughBalanceForPurchase}
-                    type="submit"
-                  >
-                    {isPurchasingPlan ? <Loader2 className="size-4 animate-spin" /> : <WalletCards className="size-4" />}
-                    Purchase With Balance
-                  </Button>
+                    <div className="flex flex-col gap-2 w-full sm:flex-row sm:justify-end sm:items-center">
+                      <div className="grid grid-cols-2 gap-2 w-full order-2 sm:order-1 sm:w-auto sm:flex sm:gap-2">
+                        <Button
+                          className="h-11 rounded-xl px-4 flex-1 sm:flex-none sm:w-32 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold"
+                          onClick={closePurchaseModal}
+                          type="button"
+                          variant="outline"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          className="h-11 rounded-xl px-4 flex-1 sm:flex-none sm:w-40 transition-all hover:scale-[1.02] active:scale-[0.98] text-slate-400 bg-slate-50 border-slate-200 font-bold"
+                          disabled
+                          type="button"
+                          variant="outline"
+                        >
+                          <WalletCards className="size-4 text-slate-400" />
+                          Low Balance
+                        </Button>
+                      </div>
+                      <Button
+                        className="h-11 w-full rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg order-1 sm:order-2 sm:w-auto sm:px-6 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        disabled={isPurchasingPlan}
+                        onClick={openAddBalanceFromPurchase}
+                        type="button"
+                      >
+                        <ArrowDownLeft className="size-4" />
+                        Add Balance
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:justify-end sm:gap-2">
+                      <Button
+                        className="h-11 rounded-xl px-4 w-full sm:w-32 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold"
+                        onClick={closePurchaseModal}
+                        type="button"
+                        variant="outline"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        className="h-11 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg w-full sm:w-auto sm:px-6 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        disabled={isPurchasingPlan || !hasValidPurchaseAmount}
+                        type="submit"
+                      >
+                        {isPurchasingPlan ? <Loader2 className="size-4 animate-spin" /> : <WalletCards className="size-4" />}
+                        Purchase
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 </form>
               </CardContent>
-            </ScrollArea>
+            </div>
           </Card>
         </div>
       ) : null}
@@ -984,7 +1030,7 @@ export function DepositPage() {
                 <X className="size-4" />
               </button>
             </CardHeader>
-            <ScrollArea className={modalBodyClass}>
+            <div className={cn("overflow-y-auto", modalBodyClass)}>
               <CardContent className={modalContentClass}>
                 <form className="flex min-h-full flex-col gap-4" onSubmit={submitDeposit}>
                 {!depositIntent ? (
@@ -1010,10 +1056,26 @@ export function DepositPage() {
                         value={depositNetwork}
                       >
                         <option value="BEP20">BEP20</option>
-                        <option value="Arbitrum">Arbitrum</option>
                       </select>
                     </label>
                   </>
+                ) : isSubmittingDepositTxHash || isCheckingDepositPayment ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center space-y-4">
+                    <div className="relative flex items-center justify-center">
+                      <div className="size-16 rounded-full border-4 border-cyan-100 border-t-cyan-600 animate-spin" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-black text-slate-900">Verifying on Blockchain</h3>
+                      <p className="mt-2 text-xs font-semibold text-slate-500 max-w-sm leading-relaxed">
+                        Connecting to live public RPC nodes to verify your USDT transfer. Please do not close or reload this page.
+                      </p>
+                    </div>
+                    {depositTxHash && (
+                      <div className="w-full max-w-xs bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] font-mono break-all text-slate-400">
+                        Hash: {depositTxHash}
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4">
@@ -1046,34 +1108,32 @@ export function DepositPage() {
                       </div>
                     </div>
 
-                    <div className={compactWhiteCardClass}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[11px] font-black uppercase text-slate-400">Admin Receiver Wallet</p>
-                        <Button
-                          className={copyButtonClass}
-                          onClick={() => void copyPaymentText(depositIntent.receiverAddress, "Wallet address")}
-                          type="button"
-                          variant="outline"
-                        >
-                          <Copy className="size-3.5" />
-                        </Button>
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white p-5 shadow-sm space-y-4">
+                      <div className="text-center">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Scan QR to Pay</p>
                       </div>
-                      <p className={hashTextClass}>{depositIntent.receiverAddress}</p>
-                    </div>
-
-                    <div className={compactWhiteCardClass}>
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[11px] font-black uppercase text-slate-400">USDT Contract</p>
-                        <Button
-                          className={copyButtonClass}
-                          onClick={() => void copyPaymentText(depositIntent.tokenContract, "Token contract")}
-                          type="button"
-                          variant="outline"
-                        >
-                          <Copy className="size-3.5" />
-                        </Button>
+                      <div className="relative p-2 rounded-2xl bg-slate-50 border border-slate-100/80">
+                        <img
+                          src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${depositIntent.receiverAddress}`}
+                          alt="USDT Deposit QR"
+                          className="size-36 rounded-xl"
+                        />
                       </div>
-                      <p className={hashTextClass}>{depositIntent.tokenContract}</p>
+                      <div className="w-full pt-2 border-t border-slate-100 flex flex-col items-center">
+                        <div className="flex w-full items-center justify-between gap-3 bg-slate-50 rounded-xl p-2 border border-slate-100">
+                          <p className="font-mono text-[11px] font-bold text-slate-600 break-all select-all flex-1 text-center pl-2">
+                            {depositIntent.receiverAddress}
+                          </p>
+                          <Button
+                            className="size-8 shrink-0 rounded-lg p-0 bg-white hover:bg-slate-50 border border-slate-200"
+                            onClick={() => void copyPaymentText(depositIntent.receiverAddress, "Wallet address")}
+                            type="button"
+                            variant="outline"
+                          >
+                            <Copy className="size-3 text-slate-500" />
+                          </Button>
+                        </div>
+                      </div>
                     </div>
 
                     <label className="block">
@@ -1098,50 +1158,81 @@ export function DepositPage() {
                   </div>
                 )}
 
-                <div className={modalFooterClass}>
-                  <Button className="h-11 w-full rounded-xl px-5 sm:w-auto" onClick={closeModal} type="button" variant="outline">
-                    Cancel
-                  </Button>
-                  {depositIntent ? (
-                    <>
-                      <Button
-                        className="h-11 w-full rounded-xl px-5 sm:w-auto"
-                        disabled={isCheckingDepositPayment}
-                        onClick={() => void refreshDepositIntent()}
-                        type="button"
-                        variant="outline"
-                      >
-                        {isCheckingDepositPayment ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
-                        Check
-                      </Button>
-                      <Button
-                        className="h-11 w-full rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 sm:w-auto"
-                        disabled={
-                          isSubmittingDepositTxHash ||
-                          depositIntent.status === "completed" ||
-                          !depositTxHash.trim()
-                        }
-                        onClick={() => void submitDepositTxHash()}
-                        type="button"
-                      >
-                        {isSubmittingDepositTxHash ? <Loader2 className="size-4 animate-spin" /> : <Copy className="size-4" />}
-                        Save Tx Hash
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      className="h-11 w-full rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 sm:w-auto"
-                      disabled={isSubmitting}
-                      type="submit"
-                    >
-                      {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <ArrowDownLeft className="size-4" />}
-                      Generate Payment
-                    </Button>
-                  )}
-                </div>
+                {!(isSubmittingDepositTxHash || isCheckingDepositPayment) && (
+                  <div className={modalFooterClass}>
+                    {depositIntent ? (
+                      <div className="flex flex-col gap-2 w-full sm:flex-row sm:justify-end sm:items-center">
+                        <div className="grid grid-cols-2 gap-2 w-full order-2 sm:order-1 sm:w-auto sm:flex sm:gap-2">
+                          <Button
+                            className="h-11 rounded-xl px-4 flex-1 sm:flex-none sm:w-32 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold"
+                            onClick={closeModal}
+                            type="button"
+                            variant="outline"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            className="h-11 rounded-xl px-4 flex-1 sm:flex-none sm:w-32 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold"
+                            disabled={isCheckingDepositPayment}
+                            onClick={() => void refreshDepositIntent()}
+                            type="button"
+                            variant="outline"
+                          >
+                            {isCheckingDepositPayment ? (
+                              <Loader2 className="size-4 animate-spin text-cyan-600" />
+                            ) : (
+                              <CheckCircle2 className="size-4 text-cyan-600" />
+                            )}
+                            Check
+                          </Button>
+                        </div>
+                        <Button
+                          className="h-11 w-full rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg order-1 sm:order-2 sm:w-auto sm:px-6 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                          disabled={
+                            isSubmittingDepositTxHash ||
+                            depositIntent.status === "completed" ||
+                            !depositTxHash.trim()
+                          }
+                          onClick={() => void submitDepositTxHash()}
+                          type="button"
+                        >
+                          {isSubmittingDepositTxHash ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Copy className="size-4" />
+                          )}
+                          Save Tx Hash
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:justify-end sm:gap-2">
+                        <Button
+                          className="h-11 rounded-xl px-4 w-full sm:w-32 transition-all hover:scale-[1.02] active:scale-[0.98] font-bold"
+                          onClick={closeModal}
+                          type="button"
+                          variant="outline"
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          className="h-11 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-600 text-white font-bold shadow-md hover:shadow-lg w-full sm:w-auto sm:px-6 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                          disabled={isSubmitting}
+                          type="submit"
+                        >
+                          {isSubmitting ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <ArrowDownLeft className="size-4" />
+                          )}
+                          Proceed
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
                 </form>
               </CardContent>
-            </ScrollArea>
+            </div>
           </Card>
         </div>
       ) : null}

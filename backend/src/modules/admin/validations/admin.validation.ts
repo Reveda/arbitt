@@ -107,6 +107,7 @@ export const reviewAdminWithdrawalBodySchema = reviewAdminPlanPurchaseBodySchema
 export const generateAdminPayoutsBodySchema = z.object({
   weekStart: dateFilterSchema,
   returnStrategy: z.enum(["min", "average", "max"]).default("min"),
+  payoutType: z.enum(["roi", "level", "royalty"]).default("roi"),
 });
 
 export const updateAdminPaymentWalletBodySchema = z.object({
@@ -115,5 +116,5 @@ export const updateAdminPaymentWalletBodySchema = z.object({
     .trim()
     .min(8, "Wallet address is required.")
     .max(180, "Wallet address is too long."),
-  network: z.enum(["BEP20", "Arbitrum"]),
+  network: z.enum(["BEP20"]),
 });

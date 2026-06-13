@@ -95,7 +95,7 @@ export function AdminPlansPage() {
   const terms = ruleSet?.terms ?? {
     withdrawalDay: "Weekly",
     settlementTime: "T+1",
-    royaltyWithdrawal: "Monthly",
+    royaltyWithdrawal: "Daily",
     levelIncomeCycle: "Once per sale and daily withdrawable"
   };
   const minEntry = Math.min(...adminPlans.map((plan) => plan.minUsdt));
@@ -228,7 +228,7 @@ export function AdminPlansPage() {
                     </td>
                     <td className="px-4 py-4">
                       <p className="font-black text-slate-950">{formatPoolAmount(plan.minUsdt)}</p>
-                      <p className="text-xs font-semibold text-slate-500">to {formatPoolAmount(plan.maxUsdt)}</p>
+                      <p className="text-xs font-black text-slate-500">to {formatPoolAmount(plan.maxUsdt)}</p>
                     </td>
                     <td className="px-4 py-4">
                       <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">
@@ -446,10 +446,14 @@ export function AdminPlansPage() {
       </div>
 
       <AdminCard>
-        <div className="grid gap-3 p-4 sm:grid-cols-2">
+        <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="rounded-xl border border-cyan-100 bg-cyan-50/70 p-4">
             <p className="text-xs font-black uppercase text-cyan-700">ROI Withdrawal</p>
             <p className="mt-1 text-sm font-black text-slate-950">{terms.withdrawalDay} withdrawable</p>
+          </div>
+          <div className="rounded-xl border border-rose-100 bg-rose-50/70 p-4">
+            <p className="text-xs font-black uppercase text-rose-700">Withdrawal Charge</p>
+            <p className="mt-1 text-sm font-black text-slate-950">10% Fee</p>
           </div>
           <div className="rounded-xl border border-violet-100 bg-violet-50/70 p-4">
             <p className="text-xs font-black uppercase text-violet-700">Settlement Time</p>

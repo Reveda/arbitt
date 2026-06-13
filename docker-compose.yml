@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:6.0
+    container_name: arbitrum-mongo-local
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: arbitrum-redis-local
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+
+  backend:
+    image: node:22-alpine
+    container_name: arbitrum-backend-local
+    working_dir: /app
+    command: npm run dev
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    env_file:
+      - ./backend/.env
+    environment:
+      - MONGODB_URI=mongodb://mongo:27017/arbitrum
+      - REDIS_URL=redis://redis:6379
+      - REDIS_ENABLED=true
+    depends_on:
+      - mongo
+      - redis
+
+  frontend:
+    image: node:22-alpine
+    container_name: arbitrum-frontend-local
+    working_dir: /app
+    command: npm run dev -- --host
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file:
+      - ./frontend/.env
+    environment:
+      - VITE_API_BASE_URL=http://localhost:5000/api/v1
+    depends_on:
+      - backend
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: arbitrum-nginx-local
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/local.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  mongo-data:
+  redis-data:

@@ -293,7 +293,7 @@ async function assertWeeklyPayoutStopsAtThreeTimesPrincipal(userId: string, admi
     weeklyReturnPercent: 2,
   });
   await TransactionModel.create({
-    amountUsdt: 2090,
+    amountUsdt: 2099,
     network: "SYSTEM",
     notes: "Logic test already approved weekly earnings",
     payoutKind: "weekly",
@@ -310,18 +310,19 @@ async function assertWeeklyPayoutStopsAtThreeTimesPrincipal(userId: string, admi
   await adminService.generateWeeklyPayouts({
     adminUserId,
     returnStrategy: "max",
-    weekStart: "2026-05-18",
+    payoutType: "roi",
+    weekStart: "2026-05-22",
   });
   const cappedPayout = await TransactionModel.findOne({
     payoutKind: "weekly",
-    payoutPeriodStart: new Date("2026-05-18T00:00:00.000Z"),
+    payoutPeriodStart: new Date("2026-05-16T00:00:00.000Z"),
     userId,
   }).lean();
 
   assert.ok(cappedPayout, "Capped weekly payout should be generated.");
   assert.equal(
     cappedPayout.amountUsdt,
-    10,
+    1,
     "Weekly payout should be capped at the remaining 3x earning capacity.",
   );
 
@@ -502,7 +503,7 @@ async function assertWithdrawalChargeFlow(input: {
 
   const withdrawal = await walletService.createWithdrawalRequest(input.userId, {
     amountUsdt: 100,
-    network: "Arbitrum",
+    network: "BEP20",
   });
 
   assert.equal(withdrawal.grossAmountUsdt, 100, "Withdrawal gross amount should be locked.");
@@ -535,7 +536,7 @@ async function assertWithdrawalChargeFlow(input: {
 
   const rejectedWithdrawal = await walletService.createWithdrawalRequest(input.userId, {
     amountUsdt: 50,
-    network: "Arbitrum",
+    network: "BEP20",
   });
 
   await adminService.reviewWithdrawal({
@@ -555,11 +556,152 @@ async function assertWithdrawalChargeFlow(input: {
   );
 }
 
+async function assertRoyaltyWeeklyCutoff(
+  sponsorUserId: string,
+  childUserId: string,
+  direct01UserId: string,
+  adminUserId: string
+) {
+  // 1. Clean up existing rewards and purchases for these users to isolate our test
+  await Promise.all([
+    TransactionModel.deleteMany({ userId: { $in: [sponsorUserId, childUserId, direct01UserId] } }),
+    UserPlanPurchaseModel.deleteMany({ userId: { $in: [sponsorUserId, childUserId, direct01UserId] } }),
+  ]);
+
+  // Give sponsor a dummy purchase to be active
+  await UserPlanPurchaseModel.create({
+    amountUsdt: 1000,
+    name: "Initial Pool",
+    purchasedAt: new Date("2026-05-01T00:00:00.000Z"),
+    sourceTransactionId: new Types.ObjectId(),
+    tier: "INITIAL",
+    userId: sponsorUserId,
+    weeklyReturnPercent: 2,
+  });
+  await WalletModel.updateOne(
+    { userId: sponsorUserId },
+    { $set: { availableUsdt: 1000, lifetimeDepositsUsdt: 1000, lockedUsdt: 0 } }
+  );
+
+  // CASE 1: Plan purchased THIS WEEK (i.e. after last Friday 13:00 UTC)
+  // Let's say payout date is Friday, 2026-05-22.
+  // Last Friday was 2026-05-15.
+  // We purchase plans on Monday, 2026-05-18.
+  await UserPlanPurchaseModel.create([
+    {
+      amountUsdt: 25000,
+      name: "Elite Pool",
+      purchasedAt: new Date("2026-05-18T10:00:00.000Z"), // Monday (after Friday 15th May 13:00 UTC)
+      sourceTransactionId: new Types.ObjectId(),
+      tier: "ELITE",
+      userId: childUserId,
+      weeklyReturnPercent: 7,
+    },
+    {
+      amountUsdt: 25000,
+      name: "Elite Pool",
+      purchasedAt: new Date("2026-05-18T10:00:00.000Z"), // Monday
+      sourceTransactionId: new Types.ObjectId(),
+      tier: "ELITE",
+      userId: direct01UserId,
+      weeklyReturnPercent: 7,
+    }
+  ]);
+
+  // Generate payouts for Friday May 22
+  await adminService.generateWeeklyPayouts({
+    adminUserId,
+    returnStrategy: "min",
+    payoutType: "royalty",
+    weekStart: "2026-05-22",
+  });
+
+  const royaltyRewardThisWeek = await TransactionModel.findOne({
+    payoutKind: "salary_royalty",
+    userId: sponsorUserId,
+  }).lean();
+
+  assert.equal(royaltyRewardThisWeek, null, "Sponsor should NOT receive royalty payout this week because plans were purchased after the last Friday cutoff.");
+
+  // Clean up transactions from the generation to run CASE 2
+  await TransactionModel.deleteMany({ userId: { $in: [sponsorUserId, childUserId, direct01UserId] } });
+  await UserPlanPurchaseModel.deleteMany({ userId: { $in: [childUserId, direct01UserId] } });
+
+  // CASE 2: Plan purchased BEFORE last Friday's cutoff (e.g. Thursday 2026-05-14)
+  await UserPlanPurchaseModel.create([
+    {
+      amountUsdt: 25000,
+      name: "Elite Pool",
+      purchasedAt: new Date("2026-05-14T10:00:00.000Z"), // Thursday (before Friday 15th May 13:00 UTC)
+      sourceTransactionId: new Types.ObjectId(),
+      tier: "ELITE",
+      userId: childUserId,
+      weeklyReturnPercent: 7,
+    },
+    {
+      amountUsdt: 25000,
+      name: "Elite Pool",
+      purchasedAt: new Date("2026-05-14T10:00:00.000Z"), // Thursday
+      sourceTransactionId: new Types.ObjectId(),
+      tier: "ELITE",
+      userId: direct01UserId,
+      weeklyReturnPercent: 7,
+    }
+  ]);
+
+  // Generate payouts for Friday May 22
+  await adminService.generateWeeklyPayouts({
+    adminUserId,
+    returnStrategy: "min",
+    payoutType: "royalty",
+    weekStart: "2026-05-22",
+  });
+
+  const royaltyRewardEligible = await TransactionModel.findOne({
+    payoutKind: "salary_royalty",
+    userId: sponsorUserId,
+  }).lean();
+
+  assert.ok(royaltyRewardEligible, "Sponsor should receive royalty payout this week because plans were purchased before the last Friday cutoff.");
+  assert.equal(royaltyRewardEligible.payoutTier, "M1", "Royalty should be at M1 tier.");
+}
+
 async function runPayoutLogicTest() {
   await connectDatabase();
   await cleanupTestData();
 
   const passwordHash = await hashPassword(testPassword);
+
+  let adminUser = await UserModel.findOne({ role: "admin", status: "active" });
+  if (!adminUser) {
+    adminUser = await UserModel.create({
+      email: "admin@logic.test",
+      username: "admin_logic_test",
+      passwordHash,
+      role: "admin",
+      status: "active",
+      referralCode: "ADMINTST",
+      invitedBy: null,
+      emailVerifiedAt: new Date(),
+    });
+  }
+  await WalletModel.updateOne(
+    { userId: adminUser._id },
+    {
+      $set: {
+        availableUsdt: 1000000,
+        lifetimeDepositsUsdt: 1000000,
+        lockedUsdt: 0,
+      },
+      $setOnInsert: {
+        userId: adminUser._id,
+        lifetimeRewardsUsdt: 0,
+        lifetimeWithdrawalsUsdt: 0,
+      }
+    },
+    { upsert: true }
+  );
+
   const usersByEmail = new Map<string, Awaited<ReturnType<typeof createTestUser>>>();
 
   for (const testUser of getTestUsers()) {
@@ -728,6 +870,12 @@ async function runPayoutLogicTest() {
     sourceUserId: String(grandchild._id),
     sponsorUserId: String(sponsor._id),
   });
+  await assertRoyaltyWeeklyCutoff(
+    String(sponsor._id),
+    String(child._id),
+    String(d01?._id),
+    String(adminUser._id)
+  );
   await assertWeeklyPayoutStopsAtThreeTimesPrincipal(String(grandchild._id), String(sponsor._id));
 
   logger.info(

@@ -35,4 +35,3 @@ export function TermsConditionsPage() {
     </section>
   );
 }
-

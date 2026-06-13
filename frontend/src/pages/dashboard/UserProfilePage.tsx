@@ -86,7 +86,7 @@ export function UserProfilePage() {
 
     if (!USER_WALLET_ADDRESS_PATTERN.test(nextWalletAddress)) {
       setMessage({
-        text: "Enter a valid BEP20 or Arbitrum wallet address.",
+        text: "Enter a valid BEP20 wallet address.",
         tone: "error"
       });
       return;
@@ -369,7 +369,7 @@ export function UserProfilePage() {
                       </span>
                       <div>
                         <p className="text-sm font-black text-slate-950">User Wallet Address</p>
-                        <p className="text-xs font-semibold text-slate-500">BEP20 / Arbitrum compatible</p>
+                        <p className="text-xs font-semibold text-slate-500">BEP20 compatible</p>
                       </div>
                     </div>
 

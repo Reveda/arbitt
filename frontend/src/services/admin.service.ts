@@ -249,6 +249,7 @@ export type AdminWithdrawalReviewResponse = {
 export type AdminPayoutGenerateResponse = {
   createdCount: number;
   eligibleCount: number;
+  levelCreatedCount: number;
   salaryRoyaltyCreatedCount: number;
   skippedCount: number;
   updatedCount: number;

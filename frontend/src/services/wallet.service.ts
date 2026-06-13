@@ -20,14 +20,14 @@ export type WalletSummary = {
 
 export type CreateDepositInput = {
   amountUsdt: number;
-  network?: "APP" | "BEP20" | "Arbitrum";
+  network?: "APP" | "BEP20";
   txnHash?: string;
   notes?: string;
 };
 
 export type CreateWithdrawalInput = {
   amountUsdt: number;
-  network?: "BEP20" | "Arbitrum";
+  network?: "BEP20";
   notes?: string;
 };
 

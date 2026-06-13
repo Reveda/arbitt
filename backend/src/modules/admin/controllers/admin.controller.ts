@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { HTTP_STATUS } from "../../../constants/http";
-import { apiResponse } from "../../../utils/ApiResponse";
+import { apiResponse, apiErrorResponse } from "../../../utils/ApiResponse";
+import { ApiError } from "../../../utils/ApiError";
 import { catchAsync } from "../../../utils/catchAsync";
 import type {
   AdminDepositsResponseDto,
@@ -141,22 +142,33 @@ export const updateAdminPaymentWallet = catchAsync(async (req: Request, res: Res
 
 export const generateAdminPayouts = catchAsync(async (req: Request, res: Response) => {
   const body = generateAdminPayoutsBodySchema.parse(req.body);
-  const result = await adminService.generateWeeklyPayouts({
-    weekStart: body.weekStart,
-    returnStrategy: body.returnStrategy,
-    adminUserId: req.user!.id,
-    ipAddress: req.ip,
-  });
+  try {
+    const result = await adminService.generateWeeklyPayouts({
+      weekStart: body.weekStart,
+      returnStrategy: body.returnStrategy,
+      payoutType: body.payoutType,
+      adminUserId: req.user!.id,
+      ipAddress: req.ip,
+    });
 
-  res
-    .status(HTTP_STATUS.OK)
-    .json(
-      apiResponse<AdminPayoutGenerateResponseDto>(
-        HTTP_STATUS.OK,
-        "Weekly payouts generated.",
-        result,
-      ),
-    );
+    res
+      .status(HTTP_STATUS.OK)
+      .json(
+        apiResponse<AdminPayoutGenerateResponseDto>(
+          HTTP_STATUS.OK,
+          "Weekly payouts generated.",
+          result,
+        ),
+      );
+  } catch (error) {
+    if (error instanceof ApiError) {
+      res
+        .status(HTTP_STATUS.OK)
+        .json(apiErrorResponse(error.statusCode, error.message));
+      return;
+    }
+    throw error;
+  }
 });
 
 export const reviewAdminPayout = catchAsync(async (req: Request, res: Response) => {

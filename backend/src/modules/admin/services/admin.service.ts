@@ -9,6 +9,10 @@ import { getSalaryRoyaltyPeriod } from "../../rewards/utils/salaryRoyalty";
 import { adminRepository } from "../repositories/admin.repository";
 import { getPlatformPaymentWallet, updatePlatformPaymentWallet } from "./payment-wallet.service";
 import { toSafeUser } from "../../auth/dtos/auth.dto";
+import { ReferralModel } from "../../referrals/models/referral.model";
+import { UserModel } from "../../users/models/user.model";
+import { TransactionModel } from "../../transactions/models/transaction.model";
+import { Types } from "mongoose";
 
 type PopulatedAdminUser = {
   _id?: unknown;
@@ -210,7 +214,7 @@ function toWithdrawalRequestNode(record: AdminWithdrawalRecord) {
     chargeUsdt,
     withdrawalChargePercent,
     status: record.status ?? "pending",
-    network: record.network ?? "Arbitrum",
+    network: record.network ?? "BEP20",
     notes: record.notes ?? "",
     reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
     reviewedAt: record.reviewedAt ?? null,
@@ -527,18 +531,34 @@ export class AdminService {
   async generateWeeklyPayouts(input: {
     weekStart?: string;
     returnStrategy: ReturnStrategy;
+    payoutType?: "roi" | "level" | "royalty";
     adminUserId: string;
     ipAddress?: string;
   }) {
-    const periodStart = getPayoutWeekStart(input.weekStart);
-    const periodEnd = getPeriodEnd(periodStart);
-    const periodCutoff = getPeriodCutoff(periodEnd);
+    const payoutDate = input.weekStart ? new Date(`${input.weekStart}T00:00:00.000Z`) : new Date();
+    const periodStart = new Date(
+      Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate()),
+    );
+    const periodEnd = new Date(
+      Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate(), 23, 59, 59, 999),
+    );
+    const periodCutoff = periodEnd;
     const eligibleUntil = periodStart;
 
-    if (periodCutoff.getTime() > Date.now()) {
+    if (periodStart.getTime() > Date.now()) {
       throw new ApiError(
         HTTP_STATUS.BAD_REQUEST,
-        "Weekly payout period is not complete yet. Select a completed week.",
+        "Payout period is in the future. Select a completed or current date.",
+      );
+    }
+
+    const payoutType = input.payoutType ?? "roi";
+    const isFriday = periodStart.getUTCDay() === 5;
+
+    if (payoutType === "roi" && !isFriday) {
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        "Pool Return (Daily ROI) payouts can only be generated on Fridays.",
       );
     }
 
@@ -552,121 +572,376 @@ export class AdminService {
       throw new ApiError(HTTP_STATUS.BAD_REQUEST, "No active investment tiers are configured.");
     }
 
-    const [eligibleWallets, existingWeeklyPayouts] = await Promise.all([
-      adminRepository.listPayoutEligibleWallets({
-        eligibleUntil,
-        minimumPrincipalUsdt,
-      }),
-      adminRepository.listWeeklyPayoutsForPeriod({
-        payoutPeriodEnd: periodEnd,
-        payoutPeriodStart: periodStart,
-      }),
-    ]);
-    const existingWeeklyPayoutByUserId = new Map(
-      existingWeeklyPayouts.map((payout) => [String(payout.userId), payout as AdminPayoutRecord]),
-    );
+    // 1. Fetch eligible wallets
+    const eligibleWallets = await adminRepository.listPayoutEligibleWallets({
+      eligibleUntil,
+      minimumPrincipalUsdt,
+    });
+
     const rewardPayoutTotalsByUserId = await adminRepository.sumRewardPayoutsByUserIds({
       payoutKinds: TOTAL_REWARD_PAYOUT_KINDS,
       statuses: TOTAL_REWARD_GENERATION_STATUSES,
       userIds: eligibleWallets.map((wallet) => String(wallet.userId)),
     });
+
     const highestTier = activeTiers[activeTiers.length - 1];
-    const payoutCandidates = eligibleWallets
-      .map((wallet) => {
+
+    let createdPayouts: any[] = [];
+    let updatedPayouts: any[] = [];
+    let allRoiPayouts: any[] = [];
+
+    // 1. Generate Daily ROI (7 days of the week ending on the selected Friday)
+    if (payoutType === "roi") {
+      const remainingCapacityMap = new Map<string, number>();
+      for (const wallet of eligibleWallets) {
         const userId = String(wallet.userId);
         const lifetimeDepositsUsdt = wallet.lifetimeDepositsUsdt ?? 0;
-        const existingPayout = existingWeeklyPayoutByUserId.get(userId);
-        const existingCurrentPeriodAmountUsdt = existingPayout?.amountUsdt ?? 0;
-        const earnedOrQueuedUsdt = Math.max(
-          0,
-          roundUsdt(
-            (rewardPayoutTotalsByUserId.get(userId) ?? 0) - existingCurrentPeriodAmountUsdt,
-          ),
-        );
         const maxEarningUsdt = roundUsdt(lifetimeDepositsUsdt * TOTAL_REWARD_EARNING_MULTIPLIER);
-        const remainingEarningUsdt = roundUsdt(maxEarningUsdt - earnedOrQueuedUsdt);
-        const tier =
-          activeTiers.find(
-            (candidate) =>
-              lifetimeDepositsUsdt >= candidate.minUsdt &&
-              lifetimeDepositsUsdt <= candidate.maxUsdt,
-          ) ?? (highestTier && lifetimeDepositsUsdt > highestTier.maxUsdt ? highestTier : null);
-
-        if (!tier) {
-          return null;
-        }
-
-        const payoutPercent = getReturnPercent(tier, input.returnStrategy);
-        const payoutPrincipalUsdt = Math.min(lifetimeDepositsUsdt, tier.maxUsdt);
-        const uncappedAmountUsdt = roundUsdt((payoutPrincipalUsdt * payoutPercent) / 100);
-        const amountUsdt = roundUsdt(Math.min(uncappedAmountUsdt, remainingEarningUsdt));
-
-        if (amountUsdt <= 0) {
-          return null;
-        }
-
-        const capNote =
-          amountUsdt < uncappedAmountUsdt
-            ? ` Capped by ${TOTAL_REWARD_EARNING_MULTIPLIER}x total earning limit.`
-            : "";
-
-        return {
-          amountUsdt,
-          notes: `Weekly payout ${tier.tier} ${formatPeriodDate(periodStart)} to ${formatPeriodDate(periodEnd)} (${payoutPercent}%).${capNote}`,
-          payoutPercent,
-          payoutPeriodEnd: periodEnd,
-          payoutPeriodStart: periodStart,
-          payoutPrincipalUsdt,
-          payoutTier: tier.tier,
-          userId,
-        };
-      })
-      .filter((payout): payout is NonNullable<typeof payout> => Boolean(payout));
-    const payoutsToCreate: typeof payoutCandidates = [];
-    const payoutsToUpdate: Array<(typeof payoutCandidates)[number] & { transactionId: string }> =
-      [];
-
-    for (const payout of payoutCandidates) {
-      const existingPayout = existingWeeklyPayoutByUserId.get(payout.userId);
-
-      if (!existingPayout) {
-        payoutsToCreate.push(payout);
-        continue;
+        const earnedOrQueuedUsdt = rewardPayoutTotalsByUserId.get(userId) ?? 0;
+        const remainingEarningUsdt = Math.max(0, roundUsdt(maxEarningUsdt - earnedOrQueuedUsdt));
+        remainingCapacityMap.set(userId, remainingEarningUsdt);
       }
 
-      if (existingPayout.status === "pending" && hasWeeklyPayoutChanged(existingPayout, payout)) {
-        payoutsToUpdate.push({
-          ...payout,
-          transactionId: String(existingPayout._id),
+      for (let d = 0; d < 7; d++) {
+        const dayDate = new Date(periodStart);
+        dayDate.setUTCDate(dayDate.getUTCDate() - (6 - d));
+
+        const dayStart = new Date(dayDate);
+        dayStart.setUTCHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayDate);
+        dayEnd.setUTCHours(23, 59, 59, 999);
+
+        // Fetch existing payouts for this specific day to avoid double generation
+        const dayWeeklyPayouts = await adminRepository.listWeeklyPayoutsForPeriod({
+          payoutPeriodEnd: dayEnd,
+          payoutPeriodStart: dayStart,
         });
+        const dayWeeklyPayoutByUserId = new Map(
+          dayWeeklyPayouts.map((payout) => [String(payout.userId), payout as AdminPayoutRecord]),
+        );
+
+        const payoutCandidates = eligibleWallets
+          .map((wallet) => {
+            const userId = String(wallet.userId);
+            const lifetimeDepositsUsdt = wallet.lifetimeDepositsUsdt ?? 0;
+            const existingPayout = dayWeeklyPayoutByUserId.get(userId);
+            
+            const existingAmount = existingPayout?.amountUsdt ?? 0;
+            const remainingEarningUsdt = roundUsdt((remainingCapacityMap.get(userId) ?? 0) + existingAmount);
+
+            const tier =
+              activeTiers.find(
+                (candidate) =>
+                  lifetimeDepositsUsdt >= candidate.minUsdt &&
+                  lifetimeDepositsUsdt <= candidate.maxUsdt,
+              ) ?? (highestTier && lifetimeDepositsUsdt > highestTier.maxUsdt ? highestTier : null);
+
+            if (!tier) {
+              return null;
+            }
+
+            const payoutPercent = getReturnPercent(tier, input.returnStrategy);
+            const payoutPrincipalUsdt = Math.min(lifetimeDepositsUsdt, tier.maxUsdt);
+            const dailyRoiPercent = payoutPercent / 7;
+            const uncappedAmountUsdt = roundUsdt((payoutPrincipalUsdt * dailyRoiPercent) / 100);
+            const amountUsdt = roundUsdt(Math.min(uncappedAmountUsdt, remainingEarningUsdt));
+
+            if (amountUsdt <= 0) {
+              return null;
+            }
+
+            remainingCapacityMap.set(userId, roundUsdt(remainingEarningUsdt - amountUsdt));
+
+            const capNote =
+              amountUsdt < uncappedAmountUsdt
+                ? ` Capped by ${TOTAL_REWARD_EARNING_MULTIPLIER}x total earning limit.`
+                : "";
+
+            return {
+              amountUsdt,
+              notes: `Daily ROI ${tier.tier} ${formatPeriodDate(dayStart)} (${dailyRoiPercent.toFixed(4)}%).${capNote}`,
+              payoutPercent: roundUsdt(dailyRoiPercent),
+              payoutPeriodEnd: dayEnd,
+              payoutPeriodStart: dayStart,
+              payoutPrincipalUsdt,
+              payoutTier: tier.tier,
+              userId,
+            };
+          })
+          .filter((payout): payout is NonNullable<typeof payout> => Boolean(payout));
+
+        const payoutsToCreate: typeof payoutCandidates = [];
+        const payoutsToUpdate: Array<(typeof payoutCandidates)[number] & { transactionId: string }> = [];
+
+        for (const payout of payoutCandidates) {
+          const existingPayout = dayWeeklyPayoutByUserId.get(payout.userId);
+
+          if (!existingPayout) {
+            payoutsToCreate.push(payout);
+            continue;
+          }
+
+          if (existingPayout.status === "pending" && hasWeeklyPayoutChanged(existingPayout, payout)) {
+            payoutsToUpdate.push({
+              ...payout,
+              transactionId: String(existingPayout._id),
+            });
+          }
+        }
+
+        const [created, updatedResults] = await Promise.all([
+          payoutsToCreate.length ? adminRepository.createPayoutTransactions(payoutsToCreate) : [],
+          Promise.all(
+            payoutsToUpdate.map((payout) => adminRepository.updatePendingWeeklyPayout(payout)),
+          ),
+        ]);
+        
+        createdPayouts.push(...created);
+        updatedPayouts.push(...updatedResults.filter(Boolean));
       }
+      allRoiPayouts = [...createdPayouts, ...updatedPayouts];
     }
 
-    const [createdPayouts, updatedPayoutResults] = await Promise.all([
-      payoutsToCreate.length ? adminRepository.createPayoutTransactions(payoutsToCreate) : [],
-      Promise.all(
-        payoutsToUpdate.map((payout) => adminRepository.updatePendingWeeklyPayout(payout)),
-      ),
-    ]);
-    const updatedPayouts = updatedPayoutResults.filter(Boolean);
-    const salaryRoyaltyPeriod = getSalaryRoyaltyPeriod(periodStart);
-    const salaryRoyaltyPayouts = await rewardService.generateSalaryRoyaltyRewards({
-      periodEnd: salaryRoyaltyPeriod.end,
-      periodStart: salaryRoyaltyPeriod.start,
-    });
-    const allGeneratedPayouts = [...createdPayouts, ...updatedPayouts, ...salaryRoyaltyPayouts];
+    // 2. Generate Daily Level Income
+    let createdLevelPayouts: any[] = [];
+    let updatedLevelPayouts: any[] = [];
+    let allLevelPayouts: any[] = [];
+
+    if (payoutType === "level") {
+      // Fetch all active daily ROI transactions for the day (to compute Level Income based on them)
+      const allDailyRoisForDay = await TransactionModel.find({
+        payoutKind: "weekly",
+        payoutPeriodStart: periodStart,
+        payoutPeriodEnd: periodEnd,
+        type: "reward",
+      }).lean();
+
+      const levelRules = [...ruleSet.levelIncomeRules]
+        .filter((rule) => rule.isActive !== false)
+        .sort((ruleA, ruleB) => ruleA.level - ruleB.level);
+      const maxLevel = Math.max(0, ...levelRules.map((rule) => rule.level));
+
+      const referrals = await ReferralModel.find({
+        userId: { $in: allDailyRoisForDay.map((r) => r.userId) },
+      }).lean();
+      const referralMap = new Map(referrals.map((r) => [String(r.userId), r]));
+
+      const allSponsorIds = new Set<string>();
+      for (const roiTx of allDailyRoisForDay) {
+        const ref = referralMap.get(String(roiTx.userId));
+        if (ref) {
+          const path = (ref.path ?? []).map((entry) => String(entry));
+          const sponsors = path.slice().reverse().slice(0, maxLevel);
+          for (const spId of sponsors) {
+            allSponsorIds.add(spId);
+          }
+        }
+      }
+
+      const activeSponsorUsers = await UserModel.find({
+        _id: { $in: [...allSponsorIds].map((id) => new Types.ObjectId(id)) },
+        role: "user",
+        status: "active",
+      }).select("_id").lean();
+      const activeSponsorIdSet = new Set(activeSponsorUsers.map((u) => String(u._id)));
+
+      const [sponsorPrincipalTotals, sponsorRewardTotals] = await Promise.all([
+        UserPlanPurchaseModel.aggregate([
+          {
+            $match: {
+              amountUsdt: { $gt: 0 },
+              status: "active",
+              userId: { $in: [...activeSponsorIdSet].map((id) => new Types.ObjectId(id)) },
+            },
+          },
+          { $group: { _id: "$userId", principalUsdt: { $sum: "$amountUsdt" } } },
+        ]),
+        TransactionModel.aggregate([
+          {
+            $match: {
+              payoutKind: { $in: TOTAL_REWARD_PAYOUT_KINDS },
+              status: { $in: TOTAL_REWARD_GENERATION_STATUSES },
+              type: "reward",
+              userId: { $in: [...activeSponsorIdSet].map((id) => new Types.ObjectId(id)) },
+            },
+          },
+          { $group: { _id: "$userId", amountUsdt: { $sum: "$amountUsdt" } } },
+        ]),
+      ]);
+
+      const sponsorPrincipalMap = new Map(sponsorPrincipalTotals.map((t) => [String(t._id), t.principalUsdt ?? 0]));
+      const sponsorRewardsMap = new Map(sponsorRewardTotals.map((t) => [String(t._id), t.amountUsdt ?? 0]));
+
+      const remainingCapacityBySponsor = new Map<string, number>();
+      for (const spId of activeSponsorIdSet) {
+        const principal = sponsorPrincipalMap.get(spId) ?? 0;
+        const rewards = sponsorRewardsMap.get(spId) ?? 0;
+        const remaining = Math.max(0, roundUsdt(principal * TOTAL_REWARD_EARNING_MULTIPLIER - rewards));
+        remainingCapacityBySponsor.set(spId, remaining);
+      }
+
+      const existingLevelPayouts = await TransactionModel.find({
+        payoutKind: "level",
+        payoutPeriodStart: periodStart,
+        payoutPeriodEnd: periodEnd,
+        type: "reward",
+      }).lean();
+      const existingLevelPayoutMap = new Map(
+        existingLevelPayouts.map((p) => [
+          `${String(p.userId)}:${String(p.payoutSourceTransactionId)}`,
+          p as AdminPayoutRecord,
+        ]),
+      );
+
+      const levelPayoutsToCreate: any[] = [];
+      const levelPayoutsToUpdate: any[] = [];
+
+      // For downline usernames
+      const downlineUserIds = allDailyRoisForDay.map(r => r.userId);
+      const downlineUsers = await UserModel.find({ _id: { $in: downlineUserIds } }).select("username").lean();
+      const downlineUsernameMap = new Map(downlineUsers.map(u => [String(u._id), u.username]));
+
+      for (const roiTx of allDailyRoisForDay) {
+        const downlineUserId = String(roiTx.userId);
+        const dailyRoiAmount = roiTx.amountUsdt ?? 0;
+        const ref = referralMap.get(downlineUserId);
+        if (!ref) {
+          continue;
+        }
+
+        const path = (ref.path ?? []).map((entry) => String(entry));
+        const sponsors = path
+          .slice()
+          .reverse()
+          .slice(0, maxLevel)
+          .map((sponsorUserId, index) => ({
+            levelNum: index + 1,
+            sponsorUserId,
+          }));
+
+        for (const { levelNum, sponsorUserId } of sponsors) {
+          if (!activeSponsorIdSet.has(sponsorUserId)) {
+            continue;
+          }
+
+          const rule = levelRules.find((r) => r.level === levelNum);
+          if (!rule) {
+            continue;
+          }
+
+          const uncappedLevelIncome = roundUsdt((dailyRoiAmount * rule.percent) / 100);
+          const remainingCapacity = remainingCapacityBySponsor.get(sponsorUserId) ?? 0;
+
+          const existingKey = `${sponsorUserId}:${String(roiTx._id)}`;
+          const existingLevelPayout = existingLevelPayoutMap.get(existingKey);
+          
+          const existingAmount = existingLevelPayout?.amountUsdt ?? 0;
+          const totalRemaining = roundUsdt(remainingCapacity + existingAmount);
+          
+          const amountUsdt = roundUsdt(Math.min(uncappedLevelIncome, totalRemaining));
+          if (amountUsdt <= 0) {
+            continue;
+          }
+
+          remainingCapacityBySponsor.set(sponsorUserId, roundUsdt(totalRemaining - amountUsdt));
+
+          const capNote =
+            amountUsdt < uncappedLevelIncome
+              ? ` Capped by ${TOTAL_REWARD_EARNING_MULTIPLIER}x total earning limit.`
+              : "";
+
+          const downlineUsername = downlineUsernameMap.get(downlineUserId) || "downline";
+          const notes = `Daily Level L${levelNum} income from ${downlineUsername} ROI (${rule.percent}%).${capNote}`;
+
+          const payoutData = {
+            amountUsdt,
+            network: "SYSTEM",
+            notes,
+            payoutKind: "level",
+            payoutLevel: levelNum,
+            payoutPercent: rule.percent,
+            payoutPrincipalUsdt: dailyRoiAmount,
+            payoutSourceTransactionId: roiTx._id,
+            payoutSourceUserId: roiTx.userId,
+            payoutTier: `L${levelNum}`,
+            payoutPeriodStart: periodStart,
+            payoutPeriodEnd: periodEnd,
+            status: "pending",
+            type: "reward",
+            userId: sponsorUserId,
+          };
+
+          if (!existingLevelPayout) {
+            levelPayoutsToCreate.push(payoutData);
+          } else if (existingLevelPayout.status === "pending" && existingLevelPayout.amountUsdt !== amountUsdt) {
+            levelPayoutsToUpdate.push({
+              transactionId: String(existingLevelPayout._id),
+              amountUsdt,
+              notes,
+              payoutPercent: rule.percent,
+              payoutPrincipalUsdt: dailyRoiAmount,
+            });
+          }
+        }
+      }
+
+      const [createdLevel, updatedLevelResults] = await Promise.all([
+        levelPayoutsToCreate.length ? TransactionModel.insertMany(levelPayoutsToCreate, { ordered: false }) : [],
+        Promise.all(
+          levelPayoutsToUpdate.map((p) =>
+            TransactionModel.findOneAndUpdate(
+              { _id: p.transactionId, payoutKind: "level", status: "pending", type: "reward" },
+              {
+                $set: {
+                  amountUsdt: p.amountUsdt,
+                  notes: p.notes,
+                  payoutPercent: p.payoutPercent,
+                  payoutPrincipalUsdt: p.payoutPrincipalUsdt,
+                },
+              },
+              { new: true }
+            ).lean()
+          )
+        )
+      ]);
+      createdLevelPayouts = createdLevel;
+      updatedLevelPayouts = updatedLevelResults.filter(Boolean);
+      allLevelPayouts = [...createdLevelPayouts, ...updatedLevelPayouts];
+    }
+
+    // 3. Generate Weekly Royalty (every Friday)
+    let salaryRoyaltyPayouts: any[] = [];
+
+    if (payoutType === "royalty" && isFriday) {
+      const royaltyCutoff = new Date(periodStart);
+      royaltyCutoff.setUTCDate(royaltyCutoff.getUTCDate() - 7);
+      royaltyCutoff.setUTCHours(13, 0, 0, 0); // Previous Friday 13:00 UTC (21:00 SGT)
+
+      const royaltyPeriodStart = new Date(periodStart);
+      royaltyPeriodStart.setUTCDate(royaltyPeriodStart.getUTCDate() - 6);
+      const royaltyPeriodEnd = periodEnd;
+
+      salaryRoyaltyPayouts = await rewardService.generateSalaryRoyaltyRewards({
+        periodStart: royaltyPeriodStart,
+        periodEnd: royaltyPeriodEnd,
+        royaltyCutoff,
+      });
+    }
+
+    const allGeneratedPayouts = [...allRoiPayouts, ...allLevelPayouts, ...salaryRoyaltyPayouts];
     const skippedCount = eligibleWallets.length - createdPayouts.length - updatedPayouts.length;
 
     await adminRepository.recordAuditLog({
       actorUserId: input.adminUserId,
       action: "admin.payouts.generated",
       entityType: "weekly_payout",
-      entityId: `${formatPeriodDate(periodStart)}:${formatPeriodDate(periodEnd)}`,
+      entityId: `${formatPeriodDate(periodStart)}`,
       ipAddress: input.ipAddress,
       metadata: {
-        createdCount: createdPayouts.length + salaryRoyaltyPayouts.length,
+        createdCount: allGeneratedPayouts.length,
         eligibleCount: eligibleWallets.length,
         salaryRoyaltyCreatedCount: salaryRoyaltyPayouts.length,
+        levelCreatedCount: allLevelPayouts.length,
         skippedCount,
         weeklyCreatedCount: createdPayouts.length,
         weeklyUpdatedCount: updatedPayouts.length,
@@ -678,11 +953,12 @@ export class AdminService {
     });
 
     return {
-      createdCount: createdPayouts.length + salaryRoyaltyPayouts.length,
+      createdCount: allGeneratedPayouts.length,
       eligibleCount: eligibleWallets.length,
       salaryRoyaltyCreatedCount: salaryRoyaltyPayouts.length,
+      levelCreatedCount: allLevelPayouts.length,
       skippedCount,
-      updatedCount: updatedPayouts.length,
+      updatedCount: updatedPayouts.length + updatedLevelPayouts.length,
       weeklyCreatedCount: createdPayouts.length,
       weeklyUpdatedCount: updatedPayouts.length,
       period: {
