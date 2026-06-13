@@ -21,7 +21,7 @@ async function testPlatformReserve() {
   console.log("\n=== ALL TRANSACTIONS (by type & status) ===");
   for (const t of allTransactions) {
     console.log(
-      `  ${t._id.type} | ${t._id.status} | count: ${t.count} | total: ${t.totalUsdt.toFixed(2)} USDT`
+      `  ${t._id.type} | ${t._id.status} | count: ${t.count} | total: ${t.totalUsdt.toFixed(2)} USDT`,
     );
   }
 
@@ -114,7 +114,9 @@ async function testPlatformReserve() {
     console.log(`  availableUsdt:          ${(adminWallet?.availableUsdt ?? 0).toFixed(2)}`);
     console.log(`  lockedUsdt:             ${(adminWallet?.lockedUsdt ?? 0).toFixed(2)}`);
     console.log(`  lifetimeDepositsUsdt:   ${(adminWallet?.lifetimeDepositsUsdt ?? 0).toFixed(2)}`);
-    console.log(`  lifetimeWithdrawalsUsdt:${(adminWallet?.lifetimeWithdrawalsUsdt ?? 0).toFixed(2)}`);
+    console.log(
+      `  lifetimeWithdrawalsUsdt:${(adminWallet?.lifetimeWithdrawalsUsdt ?? 0).toFixed(2)}`,
+    );
     console.log(`  lifetimeRewardsUsdt:    ${(adminWallet?.lifetimeRewardsUsdt ?? 0).toFixed(2)}`);
   }
 

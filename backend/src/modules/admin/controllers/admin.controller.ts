@@ -91,11 +91,7 @@ export const listAdminWithdrawals = catchAsync(async (req: Request, res: Respons
   res
     .status(HTTP_STATUS.OK)
     .json(
-      apiResponse<AdminWithdrawalsResponseDto>(
-        HTTP_STATUS.OK,
-        "Admin withdrawals loaded.",
-        result,
-      ),
+      apiResponse<AdminWithdrawalsResponseDto>(HTTP_STATUS.OK, "Admin withdrawals loaded.", result),
     );
 });
 
@@ -162,9 +158,7 @@ export const generateAdminPayouts = catchAsync(async (req: Request, res: Respons
       );
   } catch (error) {
     if (error instanceof ApiError) {
-      res
-        .status(HTTP_STATUS.OK)
-        .json(apiErrorResponse(error.statusCode, error.message));
+      res.status(HTTP_STATUS.OK).json(apiErrorResponse(error.statusCode, error.message));
       return;
     }
     throw error;
@@ -223,11 +217,7 @@ export const reviewAdminWithdrawal = catchAsync(async (req: Request, res: Respon
   res
     .status(HTTP_STATUS.OK)
     .json(
-      apiResponse<AdminWithdrawalReviewResponseDto>(
-        HTTP_STATUS.OK,
-        "Withdrawal reviewed.",
-        result,
-      ),
+      apiResponse<AdminWithdrawalReviewResponseDto>(HTTP_STATUS.OK, "Withdrawal reviewed.", result),
     );
 });
 

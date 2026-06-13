@@ -201,10 +201,7 @@ async function expireOldIntent(intent: PaymentIntentRecord) {
 }
 
 const NETWORK_RPC_ENDPOINTS: Record<PaymentNetwork, string[]> = {
-  BEP20: [
-    env.BSC_PRIMARY_RPC_URL,
-    env.BSC_BACKUP_RPC_URL,
-  ],
+  BEP20: [env.BSC_PRIMARY_RPC_URL, env.BSC_BACKUP_RPC_URL],
 };
 
 async function fetchRpc(url: string, method: string, params: any[]): Promise<any> {
@@ -233,7 +230,11 @@ async function fetchRpc(url: string, method: string, params: any[]): Promise<any
   return json.result;
 }
 
-async function callRpcWithFallback(network: PaymentNetwork, method: string, params: any[]): Promise<any> {
+async function callRpcWithFallback(
+  network: PaymentNetwork,
+  method: string,
+  params: any[],
+): Promise<any> {
   const endpoints = NETWORK_RPC_ENDPOINTS[network];
   let lastError: any = null;
 
@@ -261,11 +262,9 @@ async function verifyUSDTTransfer(input: {
   expectedAmountUnits: string;
 }): Promise<VerificationResult> {
   try {
-    const receipt = await callRpcWithFallback(
-      input.network,
-      "eth_getTransactionReceipt",
-      [input.txnHash],
-    );
+    const receipt = await callRpcWithFallback(input.network, "eth_getTransactionReceipt", [
+      input.txnHash,
+    ]);
 
     if (!receipt) {
       return {
@@ -275,11 +274,7 @@ async function verifyUSDTTransfer(input: {
     }
 
     const status = receipt.status;
-    const isSuccess =
-      status === "0x1" ||
-      status === 1 ||
-      status === "1" ||
-      status === true;
+    const isSuccess = status === "0x1" || status === 1 || status === "1" || status === true;
 
     if (!isSuccess) {
       return {
@@ -326,7 +321,7 @@ async function verifyUSDTTransfer(input: {
       }
 
       const senderAddress = "0x" + topics[1].slice(-40).toLowerCase();
-      
+
       let logIndexDecimal = "0";
       if (log.logIndex !== undefined && log.logIndex !== null) {
         const indexStr = String(log.logIndex);

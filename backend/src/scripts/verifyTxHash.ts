@@ -1,5 +1,8 @@
 import dotenv from "dotenv";
-import { PAYMENT_NETWORK_CONFIGS, type PaymentNetwork } from "../modules/payments/constants/payment-networks";
+import {
+  PAYMENT_NETWORK_CONFIGS,
+  type PaymentNetwork,
+} from "../modules/payments/constants/payment-networks";
 
 dotenv.config();
 
@@ -36,7 +39,11 @@ async function fetchRpc(url: string, method: string, params: any[]): Promise<any
   return json.result;
 }
 
-async function callRpcWithFallback(network: PaymentNetwork, method: string, params: any[]): Promise<any> {
+async function callRpcWithFallback(
+  network: PaymentNetwork,
+  method: string,
+  params: any[],
+): Promise<any> {
   const endpoints = NETWORK_RPC_ENDPOINTS[network];
   let lastError: any = null;
 
@@ -80,7 +87,9 @@ async function main() {
   const network = (args.network?.trim() || "BEP20") as PaymentNetwork;
 
   if (!txnHash) {
-    console.error("Error: --hash parameter is required. E.g., npx tsx src/scripts/verifyTxHash.ts --hash=0x...");
+    console.error(
+      "Error: --hash parameter is required. E.g., npx tsx src/scripts/verifyTxHash.ts --hash=0x...",
+    );
     process.exit(1);
   }
 
@@ -90,8 +99,10 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`Verifying transaction ${txnHash} on network ${network} (${networkConfig.chainName})`);
-  
+  console.log(
+    `Verifying transaction ${txnHash} on network ${network} (${networkConfig.chainName})`,
+  );
+
   try {
     const receipt = await callRpcWithFallback(network, "eth_getTransactionReceipt", [txnHash]);
     if (!receipt) {
@@ -100,7 +111,11 @@ async function main() {
     }
 
     console.log("Transaction Receipt Status:", receipt.status);
-    const isSuccess = receipt.status === "0x1" || receipt.status === 1 || receipt.status === "1" || receipt.status === true;
+    const isSuccess =
+      receipt.status === "0x1" ||
+      receipt.status === 1 ||
+      receipt.status === "1" ||
+      receipt.status === true;
     console.log("Status is successful:", isSuccess);
 
     const logs = receipt.logs || [];
@@ -113,7 +128,7 @@ async function main() {
       const topics = log.topics || [];
       console.log(`\nLog #${i}:`);
       console.log(`  Contract address: ${log.address}`);
-      
+
       if (topics[0]?.toLowerCase() === transferTopic) {
         console.log("  Detected Transfer Event (ERC20):");
         if (topics.length >= 3) {
@@ -130,8 +145,11 @@ async function main() {
           console.log(`    From:     ${from}`);
           console.log(`    To:       ${to}`);
           console.log(`    Amount:   ${valueUnits} (raw units)`);
-          
-          const decimals = log.address.toLowerCase() === networkConfig.tokenContract.toLowerCase() ? networkConfig.tokenDecimals : 18;
+
+          const decimals =
+            log.address.toLowerCase() === networkConfig.tokenContract.toLowerCase()
+              ? networkConfig.tokenDecimals
+              : 18;
           const valueUsdt = Number(valueUnits) / Math.pow(10, decimals);
           console.log(`    Value:    ${valueUsdt} USDT (assuming ${decimals} decimals)`);
         } else {

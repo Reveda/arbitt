@@ -540,7 +540,15 @@ export class AdminService {
       Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate()),
     );
     const periodEnd = new Date(
-      Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate(), 23, 59, 59, 999),
+      Date.UTC(
+        payoutDate.getUTCFullYear(),
+        payoutDate.getUTCMonth(),
+        payoutDate.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
     );
     const periodCutoff = periodEnd;
     const eligibleUntil = periodStart;
@@ -586,8 +594,8 @@ export class AdminService {
 
     const highestTier = activeTiers[activeTiers.length - 1];
 
-    let createdPayouts: any[] = [];
-    let updatedPayouts: any[] = [];
+    const createdPayouts: any[] = [];
+    const updatedPayouts: any[] = [];
     let allRoiPayouts: any[] = [];
 
     // 1. Generate Daily ROI (7 days of the week ending on the selected Friday)
@@ -625,9 +633,11 @@ export class AdminService {
             const userId = String(wallet.userId);
             const lifetimeDepositsUsdt = wallet.lifetimeDepositsUsdt ?? 0;
             const existingPayout = dayWeeklyPayoutByUserId.get(userId);
-            
+
             const existingAmount = existingPayout?.amountUsdt ?? 0;
-            const remainingEarningUsdt = roundUsdt((remainingCapacityMap.get(userId) ?? 0) + existingAmount);
+            const remainingEarningUsdt = roundUsdt(
+              (remainingCapacityMap.get(userId) ?? 0) + existingAmount,
+            );
 
             const tier =
               activeTiers.find(
@@ -671,7 +681,9 @@ export class AdminService {
           .filter((payout): payout is NonNullable<typeof payout> => Boolean(payout));
 
         const payoutsToCreate: typeof payoutCandidates = [];
-        const payoutsToUpdate: Array<(typeof payoutCandidates)[number] & { transactionId: string }> = [];
+        const payoutsToUpdate: Array<
+          (typeof payoutCandidates)[number] & { transactionId: string }
+        > = [];
 
         for (const payout of payoutCandidates) {
           const existingPayout = dayWeeklyPayoutByUserId.get(payout.userId);
@@ -681,7 +693,10 @@ export class AdminService {
             continue;
           }
 
-          if (existingPayout.status === "pending" && hasWeeklyPayoutChanged(existingPayout, payout)) {
+          if (
+            existingPayout.status === "pending" &&
+            hasWeeklyPayoutChanged(existingPayout, payout)
+          ) {
             payoutsToUpdate.push({
               ...payout,
               transactionId: String(existingPayout._id),
@@ -695,7 +710,7 @@ export class AdminService {
             payoutsToUpdate.map((payout) => adminRepository.updatePendingWeeklyPayout(payout)),
           ),
         ]);
-        
+
         createdPayouts.push(...created);
         updatedPayouts.push(...updatedResults.filter(Boolean));
       }
@@ -742,7 +757,9 @@ export class AdminService {
         _id: { $in: [...allSponsorIds].map((id) => new Types.ObjectId(id)) },
         role: "user",
         status: "active",
-      }).select("_id").lean();
+      })
+        .select("_id")
+        .lean();
       const activeSponsorIdSet = new Set(activeSponsorUsers.map((u) => String(u._id)));
 
       const [sponsorPrincipalTotals, sponsorRewardTotals] = await Promise.all([
@@ -769,14 +786,21 @@ export class AdminService {
         ]),
       ]);
 
-      const sponsorPrincipalMap = new Map(sponsorPrincipalTotals.map((t) => [String(t._id), t.principalUsdt ?? 0]));
-      const sponsorRewardsMap = new Map(sponsorRewardTotals.map((t) => [String(t._id), t.amountUsdt ?? 0]));
+      const sponsorPrincipalMap = new Map(
+        sponsorPrincipalTotals.map((t) => [String(t._id), t.principalUsdt ?? 0]),
+      );
+      const sponsorRewardsMap = new Map(
+        sponsorRewardTotals.map((t) => [String(t._id), t.amountUsdt ?? 0]),
+      );
 
       const remainingCapacityBySponsor = new Map<string, number>();
       for (const spId of activeSponsorIdSet) {
         const principal = sponsorPrincipalMap.get(spId) ?? 0;
         const rewards = sponsorRewardsMap.get(spId) ?? 0;
-        const remaining = Math.max(0, roundUsdt(principal * TOTAL_REWARD_EARNING_MULTIPLIER - rewards));
+        const remaining = Math.max(
+          0,
+          roundUsdt(principal * TOTAL_REWARD_EARNING_MULTIPLIER - rewards),
+        );
         remainingCapacityBySponsor.set(spId, remaining);
       }
 
@@ -797,9 +821,11 @@ export class AdminService {
       const levelPayoutsToUpdate: any[] = [];
 
       // For downline usernames
-      const downlineUserIds = allDailyRoisForDay.map(r => r.userId);
-      const downlineUsers = await UserModel.find({ _id: { $in: downlineUserIds } }).select("username").lean();
-      const downlineUsernameMap = new Map(downlineUsers.map(u => [String(u._id), u.username]));
+      const downlineUserIds = allDailyRoisForDay.map((r) => r.userId);
+      const downlineUsers = await UserModel.find({ _id: { $in: downlineUserIds } })
+        .select("username")
+        .lean();
+      const downlineUsernameMap = new Map(downlineUsers.map((u) => [String(u._id), u.username]));
 
       for (const roiTx of allDailyRoisForDay) {
         const downlineUserId = String(roiTx.userId);
@@ -834,10 +860,10 @@ export class AdminService {
 
           const existingKey = `${sponsorUserId}:${String(roiTx._id)}`;
           const existingLevelPayout = existingLevelPayoutMap.get(existingKey);
-          
+
           const existingAmount = existingLevelPayout?.amountUsdt ?? 0;
           const totalRemaining = roundUsdt(remainingCapacity + existingAmount);
-          
+
           const amountUsdt = roundUsdt(Math.min(uncappedLevelIncome, totalRemaining));
           if (amountUsdt <= 0) {
             continue;
@@ -873,7 +899,10 @@ export class AdminService {
 
           if (!existingLevelPayout) {
             levelPayoutsToCreate.push(payoutData);
-          } else if (existingLevelPayout.status === "pending" && existingLevelPayout.amountUsdt !== amountUsdt) {
+          } else if (
+            existingLevelPayout.status === "pending" &&
+            existingLevelPayout.amountUsdt !== amountUsdt
+          ) {
             levelPayoutsToUpdate.push({
               transactionId: String(existingLevelPayout._id),
               amountUsdt,
@@ -886,7 +915,9 @@ export class AdminService {
       }
 
       const [createdLevel, updatedLevelResults] = await Promise.all([
-        levelPayoutsToCreate.length ? TransactionModel.insertMany(levelPayoutsToCreate, { ordered: false }) : [],
+        levelPayoutsToCreate.length
+          ? TransactionModel.insertMany(levelPayoutsToCreate, { ordered: false })
+          : [],
         Promise.all(
           levelPayoutsToUpdate.map((p) =>
             TransactionModel.findOneAndUpdate(
@@ -899,10 +930,10 @@ export class AdminService {
                   payoutPrincipalUsdt: p.payoutPrincipalUsdt,
                 },
               },
-              { new: true }
-            ).lean()
-          )
-        )
+              { new: true },
+            ).lean(),
+          ),
+        ),
       ]);
       createdLevelPayouts = createdLevel;
       updatedLevelPayouts = updatedLevelResults.filter(Boolean);
@@ -1076,7 +1107,7 @@ export class AdminService {
     return {
       planPurchase: planPurchase
         ? toPlanPurchaseRequestNode(planPurchase as AdminPlanPurchaseRecord)
-      : toPlanPurchaseRequestNode(reviewedPurchase),
+        : toPlanPurchaseRequestNode(reviewedPurchase),
     };
   }
 

@@ -220,7 +220,10 @@ async function setupM1Structure(parentUserId: string, directsStartIndex: number)
     });
 
     const parentReferral = await ReferralModel.findOne({ userId: parentUserId }).lean();
-    const path = [...(parentReferral?.path?.map((entry) => String(entry)) ?? []), String(parentUserId)];
+    const path = [
+      ...(parentReferral?.path?.map((entry) => String(entry)) ?? []),
+      String(parentUserId),
+    ];
 
     await Promise.all([
       WalletModel.create({
@@ -455,12 +458,12 @@ async function assertTotalRewardCapIncludesLevelAndRoyalty(input: {
   // Qualify sponsor for M1 by setting child and direct01 to 25k USDT each (50k capped volume)
   await UserPlanPurchaseModel.updateOne(
     { userId: input.childUserId },
-    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } }
+    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } },
   );
   const direct01 = await UserModel.findOne({ email: `direct01${testDomain}` });
   await UserPlanPurchaseModel.updateOne(
     { userId: direct01?._id },
-    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } }
+    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } },
   );
 
   await rewardService.generateSalaryRoyaltyRewards({
@@ -483,10 +486,7 @@ async function assertTotalRewardCapIncludesLevelAndRoyalty(input: {
   );
 }
 
-async function assertWithdrawalChargeFlow(input: {
-  adminUserId: string;
-  userId: string;
-}) {
+async function assertWithdrawalChargeFlow(input: { adminUserId: string; userId: string }) {
   await Promise.all([
     TransactionModel.deleteMany({ type: "withdrawal", userId: input.userId }),
     WalletModel.updateOne(
@@ -510,12 +510,20 @@ async function assertWithdrawalChargeFlow(input: {
   assert.equal(withdrawal.chargeUsdt, 10, "Withdrawal charge should be 10%.");
   assert.equal(withdrawal.netAmountUsdt, 90, "Withdrawal net payout should be after 10% charge.");
   assert.equal(withdrawal.amountUsdt, 90, "Withdrawal transaction amount should be net payout.");
-  assert.equal(withdrawal.wallet.availableUsdt, 900, "Withdrawal request should reduce available balance.");
+  assert.equal(
+    withdrawal.wallet.availableUsdt,
+    900,
+    "Withdrawal request should reduce available balance.",
+  );
   assert.equal(withdrawal.wallet.lockedUsdt, 100, "Withdrawal request should lock gross amount.");
 
   const pendingWithdrawal = await TransactionModel.findById(withdrawal.id).lean();
 
-  assert.equal(pendingWithdrawal?.payoutPrincipalUsdt, 100, "Gross amount should be stored on withdrawal.");
+  assert.equal(
+    pendingWithdrawal?.payoutPrincipalUsdt,
+    100,
+    "Gross amount should be stored on withdrawal.",
+  );
   assert.equal(pendingWithdrawal?.payoutPercent, 10, "Withdrawal fee percent should be stored.");
 
   await adminService.reviewWithdrawal({
@@ -526,8 +534,16 @@ async function assertWithdrawalChargeFlow(input: {
 
   const approvedWallet = await WalletModel.findOne({ userId: input.userId }).lean();
 
-  assert.equal(approvedWallet?.availableUsdt, 900, "Approved withdrawal should keep available balance debited.");
-  assert.equal(approvedWallet?.lockedUsdt, 0, "Approved withdrawal should release locked gross amount.");
+  assert.equal(
+    approvedWallet?.availableUsdt,
+    900,
+    "Approved withdrawal should keep available balance debited.",
+  );
+  assert.equal(
+    approvedWallet?.lockedUsdt,
+    0,
+    "Approved withdrawal should release locked gross amount.",
+  );
   assert.equal(
     approvedWallet?.lifetimeWithdrawalsUsdt,
     100,
@@ -547,8 +563,16 @@ async function assertWithdrawalChargeFlow(input: {
 
   const rejectedWallet = await WalletModel.findOne({ userId: input.userId }).lean();
 
-  assert.equal(rejectedWallet?.availableUsdt, 900, "Rejected withdrawal should unlock gross amount.");
-  assert.equal(rejectedWallet?.lockedUsdt, 0, "Rejected withdrawal should leave no withdrawal lock.");
+  assert.equal(
+    rejectedWallet?.availableUsdt,
+    900,
+    "Rejected withdrawal should unlock gross amount.",
+  );
+  assert.equal(
+    rejectedWallet?.lockedUsdt,
+    0,
+    "Rejected withdrawal should leave no withdrawal lock.",
+  );
   assert.equal(
     rejectedWallet?.lifetimeWithdrawalsUsdt,
     100,
@@ -560,12 +584,14 @@ async function assertRoyaltyWeeklyCutoff(
   sponsorUserId: string,
   childUserId: string,
   direct01UserId: string,
-  adminUserId: string
+  adminUserId: string,
 ) {
   // 1. Clean up existing rewards and purchases for these users to isolate our test
   await Promise.all([
     TransactionModel.deleteMany({ userId: { $in: [sponsorUserId, childUserId, direct01UserId] } }),
-    UserPlanPurchaseModel.deleteMany({ userId: { $in: [sponsorUserId, childUserId, direct01UserId] } }),
+    UserPlanPurchaseModel.deleteMany({
+      userId: { $in: [sponsorUserId, childUserId, direct01UserId] },
+    }),
   ]);
 
   // Give sponsor a dummy purchase to be active
@@ -580,7 +606,7 @@ async function assertRoyaltyWeeklyCutoff(
   });
   await WalletModel.updateOne(
     { userId: sponsorUserId },
-    { $set: { availableUsdt: 1000, lifetimeDepositsUsdt: 1000, lockedUsdt: 0 } }
+    { $set: { availableUsdt: 1000, lifetimeDepositsUsdt: 1000, lockedUsdt: 0 } },
   );
 
   // CASE 1: Plan purchased THIS WEEK (i.e. after last Friday 13:00 UTC)
@@ -605,7 +631,7 @@ async function assertRoyaltyWeeklyCutoff(
       tier: "ELITE",
       userId: direct01UserId,
       weeklyReturnPercent: 7,
-    }
+    },
   ]);
 
   // Generate payouts for Friday May 22
@@ -621,10 +647,16 @@ async function assertRoyaltyWeeklyCutoff(
     userId: sponsorUserId,
   }).lean();
 
-  assert.equal(royaltyRewardThisWeek, null, "Sponsor should NOT receive royalty payout this week because plans were purchased after the last Friday cutoff.");
+  assert.equal(
+    royaltyRewardThisWeek,
+    null,
+    "Sponsor should NOT receive royalty payout this week because plans were purchased after the last Friday cutoff.",
+  );
 
   // Clean up transactions from the generation to run CASE 2
-  await TransactionModel.deleteMany({ userId: { $in: [sponsorUserId, childUserId, direct01UserId] } });
+  await TransactionModel.deleteMany({
+    userId: { $in: [sponsorUserId, childUserId, direct01UserId] },
+  });
   await UserPlanPurchaseModel.deleteMany({ userId: { $in: [childUserId, direct01UserId] } });
 
   // CASE 2: Plan purchased BEFORE last Friday's cutoff (e.g. Thursday 2026-05-14)
@@ -646,7 +678,7 @@ async function assertRoyaltyWeeklyCutoff(
       tier: "ELITE",
       userId: direct01UserId,
       weeklyReturnPercent: 7,
-    }
+    },
   ]);
 
   // Generate payouts for Friday May 22
@@ -662,7 +694,10 @@ async function assertRoyaltyWeeklyCutoff(
     userId: sponsorUserId,
   }).lean();
 
-  assert.ok(royaltyRewardEligible, "Sponsor should receive royalty payout this week because plans were purchased before the last Friday cutoff.");
+  assert.ok(
+    royaltyRewardEligible,
+    "Sponsor should receive royalty payout this week because plans were purchased before the last Friday cutoff.",
+  );
   assert.equal(royaltyRewardEligible.payoutTier, "M1", "Royalty should be at M1 tier.");
 }
 
@@ -697,9 +732,9 @@ async function runPayoutLogicTest() {
         userId: adminUser._id,
         lifetimeRewardsUsdt: 0,
         lifetimeWithdrawalsUsdt: 0,
-      }
+      },
     },
-    { upsert: true }
+    { upsert: true },
   );
 
   const usersByEmail = new Map<string, Awaited<ReturnType<typeof createTestUser>>>();
@@ -759,12 +794,12 @@ async function runPayoutLogicTest() {
   // Qualify sponsor for M1 in January by setting child and direct01 to 25k USDT each (50k capped volume)
   await UserPlanPurchaseModel.updateOne(
     { userId: child._id },
-    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } }
+    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } },
   );
   const d01 = usersByEmail.get(`direct01${testDomain}`);
   await UserPlanPurchaseModel.updateOne(
     { userId: d01?._id },
-    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } }
+    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } },
   );
 
   const salaryRewards = await rewardService.generateSalaryRoyaltyRewards({
@@ -788,7 +823,7 @@ async function runPayoutLogicTest() {
   // To test mismatch/non-qualification in February, set child and direct01 purchases back to 100 USDT (team business drops < 50k)
   await UserPlanPurchaseModel.updateMany(
     { userId: { $in: [child._id, d01?._id] } },
-    { $set: { amountUsdt: 100, name: "Initial Pool", tier: "INITIAL", weeklyReturnPercent: 2 } }
+    { $set: { amountUsdt: 100, name: "Initial Pool", tier: "INITIAL", weeklyReturnPercent: 2 } },
   );
 
   const mismatchSalaryRewards = await rewardService.generateSalaryRoyaltyRewards({
@@ -807,7 +842,7 @@ async function runPayoutLogicTest() {
   // Restore child and direct01 purchases to 25k USDT, and build M1 structures under child and direct01 to qualify sponsor for M2 in March
   await UserPlanPurchaseModel.updateMany(
     { userId: { $in: [child._id, d01?._id] } },
-    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } }
+    { $set: { amountUsdt: 25000, name: "Elite Pool", tier: "ELITE", weeklyReturnPercent: 7 } },
   );
   await setupM1Structure(String(child._id), 100);
   await setupM1Structure(String(d01?._id), 200);
@@ -833,7 +868,11 @@ async function runPayoutLogicTest() {
   }).lean();
 
   assert.equal(salaryRewards.length, 1, "Sponsor should receive one M1 royalty reward.");
-  assert.equal(sponsorSalaryReward?.amountUsdt, 1550, "M1 royalty bonus should be 1550 USDT (50 * 31 days).");
+  assert.equal(
+    sponsorSalaryReward?.amountUsdt,
+    1550,
+    "M1 royalty bonus should be 1550 USDT (50 * 31 days).",
+  );
   assert.equal(
     duplicateSalaryRewards.length,
     0,
@@ -874,7 +913,7 @@ async function runPayoutLogicTest() {
     String(sponsor._id),
     String(child._id),
     String(d01?._id),
-    String(adminUser._id)
+    String(adminUser._id),
   );
   await assertWeeklyPayoutStopsAtThreeTimesPrincipal(String(grandchild._id), String(sponsor._id));
 
@@ -893,7 +932,10 @@ async function runPayoutLogicTest() {
 runPayoutLogicTest()
   .catch((error) => {
     console.error(error);
-    logger.error({ error: error instanceof Error ? error.stack : error }, "Payout logic test failed");
+    logger.error(
+      { error: error instanceof Error ? error.stack : error },
+      "Payout logic test failed",
+    );
     process.exitCode = 1;
   })
   .finally(async () => {

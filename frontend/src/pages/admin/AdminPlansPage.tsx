@@ -228,7 +228,9 @@ export function AdminPlansPage() {
                     </td>
                     <td className="px-4 py-4">
                       <p className="font-black text-slate-950">{formatPoolAmount(plan.minUsdt)}</p>
-                      <p className="text-xs font-black text-slate-500">to {formatPoolAmount(plan.maxUsdt)}</p>
+                      <p className="text-xs font-bold text-slate-500">
+                        to <span className="font-black text-slate-950">{formatPoolAmount(plan.maxUsdt)}</span>
+                      </p>
                     </td>
                     <td className="px-4 py-4">
                       <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-black text-orange-700">

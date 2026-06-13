@@ -345,19 +345,20 @@ export class RewardService {
       return [];
     }
 
-    const daysInPeriod = Math.round(
-      (Date.UTC(
-        royaltyPeriod.end.getUTCFullYear(),
-        royaltyPeriod.end.getUTCMonth(),
-        royaltyPeriod.end.getUTCDate(),
-      ) -
-        Date.UTC(
-          royaltyPeriod.start.getUTCFullYear(),
-          royaltyPeriod.start.getUTCMonth(),
-          royaltyPeriod.start.getUTCDate(),
-        )) /
-        (1000 * 60 * 60 * 24),
-    ) + 1;
+    const daysInPeriod =
+      Math.round(
+        (Date.UTC(
+          royaltyPeriod.end.getUTCFullYear(),
+          royaltyPeriod.end.getUTCMonth(),
+          royaltyPeriod.end.getUTCDate(),
+        ) -
+          Date.UTC(
+            royaltyPeriod.start.getUTCFullYear(),
+            royaltyPeriod.start.getUTCMonth(),
+            royaltyPeriod.start.getUTCDate(),
+          )) /
+          (1000 * 60 * 60 * 24),
+      ) + 1;
 
     const walletMatch: Record<string, any> = {
       status: "active",
@@ -468,7 +469,9 @@ export class RewardService {
     for (const ref of sortedReferrals) {
       const userIdStr = String(ref.userId);
       const children = childrenMap.get(userIdStr) ?? [];
-      const legVolumes = children.map((child) => teamVolumeWithOwnMap.get(String(child.userId)) ?? 0);
+      const legVolumes = children.map(
+        (child) => teamVolumeWithOwnMap.get(String(child.userId)) ?? 0,
+      );
       const directCount = children.length;
 
       let qualifiedRank = 0;
