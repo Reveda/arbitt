@@ -17,7 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { ToastMessage, type ToastMessageValue } from "@/components/ui/toast-message";
 import {
   walletService,
@@ -52,10 +51,6 @@ const modalContentClass = "p-4 sm:p-5";
 const modalFooterClass =
   "sticky bottom-0 -mx-4 -mb-4 mt-auto border-t border-slate-100 bg-white/95 p-4 backdrop-blur sm:-mx-5 sm:-mb-5 sm:p-5";
 const compactMetricCardClass = "min-w-0 rounded-2xl border border-slate-200 bg-slate-50 p-4";
-const compactWhiteCardClass = "min-w-0 rounded-2xl border border-slate-200 bg-white p-4";
-const copyButtonClass = "size-9 shrink-0 rounded-xl p-0";
-const hashTextClass =
-  "mt-2 max-w-full break-all font-mono text-[11px] font-bold leading-relaxed text-slate-700 sm:text-xs";
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {

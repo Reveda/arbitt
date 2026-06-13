@@ -83,24 +83,7 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-function getPayoutWeekStartInputValue() {
-  const now = new Date();
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const daysSinceMonday = (start.getUTCDay() + 6) % 7;
-  start.setUTCDate(start.getUTCDate() - daysSinceMonday);
 
-  const periodEnd = new Date(start);
-  periodEnd.setUTCDate(periodEnd.getUTCDate() + 5);
-  periodEnd.setUTCHours(23, 59, 59, 999);
-
-  if (periodEnd.getTime() > now.getTime()) {
-    start.setUTCDate(start.getUTCDate() - 7);
-  }
-
-  return start.toISOString().slice(0, 10);
-}
 
 function getTodayInputValue() {
   const today = new Date();
@@ -160,7 +143,6 @@ function getReturnPercent(tier: InvestmentTierRule, strategy: ReturnStrategy) {
 }
 
 export function AdminPayoutsPage() {
-  const lastCompletedWeekStart = getPayoutWeekStartInputValue();
   const maxSelectableDate = getTodayInputValue();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
