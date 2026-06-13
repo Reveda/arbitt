@@ -312,7 +312,6 @@ async function assertWeeklyPayoutStopsAtThreeTimesPrincipal(userId: string, admi
 
   await adminService.generateWeeklyPayouts({
     adminUserId,
-    returnStrategy: "max",
     payoutType: "roi",
     weekStart: "2026-05-22",
   });
@@ -637,7 +636,6 @@ async function assertRoyaltyWeeklyCutoff(
   // Generate payouts for Friday May 22
   await adminService.generateWeeklyPayouts({
     adminUserId,
-    returnStrategy: "min",
     payoutType: "royalty",
     weekStart: "2026-05-22",
   });
@@ -684,7 +682,6 @@ async function assertRoyaltyWeeklyCutoff(
   // Generate payouts for Friday May 22
   await adminService.generateWeeklyPayouts({
     adminUserId,
-    returnStrategy: "min",
     payoutType: "royalty",
     weekStart: "2026-05-22",
   });

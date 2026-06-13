@@ -709,221 +709,26 @@ export class AdminService {
     let allLevelPayouts: any[] = [];
 
     if (payoutType === "level") {
-      // Fetch all active daily ROI transactions for the day (to compute Level Income based on them)
-      const allDailyRoisForDay = await TransactionModel.find({
-        payoutKind: "weekly",
-        payoutPeriodStart: periodStart,
-        payoutPeriodEnd: periodEnd,
-        type: "reward",
+      const levelPeriodStart = new Date(periodStart);
+      levelPeriodStart.setUTCDate(levelPeriodStart.getUTCDate() - 6);
+      const levelPeriodEnd = periodEnd;
+
+      // Find all completed plan purchases in the selected period (week)
+      const allPurchasesForPeriod = await TransactionModel.find({
+        type: "plan_purchase",
+        status: "completed",
+        createdAt: { $gte: levelPeriodStart, $lte: levelPeriodEnd },
       }).lean();
 
-      const levelRules = [...ruleSet.levelIncomeRules]
-        .filter((rule) => rule.isActive !== false)
-        .sort((ruleA, ruleB) => ruleA.level - ruleB.level);
-      const maxLevel = Math.max(0, ...levelRules.map((rule) => rule.level));
-
-      const referrals = await ReferralModel.find({
-        userId: { $in: allDailyRoisForDay.map((r) => r.userId) },
-      }).lean();
-      const referralMap = new Map(referrals.map((r) => [String(r.userId), r]));
-
-      const allSponsorIds = new Set<string>();
-      for (const roiTx of allDailyRoisForDay) {
-        const ref = referralMap.get(String(roiTx.userId));
-        if (ref) {
-          const path = (ref.path ?? []).map((entry) => String(entry));
-          const sponsors = path.slice().reverse().slice(0, maxLevel);
-          for (const spId of sponsors) {
-            allSponsorIds.add(spId);
-          }
-        }
+      for (const purchase of allPurchasesForPeriod) {
+        const newlyCreated = await rewardService.createLevelIncomeRewardsForPlanPurchase({
+          userId: String(purchase.userId),
+          amountUsdt: purchase.amountUsdt ?? 0,
+          transactionId: String(purchase._id),
+        });
+        createdLevelPayouts.push(...newlyCreated);
       }
-
-      const activeSponsorUsers = await UserModel.find({
-        _id: { $in: [...allSponsorIds].map((id) => new Types.ObjectId(id)) },
-        role: "user",
-        status: "active",
-      })
-        .select("_id")
-        .lean();
-      const activeSponsorIdSet = new Set(activeSponsorUsers.map((u) => String(u._id)));
-
-      const [sponsorPrincipalTotals, sponsorRewardTotals] = await Promise.all([
-        UserPlanPurchaseModel.aggregate([
-          {
-            $match: {
-              amountUsdt: { $gt: 0 },
-              status: "active",
-              userId: { $in: [...activeSponsorIdSet].map((id) => new Types.ObjectId(id)) },
-            },
-          },
-          { $group: { _id: "$userId", principalUsdt: { $sum: "$amountUsdt" } } },
-        ]),
-        TransactionModel.aggregate([
-          {
-            $match: {
-              payoutKind: { $in: TOTAL_REWARD_PAYOUT_KINDS },
-              status: { $in: TOTAL_REWARD_GENERATION_STATUSES },
-              type: "reward",
-              userId: { $in: [...activeSponsorIdSet].map((id) => new Types.ObjectId(id)) },
-            },
-          },
-          { $group: { _id: "$userId", amountUsdt: { $sum: "$amountUsdt" } } },
-        ]),
-      ]);
-
-      const sponsorPrincipalMap = new Map(
-        sponsorPrincipalTotals.map((t) => [String(t._id), t.principalUsdt ?? 0]),
-      );
-      const sponsorRewardsMap = new Map(
-        sponsorRewardTotals.map((t) => [String(t._id), t.amountUsdt ?? 0]),
-      );
-
-      const remainingCapacityBySponsor = new Map<string, number>();
-      for (const spId of activeSponsorIdSet) {
-        const principal = sponsorPrincipalMap.get(spId) ?? 0;
-        const rewards = sponsorRewardsMap.get(spId) ?? 0;
-        const remaining = Math.max(
-          0,
-          roundUsdt(principal * TOTAL_REWARD_EARNING_MULTIPLIER - rewards),
-        );
-        remainingCapacityBySponsor.set(spId, remaining);
-      }
-
-      const existingLevelPayouts = await TransactionModel.find({
-        payoutKind: "level",
-        payoutPeriodStart: periodStart,
-        payoutPeriodEnd: periodEnd,
-        type: "reward",
-      }).lean();
-      const existingLevelPayoutMap = new Map(
-        existingLevelPayouts.map((p) => [
-          `${String(p.userId)}:${String(p.payoutSourceTransactionId)}`,
-          p as AdminPayoutRecord,
-        ]),
-      );
-
-      const levelPayoutsToCreate: any[] = [];
-      const levelPayoutsToUpdate: any[] = [];
-
-      // For downline usernames
-      const downlineUserIds = allDailyRoisForDay.map((r) => r.userId);
-      const downlineUsers = await UserModel.find({ _id: { $in: downlineUserIds } })
-        .select("username")
-        .lean();
-      const downlineUsernameMap = new Map(downlineUsers.map((u) => [String(u._id), u.username]));
-
-      for (const roiTx of allDailyRoisForDay) {
-        const downlineUserId = String(roiTx.userId);
-        const dailyRoiAmount = roiTx.amountUsdt ?? 0;
-        const ref = referralMap.get(downlineUserId);
-        if (!ref) {
-          continue;
-        }
-
-        const path = (ref.path ?? []).map((entry) => String(entry));
-        const sponsors = path
-          .slice()
-          .reverse()
-          .slice(0, maxLevel)
-          .map((sponsorUserId, index) => ({
-            levelNum: index + 1,
-            sponsorUserId,
-          }));
-
-        for (const { levelNum, sponsorUserId } of sponsors) {
-          if (!activeSponsorIdSet.has(sponsorUserId)) {
-            continue;
-          }
-
-          const rule = levelRules.find((r) => r.level === levelNum);
-          if (!rule) {
-            continue;
-          }
-
-          const uncappedLevelIncome = roundUsdt((dailyRoiAmount * rule.percent) / 100);
-          const remainingCapacity = remainingCapacityBySponsor.get(sponsorUserId) ?? 0;
-
-          const existingKey = `${sponsorUserId}:${String(roiTx._id)}`;
-          const existingLevelPayout = existingLevelPayoutMap.get(existingKey);
-
-          const existingAmount = existingLevelPayout?.amountUsdt ?? 0;
-          const totalRemaining = roundUsdt(remainingCapacity + existingAmount);
-
-          const amountUsdt = roundUsdt(Math.min(uncappedLevelIncome, totalRemaining));
-          if (amountUsdt <= 0) {
-            continue;
-          }
-
-          remainingCapacityBySponsor.set(sponsorUserId, roundUsdt(totalRemaining - amountUsdt));
-
-          const capNote =
-            amountUsdt < uncappedLevelIncome
-              ? ` Capped by ${TOTAL_REWARD_EARNING_MULTIPLIER}x total earning limit.`
-              : "";
-
-          const downlineUsername = downlineUsernameMap.get(downlineUserId) || "downline";
-          const notes = `Daily Level L${levelNum} income from ${downlineUsername} ROI (${rule.percent}%).${capNote}`;
-
-          const payoutData = {
-            amountUsdt,
-            network: "SYSTEM",
-            notes,
-            payoutKind: "level",
-            payoutLevel: levelNum,
-            payoutPercent: rule.percent,
-            payoutPrincipalUsdt: dailyRoiAmount,
-            payoutSourceTransactionId: roiTx._id,
-            payoutSourceUserId: roiTx.userId,
-            payoutTier: `L${levelNum}`,
-            payoutPeriodStart: periodStart,
-            payoutPeriodEnd: periodEnd,
-            status: "pending",
-            type: "reward",
-            userId: sponsorUserId,
-          };
-
-          if (!existingLevelPayout) {
-            levelPayoutsToCreate.push(payoutData);
-          } else if (
-            existingLevelPayout.status === "pending" &&
-            existingLevelPayout.amountUsdt !== amountUsdt
-          ) {
-            levelPayoutsToUpdate.push({
-              transactionId: String(existingLevelPayout._id),
-              amountUsdt,
-              notes,
-              payoutPercent: rule.percent,
-              payoutPrincipalUsdt: dailyRoiAmount,
-            });
-          }
-        }
-      }
-
-      const [createdLevel, updatedLevelResults] = await Promise.all([
-        levelPayoutsToCreate.length
-          ? TransactionModel.insertMany(levelPayoutsToCreate, { ordered: false })
-          : [],
-        Promise.all(
-          levelPayoutsToUpdate.map((p) =>
-            TransactionModel.findOneAndUpdate(
-              { _id: p.transactionId, payoutKind: "level", status: "pending", type: "reward" },
-              {
-                $set: {
-                  amountUsdt: p.amountUsdt,
-                  notes: p.notes,
-                  payoutPercent: p.payoutPercent,
-                  payoutPrincipalUsdt: p.payoutPrincipalUsdt,
-                },
-              },
-              { new: true },
-            ).lean(),
-          ),
-        ),
-      ]);
-      createdLevelPayouts = createdLevel;
-      updatedLevelPayouts = updatedLevelResults.filter(Boolean);
-      allLevelPayouts = [...createdLevelPayouts, ...updatedLevelPayouts];
+      allLevelPayouts = createdLevelPayouts;
     }
 
     // 3. Generate Weekly Royalty (every Friday)
