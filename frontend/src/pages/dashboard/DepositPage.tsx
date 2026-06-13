@@ -1073,34 +1073,9 @@ export function DepositPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="rounded-2xl border border-cyan-100 bg-cyan-50/70 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="text-[11px] font-black uppercase text-cyan-700">Payment Status</p>
-                          <p className="mt-1 text-sm font-black capitalize text-slate-950">{depositIntent.status}</p>
-                        </div>
-                        <span
-                          className={cn(
-                            "rounded-full px-3 py-1 text-xs font-black capitalize ring-1",
-                            statusTone(depositIntent.status)
-                          )}
-                        >
-                          {depositIntent.status}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className={compactMetricCardClass}>
-                        <p className="text-[11px] font-black uppercase text-slate-400">Exact Amount</p>
-                        <p className="mt-1 text-sm font-black text-slate-950">{formatUsdt(depositIntent.amountUsdt)}</p>
-                      </div>
-                      <div className={compactMetricCardClass}>
-                        <p className="text-[11px] font-black uppercase text-slate-400">Network</p>
-                        <p className="mt-1 break-words text-sm font-black text-slate-950">
-                          {depositIntent.network} · {depositIntent.gasToken} gas
-                        </p>
-                      </div>
+                    <div className="flex flex-col items-center justify-center rounded-2xl border border-cyan-100 bg-cyan-50/70 p-5">
+                      <p className="text-[11px] font-black uppercase tracking-wider text-cyan-600">Pay Exactly</p>
+                      <p className="mt-1 text-2xl font-black text-slate-950">{formatUsdt(depositIntent.amountUsdt)}</p>
                     </div>
 
                     <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white p-5 shadow-sm space-y-4">

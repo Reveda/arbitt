@@ -68,7 +68,7 @@ export const adminApi = baseApi.injectEndpoints({
     }),
     generateAdminPayouts: builder.mutation<
       ApiResponse<AdminPayoutGenerateResponse>,
-      { returnStrategy: "min" | "average" | "max"; weekStart?: string; payoutType?: "roi" | "level" | "royalty" }
+      { weekStart?: string; payoutType?: "roi" | "level" | "royalty" }
     >({
       query: (body) => ({
         body,

@@ -24,7 +24,6 @@ import { cn } from "@/lib/utils";
 import type { AdminPayout } from "@/services/admin.service";
 import {
   planService,
-  type InvestmentTierRule,
   type PlanRuleSet,
 } from "@/services/plan.service";
 import {
@@ -36,7 +35,7 @@ import { AdminCard, AdminPageHeader } from "./admin.components";
 import { adminPlans as fallbackInvestmentTiers } from "./admin.data";
 
 const PAGE_SIZE = 10;
-type ReturnStrategy = "min" | "average" | "max";
+
 type ReviewAction = "approve" | "reject";
 type ReviewConfirmation = {
   action: ReviewAction;
@@ -130,17 +129,7 @@ function getPayoutKindLabel(kind: string) {
   return "ROI";
 }
 
-function getReturnPercent(tier: InvestmentTierRule, strategy: ReturnStrategy) {
-  if (strategy === "max") {
-    return tier.returnMaxPercent;
-  }
 
-  if (strategy === "average") {
-    return (tier.returnMinPercent + tier.returnMaxPercent) / 2;
-  }
-
-  return tier.returnMinPercent;
-}
 
 export function AdminPayoutsPage() {
   const maxSelectableDate = getTodayInputValue();
@@ -270,7 +259,6 @@ export function AdminPayoutsPage() {
     try {
       const response = await generateAdminPayouts({
         weekStart: selectedPayoutWeekStart || weekStart,
-        returnStrategy: "min",
         payoutType,
       }).unwrap();
 
@@ -458,7 +446,7 @@ export function AdminPayoutsPage() {
                     {tier.name}
                   </span>
                   <span className="text-sm font-black text-slate-950">
-                    {formatPercent(getReturnPercent(tier, "min"))}
+                    {formatPercent(tier.returnMaxPercent)}
                   </span>
                 </div>
               ))}

@@ -671,7 +671,7 @@ export const adminService = {
     return request;
   },
 
-  generatePayouts(input: { weekStart?: string; returnStrategy: "min" | "average" | "max" }) {
+  generatePayouts(input: { weekStart?: string }) {
     overviewCache = null;
     payoutRequests.clear();
 

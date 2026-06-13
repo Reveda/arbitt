@@ -89,7 +89,7 @@ type AdminWalletRecord = {
   updatedAt?: Date | string | null;
 };
 
-type ReturnStrategy = "min" | "average" | "max";
+
 
 const TOTAL_REWARD_EARNING_MULTIPLIER = 3;
 const TOTAL_REWARD_PAYOUT_KINDS = ["weekly", "level", "salary_royalty"];
@@ -285,20 +285,7 @@ function formatPeriodDate(value: Date) {
   return value.toISOString().slice(0, 10);
 }
 
-function getReturnPercent(
-  tier: { weeklyReturnMinPercent: number; weeklyReturnMaxPercent: number },
-  strategy: ReturnStrategy,
-) {
-  if (strategy === "max") {
-    return tier.weeklyReturnMaxPercent;
-  }
 
-  if (strategy === "average") {
-    return roundUsdt((tier.weeklyReturnMinPercent + tier.weeklyReturnMaxPercent) / 2);
-  }
-
-  return tier.weeklyReturnMinPercent;
-}
 
 function hasWeeklyPayoutChanged(
   record: AdminPayoutRecord,
@@ -530,7 +517,6 @@ export class AdminService {
 
   async generateWeeklyPayouts(input: {
     weekStart?: string;
-    returnStrategy: ReturnStrategy;
     payoutType?: "roi" | "level" | "royalty";
     adminUserId: string;
     ipAddress?: string;
@@ -650,7 +636,7 @@ export class AdminService {
               return null;
             }
 
-            const payoutPercent = getReturnPercent(tier, input.returnStrategy);
+            const payoutPercent = tier.weeklyReturnMaxPercent;
             const payoutPrincipalUsdt = Math.min(lifetimeDepositsUsdt, tier.maxUsdt);
             const dailyRoiPercent = payoutPercent / 7;
             const uncappedAmountUsdt = roundUsdt((payoutPrincipalUsdt * dailyRoiPercent) / 100);
@@ -978,7 +964,7 @@ export class AdminService {
         weeklyUpdatedCount: updatedPayouts.length,
         eligibleUntil: eligibleUntil.toISOString(),
         periodCutoff: periodCutoff.toISOString(),
-        returnStrategy: input.returnStrategy,
+
         weekStart: formatPeriodDate(periodStart),
       },
     });

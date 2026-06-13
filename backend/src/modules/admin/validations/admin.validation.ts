@@ -106,7 +106,6 @@ export const reviewAdminWithdrawalBodySchema = reviewAdminPlanPurchaseBodySchema
 
 export const generateAdminPayoutsBodySchema = z.object({
   weekStart: dateFilterSchema,
-  returnStrategy: z.enum(["min", "average", "max"]).default("min"),
   payoutType: z.enum(["roi", "level", "royalty"]).default("roi"),
 });
 

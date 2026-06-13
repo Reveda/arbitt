@@ -141,7 +141,6 @@ export const generateAdminPayouts = catchAsync(async (req: Request, res: Respons
   try {
     const result = await adminService.generateWeeklyPayouts({
       weekStart: body.weekStart,
-      returnStrategy: body.returnStrategy,
       payoutType: body.payoutType,
       adminUserId: req.user!.id,
       ipAddress: req.ip,
