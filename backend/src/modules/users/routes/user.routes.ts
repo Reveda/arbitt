@@ -10,7 +10,12 @@ import {
 import {
   updateTransactionPasswordSchema,
   updateWalletAddressSchema,
+  createSupportTicketSchema,
 } from "../validations/user.validation";
+import {
+  createSupportTicket,
+  listUserSupportTickets,
+} from "../controllers/support.controller";
 
 export const userRoutes = Router();
 
@@ -30,3 +35,19 @@ userRoutes.patch(
   validateRequest({ body: updateTransactionPasswordSchema }),
   updateTransactionPassword,
 );
+
+userRoutes.post(
+  "/support/tickets",
+  requireAuth,
+  requirePermissions("profile:update"),
+  validateRequest({ body: createSupportTicketSchema }),
+  createSupportTicket,
+);
+
+userRoutes.get(
+  "/support/tickets",
+  requireAuth,
+  requirePermissions("profile:read"),
+  listUserSupportTickets,
+);
+

@@ -6,7 +6,6 @@ import {
   Bell,
   ClipboardList,
   CreditCard,
-  Headphones,
   HandCoins,
   LifeBuoy,
   Settings,
@@ -36,8 +35,10 @@ import { WalletPage } from "@/pages/dashboard/WalletPage";
 import { DepositPage } from "@/pages/dashboard/DepositPage";
 import { EarningsPage } from "@/pages/dashboard/EarningsPage";
 import { TransactionsPage } from "@/pages/dashboard/TransactionsPage";
+import { SupportPage } from "@/pages/dashboard/SupportPage";
 import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
 import { AdminModulePage } from "@/pages/admin/AdminModulePage";
+import { AdminSupportPage } from "@/pages/admin/AdminSupportPage";
 import { AdminProfilePage } from "@/pages/admin/AdminProfilePage";
 import { AdminDepositsPage } from "@/pages/admin/AdminDepositsPage";
 import { AdminPayoutsPage } from "@/pages/admin/AdminPayoutsPage";
@@ -128,7 +129,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "support",
-        element: <UserModulePage description="Raise account, payment, and platform support requests." icon={Headphones} title="Support" />
+        element: <SupportPage />
       }
     ]
   },
@@ -177,7 +178,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "support",
-        element: <AdminModulePage description="Handle contact requests, account issues, payment support, and ticket queues." icon={LifeBuoy} title="Support Tickets" />
+        element: <AdminSupportPage />
       },
       {
         path: "notifications",

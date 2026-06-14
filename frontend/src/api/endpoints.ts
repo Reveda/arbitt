@@ -12,7 +12,8 @@ export const API_ENDPOINTS = {
   users: {
     me: "/users/me",
     transactionPassword: "/users/profile/transaction-password",
-    walletAddress: "/users/profile/wallet-address"
+    walletAddress: "/users/profile/wallet-address",
+    supportTickets: "/users/support/tickets"
   },
   admin: {
     overview: "/admin/overview",
@@ -23,7 +24,9 @@ export const API_ENDPOINTS = {
     payouts: "/admin/payouts",
     withdrawals: "/admin/withdrawals",
     wallets: "/admin/wallets",
-    paymentWallet: "/admin/payment-wallet"
+    paymentWallet: "/admin/payment-wallet",
+    supportTickets: "/admin/support/tickets",
+    resolveSupportTicket: (ticketId: string) => `/admin/support/tickets/${ticketId}/resolve`
   },
   wallet: {
     summary: "/wallet/summary",

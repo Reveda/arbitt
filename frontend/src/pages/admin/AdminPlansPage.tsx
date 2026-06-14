@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { CheckCircle2, Gift, Layers3, Network, Percent, ShoppingBag, WalletCards } from "lucide-react";
+import { useEffect, useState } from "react";
+import { CheckCircle2, Gift, Layers3, Network, Percent, WalletCards } from "lucide-react";
 import { AdminCard, AdminPageHeader, MetricCard } from "./admin.components";
 import {
   adminPlans as fallbackInvestmentTiers,
@@ -7,7 +7,7 @@ import {
   salaryRoyaltyRules as fallbackSalaryRoyaltyRules
 } from "./admin.data";
 import { cn } from "@/lib/utils";
-import { adminService, type AdminPlanPurchaseRequest } from "@/services/admin.service";
+import { adminService } from "@/services/admin.service";
 import { planService, type PlanRuleSet } from "@/services/plan.service";
 
 const POOL_UNIT = "USDT";
@@ -66,29 +66,10 @@ function formatWeeklyReturn(min: number, max: number) {
   return min === max ? `${formatNumber(min)}% weekly` : `${formatRange(min, max, "%")} weekly`;
 }
 
-function formatDate(value: string | null) {
-  if (!value) {
-    return "Not available";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
-}
-
-function getUserName(request: AdminPlanPurchaseRequest) {
-  return request.user?.username ?? "Unknown user";
-}
-
 export function AdminPlansPage() {
   const [ruleSet, setRuleSet] = useState<PlanRuleSet | null>(null);
   const [ruleSetError, setRuleSetError] = useState<string | null>(null);
   const [isRuleSetLoading, setIsRuleSetLoading] = useState(true);
-  const [planPurchaseRequests, setPlanPurchaseRequests] = useState<AdminPlanPurchaseRequest[]>([]);
-  const [isPlanPurchasesLoading, setIsPlanPurchasesLoading] = useState(true);
-  const [planPurchaseError, setPlanPurchaseError] = useState<string | null>(null);
   const adminPlans = ruleSet?.investmentTiers ?? fallbackInvestmentTiers;
   const levelIncomeRules = ruleSet?.levelIncomeRules ?? fallbackLevelIncomeRules;
   const salaryRoyaltyRules = ruleSet?.salaryRoyaltyRules ?? fallbackSalaryRoyaltyRules;
@@ -135,29 +116,6 @@ export function AdminPlansPage() {
       active = false;
     };
   }, []);
-
-  const loadPlanPurchaseRequests = useCallback(async () => {
-    setIsPlanPurchasesLoading(true);
-
-    try {
-      const response = await adminService.listPlanPurchases({
-        page: 1,
-        limit: 8,
-        status: "completed",
-      });
-
-      setPlanPurchaseRequests(response.data.planPurchases);
-      setPlanPurchaseError(null);
-    } catch (caughtError) {
-      setPlanPurchaseError(caughtError instanceof Error ? caughtError.message : "Unable to load plan purchase requests.");
-    } finally {
-      setIsPlanPurchasesLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadPlanPurchaseRequests();
-  }, [loadPlanPurchaseRequests]);
 
   const metrics = [
     { title: "ACTIVE TIERS", value: isRuleSetLoading ? "LOADING..." : String(adminPlans.length), icon: Layers3, tone: "cyan" },
@@ -260,94 +218,6 @@ export function AdminPlansPage() {
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      </AdminCard>
-
-      <AdminCard>
-        <div className="flex flex-col gap-2 border-b border-slate-100 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-base font-black text-slate-950">Recent Plan Purchases</h2>
-            <p className="mt-1 text-xs font-semibold text-slate-500">
-              Wallet-funded plan purchases activate automatically after the user buys a plan.
-            </p>
-          </div>
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700">
-            <ShoppingBag className="size-3.5" />
-            {planPurchaseRequests.length} active
-          </span>
-        </div>
-
-        {planPurchaseError ? (
-          <div className="m-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-600">
-            {planPurchaseError}
-          </div>
-        ) : null}
-
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-50/70 text-[11px] uppercase text-slate-500">
-                <th className="px-4 py-3 font-black">User</th>
-                <th className="px-4 py-3 font-black">Plan</th>
-                <th className="px-4 py-3 font-black">Amount</th>
-                <th className="px-4 py-3 font-black">Weekly ROI</th>
-                <th className="px-4 py-3 font-black">Date</th>
-                <th className="px-4 py-3 font-black">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isPlanPurchasesLoading ? (
-                Array.from({ length: 3 }).map((_, rowIndex) => (
-                  <tr className="border-b border-slate-100 last:border-0" key={rowIndex}>
-                    {Array.from({ length: 6 }).map((__, cellIndex) => (
-                      <td className="px-4 py-4" key={cellIndex}>
-                        <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              ) : planPurchaseRequests.length ? (
-                planPurchaseRequests.map((request) => (
-                  <tr className="border-b border-slate-100 last:border-0 hover:bg-cyan-50/30" key={request.id}>
-                    <td className="px-4 py-4">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-cyan-50 text-sm font-black uppercase text-cyan-700 ring-1 ring-cyan-100">
-                          {getUserName(request).charAt(0)}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="truncate font-black text-slate-950">{getUserName(request)}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-4">
-                      <p className="font-black text-slate-950">{request.planName || request.tier || "Investment Pool"}</p>
-                      <p className="text-xs font-semibold text-slate-500">{request.tier ?? "POOL"}</p>
-                    </td>
-                    <td className="px-4 py-4 font-black text-slate-950">{formatPoolAmount(request.amountUsdt)}</td>
-                    <td className="px-4 py-4">
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">
-                        {request.weeklyReturnPercent ?? 0}% weekly
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 text-xs font-semibold text-slate-500">
-                      {formatDate(request.reviewedAt ?? request.createdAt)}
-                    </td>
-                    <td className="px-4 py-4">
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black capitalize text-emerald-700 ring-1 ring-emerald-100">
-                        {request.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td className="px-4 py-10 text-center text-sm font-semibold text-slate-500" colSpan={6}>
-                    No automatic plan purchases yet.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>

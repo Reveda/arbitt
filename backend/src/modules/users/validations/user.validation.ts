@@ -23,3 +23,17 @@ export const updateTransactionPasswordSchema = z
     message: "Transaction passwords do not match.",
     path: ["confirmTransactionPassword"],
   });
+
+export const createSupportTicketSchema = z.object({
+  subject: z
+    .string({ required_error: "Subject is required." })
+    .trim()
+    .min(1, "Subject cannot be empty.")
+    .max(150, "Subject cannot exceed 150 characters."),
+  message: z
+    .string({ required_error: "Message is required." })
+    .trim()
+    .min(1, "Message cannot be empty.")
+    .max(2000, "Message cannot exceed 2000 characters."),
+});
+

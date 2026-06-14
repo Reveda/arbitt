@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -6,8 +6,7 @@ import {
   ChevronRight,
   CircleDollarSign,
   RefreshCw,
-  ShoppingBag,
-  WalletCards
+  ShoppingBag
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -158,10 +157,6 @@ export function TransactionsPage() {
     };
   }, [fromDate, page, status, toDate, type]);
 
-  const currentPageTotal = useMemo(
-    () => transactions.reduce((total, transaction) => total + transaction.amountUsdt, 0),
-    [transactions]
-  );
 
   return (
     <section className="space-y-4">
@@ -180,29 +175,7 @@ export function TransactionsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        {[
-          { label: "Total Records", value: String(pagination.total), icon: WalletCards, tone: "bg-cyan-50 text-cyan-700" },
-          { label: "This Page", value: String(transactions.length), icon: RefreshCw, tone: "bg-violet-50 text-violet-700" },
-          { label: "Page Volume", value: formatUsdt(currentPageTotal), icon: CircleDollarSign, tone: "bg-emerald-50 text-emerald-700" }
-        ].map((item) => {
-          const Icon = item.icon;
 
-          return (
-            <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-sm" key={item.label}>
-              <CardContent className="flex items-center justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-slate-500">{item.label}</p>
-                  <p className="mt-1 truncate text-base font-black text-slate-950 sm:text-lg">{item.value}</p>
-                </div>
-                <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", item.tone)}>
-                  <Icon className="size-4" />
-                </span>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
 
       <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-sm">
         <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_1fr_auto]">

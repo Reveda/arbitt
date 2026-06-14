@@ -8,6 +8,7 @@ import { TransactionModel } from "../../transactions/models/transaction.model";
 import { UserModel } from "../../users/models/user.model";
 import { WalletModel } from "../../wallet/models/wallet.model";
 import { ApiActivityModel } from "../models/api-activity.model";
+import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -319,7 +320,7 @@ function toAuditNode(record: AuditRecord) {
 function toTransactionListNode(record: SuperAdminListTransactionRecord) {
   return {
     ...toTransactionNode(record),
-    notes: record.notes ?? "",
+    notes: cleanTransactionNotes(record.notes),
     reviewedAt: record.reviewedAt ?? null,
     txnHash: record.txnHash ?? null,
     updatedAt: record.updatedAt ?? null,

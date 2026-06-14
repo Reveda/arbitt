@@ -4,6 +4,7 @@ import { UserModel } from "../../users/models/user.model";
 import { WalletModel } from "../../wallet/models/wallet.model";
 import { ReferralModel } from "../../referrals/models/referral.model";
 import { buildPaginationDto } from "../../../utils/ApiResponse";
+import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
 import type {
   EarningsResponseDto,
   RewardDto,
@@ -93,7 +94,7 @@ function toRewardNode(record: RewardRecord): RewardDto {
     amountUsdt: record.amountUsdt ?? 0,
     createdAt: record.createdAt ?? null,
     network: record.network ?? "SYSTEM",
-    notes: record.notes ?? "",
+    notes: cleanTransactionNotes(record.notes),
     payoutKind: record.payoutKind ?? "weekly",
     payoutLevel: record.payoutLevel ?? null,
     payoutPercent: record.payoutPercent ?? null,

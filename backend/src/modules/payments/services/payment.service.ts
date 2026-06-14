@@ -842,7 +842,7 @@ export class PaymentService {
       const transaction = await TransactionModel.create({
         amountUsdt: input.intent.amountUsdt,
         network: input.intent.network,
-        notes: `Moralis verified plan purchase: ${input.intent.planName}`,
+        notes: `Tx verified plan purchase: ${input.intent.planName}`,
         payoutPercent: input.intent.weeklyReturnPercent,
         payoutPrincipalUsdt: input.intent.amountUsdt,
         payoutTier: input.intent.tier,
@@ -942,7 +942,7 @@ export class PaymentService {
       const transaction = await TransactionModel.create({
         amountUsdt: input.intent.amountUsdt,
         network: input.intent.network,
-        notes: `Moralis verified wallet top-up: ${input.intent.network}`,
+        notes: `Tx verified wallet top-up: ${input.intent.network}`,
         reviewedAt: confirmedAt,
         status: "completed",
         txnHash: input.txnHash,

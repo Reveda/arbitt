@@ -13,6 +13,7 @@ import { ReferralModel } from "../../referrals/models/referral.model";
 import { UserModel } from "../../users/models/user.model";
 import { TransactionModel } from "../../transactions/models/transaction.model";
 import { Types } from "mongoose";
+import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
 
 type PopulatedAdminUser = {
   _id?: unknown;
@@ -148,7 +149,7 @@ function toDepositNode(record: AdminDepositRecord) {
     status: record.status ?? "pending",
     txnHash: record.txnHash ?? null,
     network: record.network ?? "BEP20",
-    notes: record.notes ?? "",
+    notes: cleanTransactionNotes(record.notes),
     reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
     reviewedAt: record.reviewedAt ?? null,
     createdAt: record.createdAt ?? null,
@@ -162,7 +163,7 @@ function toPayoutNode(record: AdminPayoutRecord) {
     amountUsdt: record.amountUsdt ?? 0,
     status: record.status ?? "pending",
     network: record.network ?? "SYSTEM",
-    notes: record.notes ?? "",
+    notes: cleanTransactionNotes(record.notes),
     reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
     reviewedAt: record.reviewedAt ?? null,
     payoutKind: record.payoutKind ?? "weekly",
@@ -182,7 +183,7 @@ function toPayoutNode(record: AdminPayoutRecord) {
 }
 
 function toPlanPurchaseRequestNode(record: AdminPlanPurchaseRecord) {
-  const planName = record.notes?.replace(/^Plan purchase (request|approved):\s*/i, "") ?? "";
+  const planName = cleanTransactionNotes(record.notes).replace(/^Plan purchase (request|approved):\s*/i, "") ?? "";
 
   return {
     id: String(record._id),
@@ -190,7 +191,7 @@ function toPlanPurchaseRequestNode(record: AdminPlanPurchaseRecord) {
     amountUsdt: record.amountUsdt ?? 0,
     status: record.status ?? "pending",
     network: record.network ?? "SYSTEM",
-    notes: record.notes ?? "",
+    notes: cleanTransactionNotes(record.notes),
     reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
     reviewedAt: record.reviewedAt ?? null,
     planName,
@@ -215,7 +216,7 @@ function toWithdrawalRequestNode(record: AdminWithdrawalRecord) {
     withdrawalChargePercent,
     status: record.status ?? "pending",
     network: record.network ?? "BEP20",
-    notes: record.notes ?? "",
+    notes: cleanTransactionNotes(record.notes),
     reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
     reviewedAt: record.reviewedAt ?? null,
     createdAt: record.createdAt ?? null,

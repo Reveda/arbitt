@@ -150,6 +150,15 @@ export function DepositPage() {
   );
   const latestPlanPurchase =
     planPurchases.find((purchase) => purchase.status === "active" || purchase.status === "completed") ?? null;
+  const currentActiveTier = useMemo(() => {
+    const totalActiveAmount = wallet?.lockedUsdt ?? 0;
+    if (totalActiveAmount <= 0) return null;
+    return (
+      activeInvestmentTiers.find(
+        (tier) => totalActiveAmount >= tier.minUsdt && totalActiveAmount <= tier.maxUsdt
+      ) ?? (activeInvestmentTiers[activeInvestmentTiers.length - 1] ?? null)
+    );
+  }, [wallet?.lockedUsdt, activeInvestmentTiers]);
   const availableWalletBalance = wallet?.availableUsdt ?? 0;
   const currentPurchaseAmount = Number(purchaseAmountUsdt);
   const hasValidPurchaseAmount = selectedPlan
@@ -634,7 +643,28 @@ export function DepositPage() {
         </CardContent>
       </Card>
 
-      {latestPlanPurchase ? (
+      {currentActiveTier && wallet?.lockedUsdt ? (
+        <Card className="form-motion-off border-emerald-200 bg-emerald-50/70 text-slate-950 shadow-sm">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-white text-emerald-700">
+                <BadgeCheck className="size-5" />
+              </span>
+              <div>
+                <p className="text-sm font-black text-slate-950">
+                  Active Tier: {currentActiveTier.name} · {formatUsdt(wallet.lockedUsdt)}
+                </p>
+                <p className="text-xs font-semibold text-slate-500">
+                  Weekly ROI: {currentActiveTier.returnMaxPercent}%
+                </p>
+              </div>
+            </div>
+            <span className="w-fit rounded-full bg-white px-3 py-1 text-[11px] font-black capitalize text-emerald-700">
+              Active
+            </span>
+          </CardContent>
+        </Card>
+      ) : latestPlanPurchase ? (
         <Card className="form-motion-off border-emerald-200 bg-emerald-50/70 text-slate-950 shadow-sm">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">

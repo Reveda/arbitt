@@ -45,6 +45,9 @@ const transactionSchema = new Schema(
       unique: true,
       sparse: true,
       trim: true,
+      default: function (this: any) {
+        return `SYS-${this._id.toString().toUpperCase()}`;
+      },
     },
     network: {
       type: String,

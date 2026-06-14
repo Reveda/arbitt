@@ -691,7 +691,6 @@ export function DashboardLayout({ role }: DashboardLayoutProps) {
             </span>
             <div className={cn("min-w-0", isUserSidebarCollapsed && "lg:hidden")}>
               <p className="truncate text-xs font-bold text-white">{userDisplayName}</p>
-              <p className="truncate text-[11px] text-cyan-100/55">{userAccountLabel}</p>
             </div>
             <ShieldCheck className={cn("ml-auto size-4 text-emerald-300", isUserSidebarCollapsed && "lg:hidden")} />
           </NavLink>

@@ -19,6 +19,10 @@ import {
   updateAdminPaymentWallet,
 } from "../controllers/admin.controller";
 import {
+  listAdminSupportTickets,
+  resolveSupportTicket,
+} from "../controllers/admin-support.controller";
+import {
   adminPlanPurchaseParamsSchema,
   adminPayoutParamsSchema,
   adminWithdrawalParamsSchema,
@@ -130,4 +134,16 @@ adminRoutes.get(
   requirePermissions("referrals:read"),
   validateRequest({ query: listAdminReferralsQuerySchema }),
   listAdminReferrals,
+);
+
+adminRoutes.get(
+  "/support/tickets",
+  requirePermissions("admin:users:manage"),
+  listAdminSupportTickets,
+);
+
+adminRoutes.post(
+  "/support/tickets/:id/resolve",
+  requirePermissions("admin:users:manage"),
+  resolveSupportTicket,
 );

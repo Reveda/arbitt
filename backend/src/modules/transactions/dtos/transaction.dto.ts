@@ -49,6 +49,11 @@ export type ListTransactionsResponseDto = {
   pagination: PaginationDto;
 };
 
+export function cleanTransactionNotes(notes?: string | null): string {
+  if (!notes) return "";
+  return notes.replace(/Moralis verified/gi, "Tx verified");
+}
+
 export function toTransactionNode(record: TransactionRecord): TransactionDto {
   return {
     id: String(record._id),
@@ -57,7 +62,7 @@ export function toTransactionNode(record: TransactionRecord): TransactionDto {
     amountUsdt: record.amountUsdt ?? 0,
     txnHash: record.txnHash ?? null,
     network: record.network ?? "BEP20",
-    notes: record.notes ?? "",
+    notes: cleanTransactionNotes(record.notes),
     payoutKind: record.payoutKind ?? null,
     payoutLevel: record.payoutLevel ?? null,
     payoutPercent: record.payoutPercent ?? null,
