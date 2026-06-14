@@ -51,9 +51,9 @@ const STATUS_FILTERS = [
   { label: "Failed", value: "failed" },
 ];
 const PAYOUT_TYPE_OPTIONS = [
-  { label: "Pool Return (Daily ROI)", note: "Generate Daily ROI for active plans", value: "roi" as const },
-  { label: "Level Income (Daily Level)", note: "Generate Daily Level Income", value: "level" as const },
-  { label: "Weekly Royalty (M1-M5)", note: "Generate Weekly Royalty (Fridays only)", value: "royalty" as const },
+  { label: "Pool Return (Weekly ROI)", note: "Generate Weekly ROI (7 days) for active plans", value: "roi" as const },
+  { label: "Level Income (Daily)", note: "Generate Daily Level Income for active sales", value: "level" as const },
+  { label: "Royalty Club (Daily Salary)", note: "Generate Daily Royalty Salary (Fridays only)", value: "royalty" as const },
 ];
 
 function formatUsdt(value: number) {
@@ -278,11 +278,11 @@ export function AdminPayoutsPage() {
 
       let msg = "";
       if (payoutType === "roi") {
-        msg = `${weeklyCreated} daily ROI payouts generated.`;
+        msg = `${weeklyCreated} weekly ROI payouts generated.`;
       } else if (payoutType === "level") {
         msg = `${levelCreated} daily level payouts generated.`;
       } else if (payoutType === "royalty") {
-        msg = `${royaltyCreated} weekly royalty payouts generated.`;
+        msg = `${royaltyCreated} daily royalty salary payouts generated.`;
       }
 
       setMessage({
