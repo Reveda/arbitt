@@ -7,7 +7,6 @@ import {
   salaryRoyaltyRules as fallbackSalaryRoyaltyRules
 } from "./admin.data";
 import { cn } from "@/lib/utils";
-import { adminService } from "@/services/admin.service";
 import { planService, type PlanRuleSet } from "@/services/plan.service";
 
 const POOL_UNIT = "USDT";
