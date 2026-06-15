@@ -53,7 +53,7 @@ const STATUS_FILTERS = [
 const PAYOUT_TYPE_OPTIONS = [
   { label: "Pool Return (Weekly ROI)", note: "Generate Weekly ROI (7 days) for active plans", value: "roi" as const },
   { label: "Level Income (Daily)", note: "Generate Daily Level Income for active sales", value: "level" as const },
-  { label: "Royalty Club (Daily Salary)", note: "Generate Daily Royalty Salary (Fridays only)", value: "royalty" as const },
+  { label: "Royalty Club (Daily Salary)", note: "Generate Daily Royalty Salary", value: "royalty" as const },
 ];
 
 function formatUsdt(value: number) {

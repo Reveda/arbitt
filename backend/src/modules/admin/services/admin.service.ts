@@ -732,10 +732,10 @@ export class AdminService {
       allLevelPayouts = createdLevelPayouts;
     }
 
-    // 3. Generate Weekly Royalty (every Friday)
+    // 3. Generate Weekly Royalty
     let salaryRoyaltyPayouts: any[] = [];
 
-    if (payoutType === "royalty" && isFriday) {
+    if (payoutType === "royalty") {
       const royaltyCutoff = new Date(periodStart);
       royaltyCutoff.setUTCDate(royaltyCutoff.getUTCDate() - 7);
       royaltyCutoff.setUTCHours(13, 0, 0, 0); // Previous Friday 13:00 UTC (21:00 SGT)
