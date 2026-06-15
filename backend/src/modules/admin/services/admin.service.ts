@@ -736,9 +736,7 @@ export class AdminService {
     let salaryRoyaltyPayouts: any[] = [];
 
     if (payoutType === "royalty") {
-      const royaltyCutoff = new Date(periodStart);
-      royaltyCutoff.setUTCDate(royaltyCutoff.getUTCDate() - 7);
-      royaltyCutoff.setUTCHours(13, 0, 0, 0); // Previous Friday 13:00 UTC (21:00 SGT)
+      const royaltyCutoff = periodEnd;
 
       const royaltyPeriodStart = new Date(periodStart);
       royaltyPeriodStart.setUTCDate(royaltyPeriodStart.getUTCDate() - 6);

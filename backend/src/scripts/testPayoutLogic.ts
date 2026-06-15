@@ -645,10 +645,9 @@ async function assertRoyaltyWeeklyCutoff(
     userId: sponsorUserId,
   }).lean();
 
-  assert.equal(
+  assert.ok(
     royaltyRewardThisWeek,
-    null,
-    "Sponsor should NOT receive royalty payout this week because plans were purchased after the last Friday cutoff.",
+    "Sponsor should receive royalty payout this week because we removed the cutoff delay logic.",
   );
 
   // Clean up transactions from the generation to run CASE 2

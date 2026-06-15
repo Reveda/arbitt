@@ -32,7 +32,11 @@ import {
 } from "@/store/api/adminApi";
 import { getQueryErrorMessage } from "@/store/api/queryError";
 import { AdminCard, AdminPageHeader } from "./admin.components";
-import { adminPlans as fallbackInvestmentTiers } from "./admin.data";
+import {
+  adminPlans as fallbackInvestmentTiers,
+  levelIncomeRules as fallbackLevelIncomeRules,
+  salaryRoyaltyRules as fallbackSalaryRoyaltyRules,
+} from "./admin.data";
 
 const PAGE_SIZE = 10;
 
@@ -219,6 +223,12 @@ export function AdminPayoutsPage() {
   const investmentTiers = (
     planRuleSet?.investmentTiers ?? fallbackInvestmentTiers
   ).filter((tier) => tier.status.toLowerCase() === "active");
+  const levelIncomeRules = (
+    planRuleSet?.levelIncomeRules ?? fallbackLevelIncomeRules
+  ).filter((rule) => rule.status.toLowerCase() === "active");
+  const salaryRoyaltyRules = (
+    planRuleSet?.salaryRoyaltyRules ?? fallbackSalaryRoyaltyRules
+  ).filter((rule) => rule.status.toLowerCase() === "active");
   const selectedPayoutOption =
     PAYOUT_TYPE_OPTIONS.find((option) => option.value === payoutType) ??
     PAYOUT_TYPE_OPTIONS[0];
@@ -437,19 +447,48 @@ export function AdminPayoutsPage() {
               </span>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-              {investmentTiers.map((tier) => (
-                <div
-                  className="flex items-center justify-between gap-2 rounded-xl border border-white bg-white/90 px-3 py-2 shadow-sm"
-                  key={tier.tier}
-                >
-                  <span className="text-xs font-black text-slate-600">
-                    {tier.name}
-                  </span>
-                  <span className="text-sm font-black text-slate-950">
-                    {formatPercent(tier.returnMaxPercent)}
-                  </span>
-                </div>
-              ))}
+              {payoutType === "roi" &&
+                investmentTiers.map((tier) => (
+                  <div
+                    className="flex items-center justify-between gap-2 rounded-xl border border-white bg-white/90 px-3 py-2 shadow-sm"
+                    key={tier.tier}
+                  >
+                    <span className="text-xs font-black text-slate-600">
+                      {tier.name}
+                    </span>
+                    <span className="text-sm font-black text-slate-950">
+                      {formatPercent(tier.returnMaxPercent)}
+                    </span>
+                  </div>
+                ))}
+              {payoutType === "level" &&
+                levelIncomeRules.map((rule) => (
+                  <div
+                    className="flex items-center justify-between gap-2 rounded-xl border border-white bg-white/90 px-3 py-2 shadow-sm"
+                    key={rule.level}
+                  >
+                    <span className="text-xs font-black text-slate-600">
+                      Level {rule.level}
+                    </span>
+                    <span className="text-sm font-black text-slate-950">
+                      {formatPercent(rule.percent)}
+                    </span>
+                  </div>
+                ))}
+              {payoutType === "royalty" &&
+                salaryRoyaltyRules.map((rule) => (
+                  <div
+                    className="flex items-center justify-between gap-2 rounded-xl border border-white bg-white/90 px-3 py-2 shadow-sm"
+                    key={rule.royaltyPool}
+                  >
+                    <span className="text-xs font-black text-slate-600">
+                      Pool {rule.royaltyPool}
+                    </span>
+                    <span className="text-sm font-black text-slate-950">
+                      {rule.bonusUsdt} USDT/d
+                    </span>
+                  </div>
+                ))}
             </div>
           </div>
         </form>
