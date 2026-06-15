@@ -738,8 +738,7 @@ export class AdminService {
     if (payoutType === "royalty") {
       const royaltyCutoff = periodEnd;
 
-      const royaltyPeriodStart = new Date(periodStart);
-      royaltyPeriodStart.setUTCDate(royaltyPeriodStart.getUTCDate() - 6);
+      const royaltyPeriodStart = periodStart;
       const royaltyPeriodEnd = periodEnd;
 
       salaryRoyaltyPayouts = await rewardService.generateSalaryRoyaltyRewards({
