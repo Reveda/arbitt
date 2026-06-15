@@ -318,6 +318,7 @@ export class ReportRepository {
             { payoutPeriodEnd: { $exists: false } },
             { payoutPeriodEnd: null },
             { payoutPeriodEnd: { $lte: now } },
+            { payoutKind: "salary_royalty" },
           ],
         },
         {
