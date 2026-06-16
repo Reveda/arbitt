@@ -98,67 +98,75 @@ export function DateRangeFilter({ fromDate, toDate, onApply, className }: DateRa
         <span className={cn("grid size-6 place-items-center rounded-lg bg-slate-50 text-slate-500", active && "bg-white text-cyan-700")}>
           <CalendarDays className="size-3.5" />
         </span>
-        <span className={cn("hidden max-w-48 truncate sm:inline", active && "inline")}>
+        <span className="max-w-48 truncate">
           {getButtonLabel(fromDate, toDate)}
         </span>
       </Button>
 
       {open ? (
-        <div className="absolute right-0 top-[calc(100%+0.65rem)] z-40 w-[26rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
-          <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-white to-cyan-50/55 px-4 py-3">
-            <div className="flex items-center gap-3">
-              <span className="grid size-9 place-items-center rounded-xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
-                <CalendarDays className="size-4" />
-              </span>
-              <div>
-                <p className="text-sm font-black text-slate-950">Date Filter</p>
-                <p className="mt-0.5 text-[11px] font-bold text-slate-400">
-                  {active ? getButtonLabel(fromDate, toDate) : "All records"}
-                </p>
+        <>
+          {/* Mobile backdrop */}
+          <div
+            className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm sm:hidden"
+            onClick={() => setOpen(false)}
+          />
+          {/* Filter Container */}
+          <div className="fixed inset-x-4 top-1/2 z-50 w-auto max-w-sm -translate-y-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-[0_24px_70px_rgba(15,23,42,0.24)] sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+0.65rem)] sm:translate-y-0 sm:w-[26rem] sm:max-w-none sm:z-40 sm:shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
+            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-white to-cyan-50/55 px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="grid size-9 place-items-center rounded-xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+                  <CalendarDays className="size-4" />
+                </span>
+                <div>
+                  <p className="text-sm font-black text-slate-950">Date Filter</p>
+                  <p className="mt-0.5 text-[11px] font-bold text-slate-400">
+                    {active ? getButtonLabel(fromDate, toDate) : "All records"}
+                  </p>
+                </div>
               </div>
+              <button
+                className="grid size-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
+                onClick={() => setOpen(false)}
+                type="button"
+              >
+                <X className="size-4" />
+              </button>
             </div>
-            <button
-              className="grid size-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
-              onClick={() => setOpen(false)}
-              type="button"
-            >
-              <X className="size-4" />
-            </button>
-          </div>
 
-          <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="mb-2 block text-xs font-black text-slate-500">From Date</span>
-              <Input
-                className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 [color-scheme:light]"
-                max={draftToDate || undefined}
-                onChange={(event) => setDraftFromDate(event.target.value)}
-                type="date"
-                value={draftFromDate}
-              />
-            </label>
-            <label className="block">
-              <span className="mb-2 block text-xs font-black text-slate-500">To Date</span>
-              <Input
-                className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 [color-scheme:light]"
-                min={draftFromDate || undefined}
-                onChange={(event) => setDraftToDate(event.target.value)}
-                type="date"
-                value={draftToDate}
-              />
-            </label>
-          </div>
+            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-xs font-black text-slate-500">From Date</span>
+                <Input
+                  className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 [color-scheme:light]"
+                  max={draftToDate || undefined}
+                  onChange={(event) => setDraftFromDate(event.target.value)}
+                  type="date"
+                  value={draftFromDate}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-2 block text-xs font-black text-slate-500">To Date</span>
+                <Input
+                  className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 [color-scheme:light]"
+                  min={draftFromDate || undefined}
+                  onChange={(event) => setDraftToDate(event.target.value)}
+                  type="date"
+                  value={draftToDate}
+                />
+              </label>
+            </div>
 
-          <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-4 py-3">
-            <Button className="h-10 rounded-xl bg-white px-5" onClick={clearRange} type="button" variant="outline">
-              Clear
-            </Button>
-            <Button className="h-10 rounded-xl bg-cyan-600 px-5 text-white shadow-sm shadow-cyan-200 hover:bg-cyan-700" onClick={applyRange} type="button">
-              <Check className="size-4" />
-              Apply
-            </Button>
+            <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-4 py-3">
+              <Button className="h-10 rounded-xl bg-white px-5" onClick={clearRange} type="button" variant="outline">
+                Clear
+              </Button>
+              <Button className="h-10 rounded-xl bg-cyan-600 px-5 text-white shadow-sm shadow-cyan-200 hover:bg-cyan-700" onClick={applyRange} type="button">
+                <Check className="size-4" />
+                Apply
+              </Button>
+            </div>
           </div>
-        </div>
+        </>
       ) : null}
     </div>
   );

@@ -260,7 +260,7 @@ export function UserProfilePage() {
                         <Award className="size-3.5 text-cyan-200" />
                         Rank
                       </p>
-                      <p className="mt-1 break-all text-sm font-black text-cyan-50">{user.rank ?? "No Rank"}</p>
+                      <p className="mt-1 break-all text-sm font-black text-cyan-50">{user.rank ?? "Unrank"}</p>
                     </div>
                   </div>
                 </div>
