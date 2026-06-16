@@ -4,7 +4,6 @@ import {
   CalendarDays,
   Copy,
   ExternalLink,
-  Fingerprint,
   KeyRound,
   Link as LinkIcon,
   Mail,

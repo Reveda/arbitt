@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ChevronLeft,
-  Network,
   UserCheck,
   UsersRound,
   Wallet
