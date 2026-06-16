@@ -237,6 +237,100 @@ async function insertRewardRows(rows: Array<Record<string, unknown>>) {
   }
 }
 
+export async function calculateUserRoyaltyRanks(royaltyCutoff?: Date) {
+  const referrals = await ReferralModel.find().lean();
+  const activePurchasesQuery: Record<string, any> = { status: "active" };
+  if (royaltyCutoff) {
+    activePurchasesQuery.purchasedAt = { $lt: royaltyCutoff };
+  }
+  const activePurchases = await UserPlanPurchaseModel.find(activePurchasesQuery).lean();
+
+  const purchaseMap = new Map<string, number>();
+  for (const p of activePurchases) {
+    const uId = String(p.userId);
+    purchaseMap.set(uId, (purchaseMap.get(uId) ?? 0) + (p.amountUsdt ?? 0));
+  }
+
+  const childrenMap = new Map<string, any[]>();
+  for (const ref of referrals) {
+    if (ref.parentUserId) {
+      const pId = String(ref.parentUserId);
+      if (!childrenMap.has(pId)) {
+        childrenMap.set(pId, []);
+      }
+      childrenMap.get(pId)!.push(ref);
+    }
+  }
+
+  const teamVolumeWithOwnMap = new Map<string, number>();
+  const sortedReferrals = [...referrals].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+
+  for (const ref of sortedReferrals) {
+    const userIdStr = String(ref.userId);
+    const ownVolume = purchaseMap.get(userIdStr) ?? 0;
+    const children = childrenMap.get(userIdStr) ?? [];
+    let totalSubtreeVolume = ownVolume;
+    for (const child of children) {
+      totalSubtreeVolume += teamVolumeWithOwnMap.get(String(child.userId)) ?? 0;
+    }
+    teamVolumeWithOwnMap.set(userIdStr, totalSubtreeVolume);
+  }
+
+  const userRoyaltyRankMap = new Map<string, number>();
+  const maxRoyaltyInSubtreeMap = new Map<string, number>();
+
+  for (const ref of sortedReferrals) {
+    const userIdStr = String(ref.userId);
+    const children = childrenMap.get(userIdStr) ?? [];
+    const legVolumes = children.map(
+      (child) => teamVolumeWithOwnMap.get(String(child.userId)) ?? 0,
+    );
+    const directCount = children.length;
+
+    let qualifiedRank = 0;
+
+    for (const requirement of ROYALTY_RANK_REQUIREMENTS) {
+      const cappedTeamBusiness = getSingleLegCappedBusiness(
+        legVolumes,
+        requirement.targetBusinessUsdt,
+      );
+      const qualifiedLegs =
+        requirement.requiredSubtreeRank > 0
+          ? children.filter(
+              (child) =>
+                (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >=
+                requirement.requiredSubtreeRank,
+            ).length
+          : 0;
+
+      if (
+        directCount >= requirement.directRequired &&
+        qualifiedLegs >= requirement.requiredQualifiedLegs &&
+        cappedTeamBusiness >= requirement.targetBusinessUsdt
+      ) {
+        qualifiedRank = requirement.rank;
+      }
+    }
+
+    userRoyaltyRankMap.set(userIdStr, qualifiedRank);
+
+    let maxSubtreeRank = qualifiedRank;
+    for (const child of children) {
+      maxSubtreeRank = Math.max(
+        maxSubtreeRank,
+        maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0,
+      );
+    }
+    maxRoyaltyInSubtreeMap.set(userIdStr, maxSubtreeRank);
+  }
+
+  return {
+    userRoyaltyRankMap,
+    childrenMap,
+    teamVolumeWithOwnMap,
+  };
+}
+
 export class RewardService {
   async createLevelIncomeRewardsForPlanPurchase(input: DepositRewardInput) {
     const [ruleSet, referral, existingRewards] = await Promise.all([
@@ -425,91 +519,11 @@ export class RewardService {
       return [];
     }
 
-    const referrals = await ReferralModel.find().lean();
-    const activePurchasesQuery: Record<string, any> = { status: "active" };
-    if (input.royaltyCutoff) {
-      activePurchasesQuery.purchasedAt = { $lt: input.royaltyCutoff };
-    }
-    const activePurchases = await UserPlanPurchaseModel.find(activePurchasesQuery).lean();
-
-    const purchaseMap = new Map<string, number>();
-    for (const p of activePurchases) {
-      const uId = String(p.userId);
-      purchaseMap.set(uId, (purchaseMap.get(uId) ?? 0) + (p.amountUsdt ?? 0));
-    }
-
-    const childrenMap = new Map<string, typeof referrals>();
-    for (const ref of referrals) {
-      if (ref.parentUserId) {
-        const pId = String(ref.parentUserId);
-        if (!childrenMap.has(pId)) {
-          childrenMap.set(pId, []);
-        }
-        childrenMap.get(pId)!.push(ref);
-      }
-    }
-
-    const teamVolumeWithOwnMap = new Map<string, number>();
-    const sortedReferrals = [...referrals].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
-
-    for (const ref of sortedReferrals) {
-      const userIdStr = String(ref.userId);
-      const ownVolume = purchaseMap.get(userIdStr) ?? 0;
-      const children = childrenMap.get(userIdStr) ?? [];
-      let totalSubtreeVolume = ownVolume;
-      for (const child of children) {
-        totalSubtreeVolume += teamVolumeWithOwnMap.get(String(child.userId)) ?? 0;
-      }
-      teamVolumeWithOwnMap.set(userIdStr, totalSubtreeVolume);
-    }
-
-    const userRoyaltyRankMap = new Map<string, number>();
-    const maxRoyaltyInSubtreeMap = new Map<string, number>();
-
-    for (const ref of sortedReferrals) {
-      const userIdStr = String(ref.userId);
-      const children = childrenMap.get(userIdStr) ?? [];
-      const legVolumes = children.map(
-        (child) => teamVolumeWithOwnMap.get(String(child.userId)) ?? 0,
-      );
-      const directCount = children.length;
-
-      let qualifiedRank = 0;
-
-      for (const requirement of ROYALTY_RANK_REQUIREMENTS) {
-        const cappedTeamBusiness = getSingleLegCappedBusiness(
-          legVolumes,
-          requirement.targetBusinessUsdt,
-        );
-        const qualifiedLegs =
-          requirement.requiredSubtreeRank > 0
-            ? children.filter(
-                (child) =>
-                  (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >=
-                  requirement.requiredSubtreeRank,
-              ).length
-            : 0;
-
-        if (
-          directCount >= requirement.directRequired &&
-          qualifiedLegs >= requirement.requiredQualifiedLegs &&
-          cappedTeamBusiness >= requirement.targetBusinessUsdt
-        ) {
-          qualifiedRank = requirement.rank;
-        }
-      }
-
-      userRoyaltyRankMap.set(userIdStr, qualifiedRank);
-
-      let maxSubtreeRank = qualifiedRank;
-      for (const child of children) {
-        maxSubtreeRank = Math.max(
-          maxSubtreeRank,
-          maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0,
-        );
-      }
-      maxRoyaltyInSubtreeMap.set(userIdStr, maxSubtreeRank);
-    }
+    const {
+      userRoyaltyRankMap,
+      childrenMap,
+      teamVolumeWithOwnMap,
+    } = await calculateUserRoyaltyRanks(input.royaltyCutoff);
 
     const activeSalaryRules = [...ruleSet.salaryRoyaltyRules].filter(
       (rule) => rule.isActive !== false,

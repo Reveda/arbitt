@@ -1,5 +1,7 @@
 import { referralRepository } from "../repositories/referral.repository";
 import { buildPaginationDto } from "../../../utils/ApiResponse";
+import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
+import { ReferralModel } from "../models/referral.model";
 import type {
   ListTeamMembersResponseDto,
   ReferralMemberDto,
@@ -60,12 +62,63 @@ function getRelativeLevel(record: ReferralRecord, rootUserId: string) {
   return record.level ?? 0;
 }
 
-function toReferralMember(record: ReferralRecord, rootUserId: string): ReferralMemberDto {
+export async function getTeamBusinessMap(): Promise<Map<string, number>> {
+  const referrals = await ReferralModel.find().lean();
+  const activePurchases = await UserPlanPurchaseModel.find({ status: "active" }).lean();
+
+  const purchaseMap = new Map<string, number>();
+  for (const p of activePurchases) {
+    const uId = String(p.userId);
+    purchaseMap.set(uId, (purchaseMap.get(uId) ?? 0) + (p.amountUsdt ?? 0));
+  }
+
+  const childrenMap = new Map<string, any[]>();
+  for (const ref of referrals) {
+    if (ref.parentUserId) {
+      const pId = String(ref.parentUserId);
+      if (!childrenMap.has(pId)) {
+        childrenMap.set(pId, []);
+      }
+      childrenMap.get(pId)!.push(ref);
+    }
+  }
+
+  const teamVolumeWithOwnMap = new Map<string, number>();
+  const sortedReferrals = [...referrals].sort((a, b) => (b.level ?? 0) - (a.level ?? 0));
+
+  for (const ref of sortedReferrals) {
+    const userIdStr = String(ref.userId);
+    const ownVolume = purchaseMap.get(userIdStr) ?? 0;
+    const children = childrenMap.get(userIdStr) ?? [];
+    let totalSubtreeVolume = ownVolume;
+    for (const child of children) {
+      totalSubtreeVolume += teamVolumeWithOwnMap.get(String(child.userId)) ?? 0;
+    }
+    teamVolumeWithOwnMap.set(userIdStr, totalSubtreeVolume);
+  }
+
+  const teamBusinessMap = new Map<string, number>();
+  for (const ref of referrals) {
+    const userIdStr = String(ref.userId);
+    const subtreeVolume = teamVolumeWithOwnMap.get(userIdStr) ?? 0;
+    const ownVolume = purchaseMap.get(userIdStr) ?? 0;
+    teamBusinessMap.set(userIdStr, Math.max(0, subtreeVolume - ownVolume));
+  }
+
+  return teamBusinessMap;
+}
+
+function toReferralMember(
+  record: ReferralRecord,
+  rootUserId: string,
+  teamBusinessMap?: Map<string, number>,
+): ReferralMemberDto {
   const user = getPopulatedUser(record.userId);
+  const userIdStr = toObjectIdString(user?._id ?? record.userId) ?? "";
 
   return {
     id: String(record._id),
-    userId: toObjectIdString(user?._id ?? record.userId) ?? "",
+    userId: userIdStr,
     email: null,
     username: user?.username ?? null,
     status: user?.status ?? "unknown",
@@ -77,22 +130,26 @@ function toReferralMember(record: ReferralRecord, rootUserId: string): ReferralM
     relativeLevel: getRelativeLevel(record, rootUserId),
     directCount: record.directCount ?? 0,
     activeTeamCount: record.activeTeamCount ?? 0,
+    teamBusinessUsdt: teamBusinessMap ? (teamBusinessMap.get(userIdStr) ?? 0) : 0,
     createdAt: record.createdAt ?? null,
   };
 }
 
 export class ReferralService {
   async getReferralTree(userId: string): Promise<ReferralTreeResponseDto> {
-    const [root, directRecords, teamRecords] = await Promise.all([
+    const [root, directRecords, teamRecords, teamBusinessMap, userPurchases] = await Promise.all([
       referralRepository.findByUserId(userId),
       referralRepository.findDirectMembers(userId),
       referralRepository.findTeamMembers(userId),
+      getTeamBusinessMap(),
+      UserPlanPurchaseModel.find({ userId, status: "active" }).lean(),
     ]);
+    const selfBusinessUsdt = userPurchases.reduce((sum, p) => sum + (p.amountUsdt ?? 0), 0);
     const directMembers = directRecords.map((record) =>
-      toReferralMember(record as ReferralRecord, userId),
+      toReferralMember(record as ReferralRecord, userId, teamBusinessMap),
     );
     const teamMembers = teamRecords.map((record) =>
-      toReferralMember(record as ReferralRecord, userId),
+      toReferralMember(record as ReferralRecord, userId, teamBusinessMap),
     );
     const levels = teamMembers.reduce<Record<string, typeof teamMembers>>((levelMap, member) => {
       const key = `L${member.relativeLevel}`;
@@ -113,6 +170,7 @@ export class ReferralService {
         directCount: directMembers.length,
         totalTeamMembers: teamMembers.length,
         activeTeamCount: teamMembers.filter((member) => member.status === "active").length,
+        selfBusinessUsdt,
       },
       directMembers,
       teamMembers,
@@ -146,16 +204,19 @@ export class ReferralService {
     const page = input.page;
     const limit = input.limit;
     const skip = (page - 1) * limit;
-    const { teamMembers, total } = await referralRepository.listTeamMembers({
-      userId: input.userId,
-      search: input.search,
-      skip,
-      limit,
-    });
+    const [{ teamMembers, total }, teamBusinessMap] = await Promise.all([
+      referralRepository.listTeamMembers({
+        userId: input.userId,
+        search: input.search,
+        skip,
+        limit,
+      }),
+      getTeamBusinessMap(),
+    ]);
 
     return {
       teamMembers: teamMembers.map((record) =>
-        toReferralMember(record as ReferralRecord, input.userId),
+        toReferralMember(record as ReferralRecord, input.userId, teamBusinessMap),
       ),
       pagination: buildPaginationDto({
         page,

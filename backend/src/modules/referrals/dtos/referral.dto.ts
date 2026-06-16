@@ -14,6 +14,7 @@ export type ReferralMemberDto = {
   relativeLevel: number;
   directCount: number;
   activeTeamCount: number;
+  teamBusinessUsdt: number;
   createdAt: Date | string | null;
 };
 
@@ -28,6 +29,7 @@ export type ReferralTreeResponseDto = {
     directCount: number;
     totalTeamMembers: number;
     activeTeamCount: number;
+    selfBusinessUsdt: number;
   };
   directMembers: ReferralMemberDto[];
   teamMembers: ReferralMemberDto[];

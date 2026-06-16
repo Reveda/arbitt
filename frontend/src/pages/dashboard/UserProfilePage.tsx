@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   Sparkles,
   UserRound,
-  Wallet
+  Wallet,
+  Award
 } from "lucide-react";
 import { APP_ROUTES } from "@/api/endpoints";
 import { Button } from "@/components/ui/button";
@@ -257,10 +258,10 @@ export function UserProfilePage() {
                     </div>
                     <div className="rounded-2xl border border-cyan-200/10 bg-slate-950/20 p-3">
                       <p className="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-50/58">
-                        <Fingerprint className="size-3.5" />
-                        Account ID
+                        <Award className="size-3.5 text-cyan-200" />
+                        Rank
                       </p>
-                      <p className="mt-1 break-all font-mono text-xs font-bold text-cyan-50/88">{user.id}</p>
+                      <p className="mt-1 break-all text-sm font-black text-cyan-50">{user.rank ?? "No Rank"}</p>
                     </div>
                   </div>
                 </div>
@@ -473,7 +474,7 @@ export function UserProfilePage() {
               <CardContent className="grid gap-3 p-5 sm:grid-cols-2">
                 <DetailTile label="Email" value={user.email} />
                 <DetailTile label="Username" value={user.username ?? "Not set"} />
-                <DetailTile label="Role" value={user.role} />
+                {/* <DetailTile label="Role" value={user.role} />
                 <DetailTile label="Invited By" value={user.invitedBy ?? "Root / Direct"} />
                 <DetailTile label="User Wallet Address" value={user.walletAddress ?? "Not set"} />
                 <DetailTile
@@ -481,7 +482,7 @@ export function UserProfilePage() {
                   value={user.hasTransactionPassword ? "Set" : "Not set"}
                 />
                 <DetailTile label="Created" value={formatDate(user.createdAt)} />
-                <DetailTile label="Updated" value={formatDate(user.updatedAt)} />
+                <DetailTile label="Updated" value={formatDate(user.updatedAt)} /> */}
               </CardContent>
             </Card>
 

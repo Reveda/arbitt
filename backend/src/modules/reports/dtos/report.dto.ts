@@ -28,6 +28,7 @@ export type UserDashboardMetricsResponseDto = {
     activeTeamCount: number;
   };
   totalTeamMembers: number;
+  totalTeamBusinessUsdt: number;
   totalDepositsUsdt: number;
   totalWithdrawalsUsdt: number;
   totalRewardsUsdt: number;
@@ -57,6 +58,7 @@ export type EarningsResponseDto = {
   summary: {
     approvedCount: number;
     availableUsdt: number;
+    availableLimitUsdt: number;
     lifetimeRewardsUsdt: number;
     pendingCount: number;
     rejectedCount: number;

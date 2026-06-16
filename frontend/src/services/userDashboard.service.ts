@@ -14,6 +14,7 @@ export type UserDashboardOverview = {
     activeTeamCount: number;
   };
   totalTeamMembers: number;
+  totalTeamBusinessUsdt: number;
   totalDepositsUsdt: number;
   totalWithdrawalsUsdt: number;
   totalRewardsUsdt: number;

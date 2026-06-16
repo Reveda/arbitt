@@ -31,6 +31,7 @@ export type SafeUserDto = {
   emailVerified: boolean;
   createdAt: Date | string | null;
   updatedAt: Date | string | null;
+  rank: string | null;
 };
 
 export type AuthSessionDto = {
@@ -85,7 +86,7 @@ export type LogoutResponseDto = {
   loggedOut: true;
 };
 
-export function toSafeUser(user: SanitizableUser): SafeUserDto {
+export function toSafeUser(user: SanitizableUser, rank?: string | null): SafeUserDto {
   return {
     id: String(user._id ?? user.id),
     email: user.email,
@@ -102,5 +103,6 @@ export function toSafeUser(user: SanitizableUser): SafeUserDto {
     emailVerified: Boolean(user.emailVerifiedAt),
     createdAt: user.createdAt ?? null,
     updatedAt: user.updatedAt ?? null,
+    rank: rank ?? null,
   };
 }

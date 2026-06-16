@@ -3,6 +3,8 @@ import { TransactionModel } from "../../transactions/models/transaction.model";
 import { UserModel } from "../../users/models/user.model";
 import { WalletModel } from "../../wallet/models/wallet.model";
 import { ReferralModel } from "../../referrals/models/referral.model";
+import { getTeamBusinessMap } from "../../referrals/services/referral.service";
+import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
 import { buildPaginationDto } from "../../../utils/ApiResponse";
 import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
 import type {
@@ -132,6 +134,7 @@ export class ReportRepository {
       recentTransactions,
       monthlyRewards,
       depositOverview,
+      teamBusinessMap,
     ] = await Promise.all([
       UserModel.countDocuments({ invitedBy: userId }),
       TransactionModel.aggregate([
@@ -259,6 +262,7 @@ export class ReportRepository {
           },
         },
       ]),
+      getTeamBusinessMap(),
     ]);
     const monthlyRewardMap = new Map(
       monthlyRewards.map((entry) => [
@@ -281,6 +285,7 @@ export class ReportRepository {
         activeTeamCount: referral?.activeTeamCount ?? totalTeamMembers,
       },
       totalTeamMembers,
+      totalTeamBusinessUsdt: teamBusinessMap.get(userId) ?? 0,
       totalDepositsUsdt: approvedDeposits[0]?.total ?? 0,
       totalWithdrawalsUsdt: completedWithdrawals[0]?.total ?? 0,
       totalRewardsUsdt: approvedRewards[0]?.total ?? 0,
@@ -342,7 +347,7 @@ export class ReportRepository {
       ...(input.dateRange ? { createdAt: input.dateRange } : {}),
     };
 
-    const [wallet, summary, kindSummary, rewards, total] = await Promise.all([
+    const [wallet, summary, kindSummary, rewards, total, principalTotals, rewardTotals] = await Promise.all([
       WalletModel.findOne({ userId: input.userId }).lean(),
       TransactionModel.aggregate<EarningsSummary>([
         { $match: baseMatch },
@@ -395,6 +400,37 @@ export class ReportRepository {
       ]),
       TransactionModel.find(listMatch).sort({ createdAt: -1 }).skip(skip).limit(input.limit).lean(),
       TransactionModel.countDocuments(listMatch),
+      UserPlanPurchaseModel.aggregate<{ _id: Types.ObjectId | null; principalUsdt?: number }>([
+        {
+          $match: {
+            userId: userObjectId,
+            amountUsdt: { $gt: 0 },
+            status: "active",
+          },
+        },
+        {
+          $group: {
+            _id: "$userId",
+            principalUsdt: { $sum: "$amountUsdt" },
+          },
+        },
+      ]),
+      TransactionModel.aggregate<{ _id: Types.ObjectId | null; amountUsdt?: number }>([
+        {
+          $match: {
+            userId: userObjectId,
+            type: "reward",
+            payoutKind: { $in: ["weekly", "level", "salary_royalty"] },
+            status: { $in: ["pending", "approved", "completed"] },
+          },
+        },
+        {
+          $group: {
+            _id: "$userId",
+            amountUsdt: { $sum: "$amountUsdt" },
+          },
+        },
+      ]),
     ]);
     const summaryRecord = summary[0] ?? {};
     const byKind = ["weekly", "level", "salary_royalty"].reduce<
@@ -413,10 +449,15 @@ export class ReportRepository {
       return map;
     }, {});
 
+    const principalUsdt = principalTotals[0]?.principalUsdt ?? 0;
+    const earnedRewardsUsdt = rewardTotals[0]?.amountUsdt ?? 0;
+    const availableLimitUsdt = Math.max(0, Math.round((principalUsdt * 3 - earnedRewardsUsdt) * 100) / 100);
+
     return {
       summary: {
         approvedCount: summaryRecord.approvedCount ?? 0,
         availableUsdt: wallet?.availableUsdt ?? 0,
+        availableLimitUsdt,
         lifetimeRewardsUsdt: wallet?.lifetimeRewardsUsdt ?? summaryRecord.totalApprovedUsdt ?? 0,
         pendingCount: summaryRecord.pendingCount ?? 0,
         rejectedCount: summaryRecord.rejectedCount ?? 0,

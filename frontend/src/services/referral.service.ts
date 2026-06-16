@@ -15,6 +15,7 @@ export type ReferralMember = {
   relativeLevel: number;
   directCount: number;
   activeTeamCount: number;
+  teamBusinessUsdt: number;
   createdAt: string | null;
 };
 
@@ -23,6 +24,7 @@ export type ReferralSummary = {
   activeTeamCount: number;
   totalTeamMembers: number;
   totalRewardsUsdt: number;
+  selfBusinessUsdt: number;
 };
 
 export type ReferralTree = {

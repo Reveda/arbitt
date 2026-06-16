@@ -186,7 +186,7 @@ export function SupportPage() {
                     <div className="rounded-xl border border-emerald-100/50 bg-emerald-50/30 p-3 mt-2 space-y-1">
                       <div className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-700">
                         <BadgeCheck className="size-3.5 text-emerald-600" />
-                        <span>Staff Reply</span>
+                        <span>Customer Executive</span>
                       </div>
                       <p className="text-xs text-slate-700 leading-relaxed font-semibold break-words">{ticket.reply}</p>
                       {ticket.resolvedAt && (

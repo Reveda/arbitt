@@ -16,6 +16,7 @@ export type AuthUser = {
   emailVerified: boolean;
   createdAt: string | null;
   updatedAt: string | null;
+  rank: string | null;
 };
 
 export type AuthPayload = {

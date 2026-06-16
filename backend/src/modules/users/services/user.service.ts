@@ -2,6 +2,7 @@ import { HTTP_STATUS } from "../../../constants/http";
 import { ApiError } from "../../../utils/ApiError";
 import { comparePassword, hashPassword } from "../../../utils/password";
 import { toSafeUser } from "../../auth/dtos/auth.dto";
+import { calculateUserRoyaltyRanks } from "../../rewards/services/reward.service";
 import type {
   CurrentUserResponseDto,
   UpdateUserResponseDto,
@@ -25,7 +26,11 @@ export class UserService {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
     }
 
-    return { user: toSafeUser(user) };
+    const { userRoyaltyRankMap } = await calculateUserRoyaltyRanks();
+    const rankNum = userRoyaltyRankMap.get(userId) ?? 0;
+    const rank = rankNum > 0 ? `M${rankNum}` : null;
+
+    return { user: toSafeUser(user, rank) };
   }
 
   async getUserProfile(userId: string): Promise<UserProfileResponseDto> {
@@ -35,8 +40,12 @@ export class UserService {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
     }
 
+    const { userRoyaltyRankMap } = await calculateUserRoyaltyRanks();
+    const rankNum = userRoyaltyRankMap.get(userId) ?? 0;
+    const rank = rankNum > 0 ? `M${rankNum}` : null;
+
     return {
-      profile: toSafeUser(user),
+      profile: toSafeUser(user, rank),
     };
   }
 
@@ -50,7 +59,11 @@ export class UserService {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
     }
 
-    return { user: toSafeUser(user) };
+    const { userRoyaltyRankMap } = await calculateUserRoyaltyRanks();
+    const rankNum = userRoyaltyRankMap.get(userId) ?? 0;
+    const rank = rankNum > 0 ? `M${rankNum}` : null;
+
+    return { user: toSafeUser(user, rank) };
   }
 
   async updateTransactionPassword(
@@ -91,7 +104,11 @@ export class UserService {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
     }
 
-    return { user: toSafeUser(updatedUser) };
+    const { userRoyaltyRankMap } = await calculateUserRoyaltyRanks();
+    const rankNum = userRoyaltyRankMap.get(userId) ?? 0;
+    const rank = rankNum > 0 ? `M${rankNum}` : null;
+
+    return { user: toSafeUser(updatedUser, rank) };
   }
 }
 

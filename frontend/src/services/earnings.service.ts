@@ -44,6 +44,7 @@ export type UserEarningsResponse = {
   summary: {
     approvedCount: number;
     availableUsdt: number;
+    availableLimitUsdt: number;
     lifetimeRewardsUsdt: number;
     pendingCount: number;
     rejectedCount: number;

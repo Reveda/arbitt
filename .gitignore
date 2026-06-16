@@ -9,3 +9,4 @@ coverage/
 *.tsbuildinfo
 *.md
 arbitt/
+backend/src/scripts/queryProdDb.ts

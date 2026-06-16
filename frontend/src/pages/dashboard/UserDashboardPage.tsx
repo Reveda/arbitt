@@ -104,13 +104,13 @@ export function UserDashboardPage() {
       tone: "cyan",
     },
     {
-      title: "Total Team",
+      title: "Total Team Business",
       value: dashboard
-        ? `${formatNumber(dashboard.referrals.activeTeamCount || dashboard.totalTeamMembers)} Members`
+        ? formatUsdt(dashboard.totalTeamBusinessUsdt)
         : dashboardQuery.isLoading
           ? "Loading..."
-          : "0 Members",
-      detail: "Active network size",
+          : "0.00 USDT",
+      detail: "Team business volume",
       icon: UsersRound,
       tone: "blue",
     },

@@ -3,7 +3,8 @@ import {
   ChevronLeft,
   Network,
   UserCheck,
-  UsersRound
+  UsersRound,
+  Wallet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -81,18 +82,18 @@ function TeamMemberRow({
           </div>
         </div>
       </td>
-      <td className="px-3 py-3">
+      {/* <td className="px-3 py-3">
         <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
           L{member.relativeLevel}
         </span>
-      </td>
+      </td> */}
       <td className="px-3 py-3">
         <span className={cn("inline-flex rounded-full px-3 py-1 text-xs font-black capitalize", getStatusTone(member.status))}>
           {member.status}
         </span>
       </td>
       <td className="px-3 py-3 text-sm font-black text-slate-800">{formatNumber(member.directCount)}</td>
-      <td className="px-3 py-3 text-sm font-black text-slate-800">{formatNumber(member.activeTeamCount)}</td>
+      <td className="px-3 py-3 text-sm font-black text-slate-800">{formatNumber(member.teamBusinessUsdt)} USDT</td>
       <td className="px-3 py-3 text-xs font-semibold text-slate-500">{formatDate(member.joinedAt)}</td>
     </tr>
   );
@@ -165,9 +166,9 @@ export function TeamPage() {
       tone: "bg-blue-50 text-blue-700"
     },
     {
-      label: "Active Members",
-      value: networkQuery.isLoading ? "Loading..." : formatNumber(network?.summary.activeTeamCount ?? 0),
-      icon: Network,
+      label: "Self Business",
+      value: networkQuery.isLoading ? "Loading..." : `${formatNumber(network?.summary.selfBusinessUsdt ?? 0)} USDT`,
+      icon: Wallet,
       tone: "bg-emerald-50 text-emerald-700"
     }
   ];
@@ -230,9 +231,9 @@ export function TeamPage() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-black text-slate-950">{getDisplayName(selectedMember)}</p>
-                    <span className="hidden rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-black text-blue-700 ring-1 ring-blue-100 sm:inline-flex">
+                    {/* <span className="hidden rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-black text-blue-700 ring-1 ring-blue-100 sm:inline-flex">
                       L{selectedMember.relativeLevel}
-                    </span>
+                    </span> */}
                   </div>
                 </div>
               </div>
@@ -273,7 +274,7 @@ export function TeamPage() {
                 <tbody>
                   {Array.from({ length: 5 }, (_, rowIndex) => (
                     <tr className="border-b border-slate-100 last:border-0" key={rowIndex}>
-                      {Array.from({ length: 6 }, (_, cellIndex) => (
+                      {Array.from({ length: 5 }, (_, cellIndex) => (
                         <td className="px-3 py-4" key={cellIndex}>
                           <div className="h-4 w-full max-w-24 animate-pulse rounded bg-slate-100" />
                         </td>
@@ -293,10 +294,10 @@ export function TeamPage() {
                 <thead className="bg-white text-xs text-slate-500 shadow-[0_1px_0_#e2e8f0]">
                   <tr>
                     <th className="w-[34%] px-3 py-3 font-black">User</th>
-                    <th className="w-16 px-3 py-3 font-black">Level</th>
+                    {/* <th className="w-16 px-3 py-3 font-black">Level</th> */}
                     <th className="w-24 px-3 py-3 font-black">Status</th>
                     <th className="w-20 px-3 py-3 font-black">Directs</th>
-                    <th className="w-16 px-3 py-3 font-black">Team</th>
+                    <th className="w-32 px-3 py-3 font-black">Team Business</th>
                     <th className="w-28 px-3 py-3 font-black">Joined</th>
                   </tr>
                 </thead>

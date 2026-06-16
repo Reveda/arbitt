@@ -45,6 +45,7 @@ const emptyPagination: UserEarningsResponse["pagination"] = {
 const emptySummary: UserEarningsResponse["summary"] = {
   approvedCount: 0,
   availableUsdt: 0,
+  availableLimitUsdt: 0,
   byKind: {
     level: { approvedUsdt: 0, pendingUsdt: 0, totalCount: 0, totalUsdt: 0 },
     salary_royalty: { approvedUsdt: 0, pendingUsdt: 0, totalCount: 0, totalUsdt: 0 },
@@ -227,11 +228,11 @@ export function EarningsPage() {
       value: formatUsdt(summary.totalPendingUsdt)
     },
     {
-      detail: "Wallet available",
+      detail: "Earning limit remaining",
       icon: WalletCards,
-      label: "Available Balance",
+      label: "Available Limit",
       tone: "bg-cyan-50 text-cyan-700",
-      value: formatUsdt(summary.availableUsdt)
+      value: formatUsdt(summary.availableLimitUsdt)
     },
     {
       detail: `${summary.rejectedCount} rejected`,

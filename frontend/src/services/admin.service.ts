@@ -326,6 +326,7 @@ export type AdminReferralNode = {
   path: string[];
   directCount: number;
   activeTeamCount: number;
+  teamBusinessUsdt: number;
   createdAt: string | null;
 };
 

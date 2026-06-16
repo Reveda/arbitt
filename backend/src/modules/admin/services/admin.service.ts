@@ -10,6 +10,7 @@ import { adminRepository } from "../repositories/admin.repository";
 import { getPlatformPaymentWallet, updatePlatformPaymentWallet } from "./payment-wallet.service";
 import { toSafeUser } from "../../auth/dtos/auth.dto";
 import { ReferralModel } from "../../referrals/models/referral.model";
+import { getTeamBusinessMap } from "../../referrals/services/referral.service";
 import { UserModel } from "../../users/models/user.model";
 import { TransactionModel } from "../../transactions/models/transaction.model";
 import { Types } from "mongoose";
@@ -124,9 +125,10 @@ function toUserSummary(value: unknown) {
   };
 }
 
-function toReferralNode(record: AdminReferralRecord) {
+function toReferralNode(record: AdminReferralRecord, teamBusinessMap?: Map<string, number>) {
   const user = toUserSummary(record.userId);
   const parent = toUserSummary(record.parentUserId);
+  const userIdStr = user?.id;
 
   return {
     id: String(record._id),
@@ -137,6 +139,7 @@ function toReferralNode(record: AdminReferralRecord) {
     path: (record.path ?? []).map((entry) => String(entry)),
     directCount: record.directCount ?? 0,
     activeTeamCount: record.activeTeamCount ?? 0,
+    teamBusinessUsdt: (userIdStr && teamBusinessMap) ? (teamBusinessMap.get(userIdStr) ?? 0) : 0,
     createdAt: record.createdAt ?? null,
   };
 }
@@ -1106,7 +1109,8 @@ export class AdminService {
       skip,
       status: input.status,
     });
-    const nodes = referrals.map((record) => toReferralNode(record as AdminReferralRecord));
+    const teamBusinessMap = await getTeamBusinessMap();
+    const nodes = referrals.map((record) => toReferralNode(record as AdminReferralRecord, teamBusinessMap));
     const levels = nodes.reduce<Record<string, typeof nodes>>((levelMap, node) => {
       const key = `L${node.level}`;
       levelMap[key] = [...(levelMap[key] ?? []), node];
