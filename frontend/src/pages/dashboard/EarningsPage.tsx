@@ -220,11 +220,11 @@ export function EarningsPage() {
       value: formatUsdt(summary.availableUsdt)
     },
     {
-      detail: `${summary.approvedCount} approved`,
+      detail: "Total generated payouts",
       icon: CircleDollarSign,
       label: "Total Earnings",
       tone: "bg-emerald-50 text-emerald-700",
-      value: formatUsdt(summary.lifetimeRewardsUsdt || summary.totalApprovedUsdt)
+      value: formatUsdt(summary.totalGeneratedUsdt)
     },
     {
       detail: "Earning limit remaining",

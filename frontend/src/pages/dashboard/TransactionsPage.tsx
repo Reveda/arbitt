@@ -6,7 +6,10 @@ import {
   ChevronRight,
   CircleDollarSign,
   RefreshCw,
-  ShoppingBag
+  ShoppingBag,
+  Layers3,
+  Gift,
+  CalendarDays
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,24 +75,31 @@ function statusTone(status: string) {
   return "bg-slate-100 text-slate-600 ring-slate-200";
 }
 
-function typeIcon(type: UserTransaction["type"]) {
-  if (type === "deposit") {
-    return ArrowDownLeft;
+function getTransactionTypeMeta(transaction: UserTransaction) {
+  if (transaction.type === "reward") {
+    if (transaction.payoutKind === "level") {
+      return { label: "Level Income", icon: Layers3 };
+    }
+    if (transaction.payoutKind === "salary_royalty") {
+      return { label: "Royalty", icon: Gift };
+    }
+    if (transaction.payoutKind === "weekly") {
+      return { label: "Pool Return", icon: CalendarDays };
+    }
+    return { label: "Reward", icon: CircleDollarSign };
   }
 
-  if (type === "withdrawal") {
-    return ArrowUpRight;
+  if (transaction.type === "deposit") {
+    return { label: "Deposit", icon: ArrowDownLeft };
+  }
+  if (transaction.type === "withdrawal") {
+    return { label: "Withdrawal", icon: ArrowUpRight };
+  }
+  if (transaction.type === "plan_purchase") {
+    return { label: "Plan Purchase", icon: ShoppingBag };
   }
 
-  if (type === "reward") {
-    return CircleDollarSign;
-  }
-
-  if (type === "plan_purchase") {
-    return ShoppingBag;
-  }
-
-  return RefreshCw;
+  return { label: transaction.type.replace(/_/g, " "), icon: RefreshCw };
 }
 
 const emptyPagination: UserTransactionsResponse["pagination"] = {
@@ -279,7 +289,8 @@ export function TransactionsPage() {
                   ))
                 ) : transactions.length ? (
                   transactions.map((transaction) => {
-                    const Icon = typeIcon(transaction.type);
+                    const meta = getTransactionTypeMeta(transaction);
+                    const Icon = meta.icon;
 
                     return (
                       <tr className="border-t border-slate-100 hover:bg-cyan-50/30" key={transaction.id}>
@@ -289,7 +300,7 @@ export function TransactionsPage() {
                               <Icon className="size-4" />
                             </span>
                             <span className="font-black capitalize text-slate-950">
-                              {transaction.type.replace(/_/g, " ")}
+                              {meta.label}
                             </span>
                           </div>
                         </td>

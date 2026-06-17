@@ -591,7 +591,7 @@ export function DepositPage() {
         <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-sm">
           <CardContent className="flex items-center justify-between gap-3 p-4">
             <div>
-              <p className="text-xs font-bold text-slate-500">Available Balance</p>
+              <p className="text-xs font-bold text-slate-500">Top Up Wallet</p>
               <p className="mt-1 text-lg font-black text-slate-950">
                 {isLoading ? "Loading..." : formatUsdt(wallet?.availableUsdt ?? 0)}
               </p>

@@ -12,6 +12,7 @@ export type UserTransaction = {
   reviewedAt: string | null;
   createdAt: string | null;
   updatedAt: string | null;
+  payoutKind?: "weekly" | "level" | "salary_royalty" | null;
 };
 
 export type UserTransactionsParams = {
