@@ -180,6 +180,17 @@ export const reviewAdminPayout = catchAsync(async (req: Request, res: Response) 
     .json(apiResponse<AdminPayoutReviewResponseDto>(HTTP_STATUS.OK, "Payout reviewed.", result));
 });
 
+export const approveAllAdminPayouts = catchAsync(async (req: Request, res: Response) => {
+  const result = await adminService.approveAllPendingPayouts({
+    adminUserId: req.user!.id,
+    ipAddress: req.ip,
+  });
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(apiResponse(HTTP_STATUS.OK, "All pending payouts reviewed.", result));
+});
+
 export const reviewAdminPlanPurchase = catchAsync(async (req: Request, res: Response) => {
   const params = adminPlanPurchaseParamsSchema.parse(req.params);
   const body = reviewAdminPlanPurchaseBodySchema.parse(req.body);
@@ -232,4 +243,14 @@ export const listAdminReferrals = catchAsync(async (req: Request, res: Response)
         result,
       ),
     );
+});
+
+export const exportAdminPayouts = catchAsync(async (req: Request, res: Response) => {
+  const query = listAdminPayoutsQuerySchema.parse(req.query);
+  const csvData = await adminService.exportPayoutsCsv(query);
+
+  const filename = `payouts-export-${new Date().toISOString().slice(0, 10)}.csv`;
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
+  res.status(HTTP_STATUS.OK).send(csvData);
 });

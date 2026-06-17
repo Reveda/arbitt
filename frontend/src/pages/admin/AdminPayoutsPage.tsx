@@ -1,14 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import {
   BadgeDollarSign,
-  CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Download,
   HandCoins,
   Loader2,
-  Percent,
   Search,
   XCircle,
 } from "lucide-react";
@@ -23,20 +22,11 @@ import { useAdminPayouts } from "@/hooks/useAdminQueries";
 import { cn } from "@/lib/utils";
 import type { AdminPayout } from "@/services/admin.service";
 import {
-  planService,
-  type PlanRuleSet,
-} from "@/services/plan.service";
-import {
-  useGenerateAdminPayoutsMutation,
   useReviewAdminPayoutMutation,
+  useApproveAllAdminPayoutsMutation,
 } from "@/store/api/adminApi";
 import { getQueryErrorMessage } from "@/store/api/queryError";
 import { AdminCard, AdminPageHeader } from "./admin.components";
-import {
-  adminPlans as fallbackInvestmentTiers,
-  levelIncomeRules as fallbackLevelIncomeRules,
-  salaryRoyaltyRules as fallbackSalaryRoyaltyRules,
-} from "./admin.data";
 
 const PAGE_SIZE = 10;
 
@@ -54,11 +44,6 @@ const STATUS_FILTERS = [
   { label: "Completed", value: "completed" },
   { label: "Failed", value: "failed" },
 ];
-const PAYOUT_TYPE_OPTIONS = [
-  { label: "Pool Return (Weekly ROI)", note: "Generate Weekly ROI (7 days) for active plans", value: "roi" as const },
-  { label: "Level Income (Daily)", note: "Generate Daily Level Income for active sales", value: "level" as const },
-  { label: "Royalty Club (Daily Salary)", note: "Generate Daily Royalty Salary", value: "royalty" as const },
-];
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
@@ -66,12 +51,6 @@ function formatUsdt(value: number) {
     minimumFractionDigits: 2,
     useGrouping: false,
   }).format(value)} USDT`;
-}
-
-function formatPercent(value: number) {
-  return `${new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-  }).format(Number(value.toFixed(2)))}%`;
 }
 
 function formatDate(value: string | null) {
@@ -86,39 +65,20 @@ function formatDate(value: string | null) {
   }).format(new Date(value));
 }
 
-
-
-function getTodayInputValue() {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = String(today.getMonth() + 1).padStart(2, "0");
-  const day = String(today.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getPayoutWeekStartForDateInput(value: string) {
-  return value;
-}
-
 function getUserName(payout: AdminPayout) {
   return payout.user?.username ?? "Unknown user";
 }
 
+const STATUS_TONES: Record<string, string> = {
+  approved: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  completed: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+  pending: "bg-amber-50 text-amber-700 ring-amber-100",
+  rejected: "bg-rose-50 text-rose-700 ring-rose-100",
+  failed: "bg-rose-50 text-rose-700 ring-rose-100",
+};
+
 function getStatusTone(status: string) {
-  if (status === "approved" || status === "completed") {
-    return "bg-emerald-50 text-emerald-700 ring-emerald-100";
-  }
-
-  if (status === "pending") {
-    return "bg-amber-50 text-amber-700 ring-amber-100";
-  }
-
-  if (status === "rejected" || status === "failed") {
-    return "bg-rose-50 text-rose-700 ring-rose-100";
-  }
-
-  return "bg-slate-100 text-slate-600 ring-slate-200";
+  return STATUS_TONES[status] ?? "bg-slate-100 text-slate-600 ring-slate-200";
 }
 
 function getPayoutKindLabel(kind: string) {
@@ -133,48 +93,77 @@ function getPayoutKindLabel(kind: string) {
   return "ROI";
 }
 
-
-
 export function AdminPayoutsPage() {
-  const maxSelectableDate = getTodayInputValue();
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState("all");
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [weekStart, setWeekStart] = useState(getTodayInputValue);
-  const [payoutType, setPayoutType] = useState<"roi" | "level" | "royalty">("roi");
-  const [planRuleSet, setPlanRuleSet] = useState<PlanRuleSet | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [message, setMessage] = useState<ToastMessageValue | null>(null);
   const [confirmation, setConfirmation] = useState<ReviewConfirmation | null>(
     null,
   );
-  const [generateAdminPayouts, generatePayoutsState] =
-    useGenerateAdminPayoutsMutation();
+  const [showApproveAllConfirm, setShowApproveAllConfirm] = useState(false);
   const [reviewAdminPayout] = useReviewAdminPayoutMutation();
+  const [approveAllAdminPayouts, approveAllState] = useApproveAllAdminPayoutsMutation();
 
-  useEffect(() => {
-    let active = true;
+  const handleApproveAll = async () => {
+    setMessage(null);
+    try {
+      const response = await approveAllAdminPayouts().unwrap();
+      const approvedCount = response.data.approvedCount;
+      const failedCount = response.data.failedCount;
 
-    planService
-      .getRuleSet()
-      .then((response) => {
-        if (active) {
-          setPlanRuleSet(response.data.ruleSet);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setPlanRuleSet(null);
-        }
+      setMessage({
+        text: `Successfully approved ${approvedCount} payouts.${failedCount > 0 ? ` Failed: ${failedCount}.` : ""}`,
+        tone: failedCount > 0 ? "info" : "success",
+      });
+    } catch (caughtError) {
+      setMessage({
+        text:
+          getQueryErrorMessage(caughtError, "Unable to approve payouts.") ??
+          "Unable to approve payouts.",
+        tone: "error",
+      });
+    }
+  };
+
+  const handleExportCsv = async () => {
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.append("search", debouncedSearch);
+    if (status !== "all") params.append("status", status);
+    if (fromDate) params.append("fromDate", fromDate);
+    if (toDate) params.append("toDate", toDate);
+
+    const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api/v1").replace(/\/$/, "");
+    const url = `${API_BASE_URL}/admin/payouts/export?${params.toString()}`;
+
+    try {
+      const response = await fetch(url, {
+        credentials: "include",
       });
 
-    return () => {
-      active = false;
-    };
-  }, []);
+      if (!response.ok) {
+        throw new Error("Failed to export payouts.");
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.setAttribute("download", `payouts-export-${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+    } catch (err) {
+      setMessage({
+        text: err instanceof Error ? err.message : "Unable to export payouts.",
+        tone: "error",
+      });
+    }
+  };
 
   useEffect(() => {
     const timerId = window.setTimeout(
@@ -220,21 +209,7 @@ export function AdminPayoutsPage() {
     pagination.page * pagination.limit,
     pagination.total,
   );
-  const investmentTiers = (
-    planRuleSet?.investmentTiers ?? fallbackInvestmentTiers
-  ).filter((tier) => tier.status.toLowerCase() === "active");
-  const levelIncomeRules = (
-    planRuleSet?.levelIncomeRules ?? fallbackLevelIncomeRules
-  ).filter((rule) => rule.status.toLowerCase() === "active");
-  const salaryRoyaltyRules = (
-    planRuleSet?.salaryRoyaltyRules ?? fallbackSalaryRoyaltyRules
-  ).filter((rule) => rule.status.toLowerCase() === "active");
-  const selectedPayoutOption =
-    PAYOUT_TYPE_OPTIONS.find((option) => option.value === payoutType) ??
-    PAYOUT_TYPE_OPTIONS[0];
-  const selectedPayoutWeekStart = getPayoutWeekStartForDateInput(weekStart);
-  const canGenerateSelectedWeek =
-    Boolean(selectedPayoutWeekStart) && selectedPayoutWeekStart <= maxSelectableDate;
+
   const stats = [
     {
       icon: HandCoins,
@@ -262,52 +237,7 @@ export function AdminPayoutsPage() {
     },
   ];
 
-  const generatePayouts = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setMessage(null);
 
-    try {
-      const response = await generateAdminPayouts({
-        weekStart: selectedPayoutWeekStart || weekStart,
-        payoutType,
-      }).unwrap();
-
-      if (response.success === false) {
-        setMessage({
-          text: response.message || "Unable to generate payouts.",
-          tone: "error",
-        });
-        return;
-      }
-
-      const weeklyCreated = response.data.weeklyCreatedCount ?? 0;
-      const levelCreated = response.data.levelCreatedCount ?? 0;
-      const royaltyCreated = response.data.salaryRoyaltyCreatedCount ?? 0;
-      const updated = response.data.updatedCount ?? response.data.weeklyUpdatedCount ?? 0;
-      const skipped = response.data.skippedCount ?? 0;
-
-      let msg = "";
-      if (payoutType === "roi") {
-        msg = `${weeklyCreated} weekly ROI payouts generated.`;
-      } else if (payoutType === "level") {
-        msg = `${levelCreated} daily level payouts generated.`;
-      } else if (payoutType === "royalty") {
-        msg = `${royaltyCreated} daily royalty salary payouts generated.`;
-      }
-
-      setMessage({
-        text: `${msg} ${updated} updated. ${skipped} skipped or already processed.`,
-        tone: "info",
-      });
-    } catch (caughtError) {
-      setMessage({
-        text:
-          getQueryErrorMessage(caughtError, "Unable to generate payouts.") ??
-          "Unable to generate payouts.",
-        tone: "error",
-      });
-    }
-  };
 
   const reviewPayout = async (payout: AdminPayout, action: ReviewAction) => {
     setReviewingId(payout.id);
@@ -379,120 +309,7 @@ export function AdminPayoutsPage() {
         })}
       </div>
 
-      <AdminCard>
-        <form className="grid gap-3 p-4" onSubmit={generatePayouts}>
-          <div className="grid gap-3 lg:grid-cols-[1fr_210px_auto]">
-            <label className="block">
-              <span className="mb-2 block text-xs font-black text-slate-500">
-                Payout Date
-              </span>
-              <div className="relative">
-                <CalendarDays className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                <Input
-                  className="h-11 rounded-xl border-slate-200 bg-slate-50 pl-10 text-sm font-bold text-slate-900 [color-scheme:light]"
-                  max={maxSelectableDate}
-                  onChange={(event) => setWeekStart(event.target.value)}
-                  required
-                  type="date"
-                  value={weekStart}
-                />
-              </div>
-            </label>
 
-            <label className="block">
-              <span className="mb-2 block text-xs font-black text-slate-500">
-                Payout Type
-              </span>
-              <select
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 shadow-sm outline-none transition-colors focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
-                onChange={(event) =>
-                  setPayoutType(event.target.value as "roi" | "level" | "royalty")
-                }
-                value={payoutType}
-              >
-                {PAYOUT_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <Button
-              className="mt-0 h-11 self-end rounded-xl lg:mt-6"
-              disabled={generatePayoutsState.isLoading || !canGenerateSelectedWeek}
-              title={
-                canGenerateSelectedWeek
-                  ? "Generate payouts"
-                  : "Only completed payout weeks can be generated"
-              }
-              type="submit"
-            >
-              {generatePayoutsState.isLoading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Percent className="size-4" />
-              )}
-              Generate
-            </Button>
-          </div>
-
-          <div className="rounded-2xl border border-cyan-100 bg-cyan-50/45 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-black text-slate-700">
-                {selectedPayoutOption.label}
-              </p>
-              <span className="rounded-full bg-white px-3 py-1 text-[11px] font-black text-cyan-700 ring-1 ring-cyan-100">
-                {selectedPayoutOption.note}
-              </span>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-              {payoutType === "roi" &&
-                investmentTiers.map((tier) => (
-                  <div
-                    className="flex items-center justify-between gap-2 rounded-xl border border-white bg-white/90 px-3 py-2 shadow-sm"
-                    key={tier.tier}
-                  >
-                    <span className="text-xs font-black text-slate-600">
-                      {tier.name}
-                    </span>
-                    <span className="text-sm font-black text-slate-950">
-                      {formatPercent(tier.returnMaxPercent)}
-                    </span>
-                  </div>
-                ))}
-              {payoutType === "level" &&
-                levelIncomeRules.map((rule) => (
-                  <div
-                    className="flex items-center justify-between gap-2 rounded-xl border border-white bg-white/90 px-3 py-2 shadow-sm"
-                    key={rule.level}
-                  >
-                    <span className="text-xs font-black text-slate-600">
-                      Level {rule.level}
-                    </span>
-                    <span className="text-sm font-black text-slate-950">
-                      {formatPercent(rule.percent)}
-                    </span>
-                  </div>
-                ))}
-              {payoutType === "royalty" &&
-                salaryRoyaltyRules.map((rule) => (
-                  <div
-                    className="flex items-center justify-between gap-2 rounded-xl border border-white bg-white/90 px-3 py-2 shadow-sm"
-                    key={rule.royaltyPool}
-                  >
-                    <span className="text-xs font-black text-slate-600">
-                      Pool {rule.royaltyPool}
-                    </span>
-                    <span className="text-sm font-black text-slate-950">
-                      {rule.bonusUsdt} USDT/d
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        </form>
-      </AdminCard>
 
       <AdminCard>
         <div className="grid gap-3 p-4 lg:grid-cols-[1fr_180px_auto]">
@@ -546,6 +363,30 @@ export function AdminPayoutsPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              className="h-9 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:bg-emerald-600/50 disabled:cursor-not-allowed"
+              disabled={summary.pendingCount === 0 || approveAllState.isLoading}
+              onClick={() => setShowApproveAllConfirm(true)}
+              size="sm"
+              type="button"
+            >
+              {approveAllState.isLoading ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="size-4" />
+              )}
+              Approve All
+            </Button>
+            <Button
+              className="h-9 rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 disabled:bg-cyan-600/50 disabled:cursor-not-allowed"
+              disabled={payouts.length === 0}
+              onClick={handleExportCsv}
+              size="sm"
+              type="button"
+            >
+              <Download className="size-4" />
+              Export CSV
+            </Button>
             <DateRangeFilter
               fromDate={fromDate}
               onApply={(range) => {
@@ -646,43 +487,9 @@ export function AdminPayoutsPage() {
                       {formatDate(payout.createdAt)}
                     </td>
                     <td className="px-4 py-3">
-                      {payout.status === "pending" ? (
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            className="h-9 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
-                            disabled={reviewingId === payout.id}
-                            onClick={() =>
-                              setConfirmation({ action: "approve", payout })
-                            }
-                            size="sm"
-                            type="button"
-                          >
-                            {reviewingId === payout.id ? (
-                              <Loader2 className="size-4 animate-spin" />
-                            ) : (
-                              <CheckCircle2 className="size-4" />
-                            )}
-                            Approve
-                          </Button>
-                          <Button
-                            className="h-9 rounded-xl border-rose-200 text-rose-600 hover:bg-rose-50"
-                            disabled={reviewingId === payout.id}
-                            onClick={() =>
-                              setConfirmation({ action: "reject", payout })
-                            }
-                            size="sm"
-                            type="button"
-                            variant="outline"
-                          >
-                            <XCircle className="size-4" />
-                            Reject
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="flex justify-end">
-                          <BadgeDollarSign className="size-4 text-slate-300" />
-                        </div>
-                      )}
+                      <div className="flex justify-end">
+                        <BadgeDollarSign className={cn("size-4", payout.status === "pending" ? "text-amber-500" : payout.status === "rejected" || payout.status === "failed" ? "text-rose-400" : "text-emerald-500")} />
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -807,6 +614,58 @@ export function AdminPayoutsPage() {
                     <XCircle className="size-4" />
                   )}
                   Yes
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showApproveAllConfirm ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl">
+            <div className="flex items-center gap-3 border-b border-emerald-100 bg-emerald-50 px-4 py-4">
+              <span className="grid size-10 place-items-center rounded-xl bg-white text-emerald-700">
+                <CheckCircle2 className="size-5" />
+              </span>
+              <div>
+                <p className="text-base font-black text-slate-950">
+                  Are you sure you want to approve all?
+                </p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  Total pending: {summary.pendingCount} ({formatUsdt(summary.totalPendingUsdt)})
+                </p>
+              </div>
+            </div>
+            <div className="p-4">
+              <p className="text-sm font-semibold leading-relaxed text-slate-600">
+                This will approve all currently pending payouts. Users' wallets will be credited, and the admin payout balance will be debited.
+              </p>
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button
+                  className="h-10 rounded-xl"
+                  disabled={approveAllState.isLoading}
+                  onClick={() => setShowApproveAllConfirm(false)}
+                  type="button"
+                  variant="outline"
+                >
+                  No
+                </Button>
+                <Button
+                  className="h-10 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700"
+                  disabled={approveAllState.isLoading}
+                  onClick={async () => {
+                    setShowApproveAllConfirm(false);
+                    await handleApproveAll();
+                  }}
+                  type="button"
+                >
+                  {approveAllState.isLoading ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="size-4" />
+                  )}
+                  Yes, Approve All
                 </Button>
               </div>
             </div>

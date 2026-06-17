@@ -13,8 +13,5 @@ export const createSupportTicket = catchAsync(async (req: Request, res: Response
 
 export const listUserSupportTickets = catchAsync(async (req: Request, res: Response) => {
   const result = await supportTicketService.getUserTickets(req.user!.id);
-  res
-    .status(HTTP_STATUS.OK)
-    .json(apiResponse(HTTP_STATUS.OK, "Support tickets loaded.", result));
+  res.status(HTTP_STATUS.OK).json(apiResponse(HTTP_STATUS.OK, "Support tickets loaded.", result));
 });
-

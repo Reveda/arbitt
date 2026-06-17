@@ -3,7 +3,8 @@ import {
   ChevronLeft,
   UserCheck,
   UsersRound,
-  Wallet
+  Wallet,
+  LineChart
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -93,6 +94,7 @@ function TeamMemberRow({
       </td>
       <td className="px-3 py-3 text-sm font-black text-slate-800">{formatNumber(member.directCount)}</td>
       <td className="px-3 py-3 text-sm font-black text-slate-800">{formatNumber(member.teamBusinessUsdt)} USDT</td>
+      <td className="px-3 py-3 text-sm font-black text-slate-800">{formatNumber(member.selfBusinessUsdt)} USDT</td>
       <td className="px-3 py-3 text-xs font-semibold text-slate-500">{formatDate(member.joinedAt)}</td>
     </tr>
   );
@@ -169,6 +171,12 @@ export function TeamPage() {
       value: networkQuery.isLoading ? "Loading..." : `${formatNumber(network?.summary.selfBusinessUsdt ?? 0)} USDT`,
       icon: Wallet,
       tone: "bg-emerald-50 text-emerald-700"
+    },
+    {
+      label: "Total Team Business",
+      value: networkQuery.isLoading ? "Loading..." : `${formatNumber(network?.summary.teamBusinessUsdt ?? 0)} USDT`,
+      icon: LineChart,
+      tone: "bg-indigo-50 text-indigo-700"
     }
   ];
   const returnToPreviousList = () => {
@@ -199,7 +207,7 @@ export function TeamPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
           const Icon = stat.icon;
 
@@ -273,7 +281,7 @@ export function TeamPage() {
                 <tbody>
                   {Array.from({ length: 5 }, (_, rowIndex) => (
                     <tr className="border-b border-slate-100 last:border-0" key={rowIndex}>
-                      {Array.from({ length: 5 }, (_, cellIndex) => (
+                      {Array.from({ length: 6 }, (_, cellIndex) => (
                         <td className="px-3 py-4" key={cellIndex}>
                           <div className="h-4 w-full max-w-24 animate-pulse rounded bg-slate-100" />
                         </td>
@@ -292,12 +300,13 @@ export function TeamPage() {
               <table className="w-full min-w-[720px] table-fixed text-left">
                 <thead className="bg-white text-xs text-slate-500 shadow-[0_1px_0_#e2e8f0]">
                   <tr>
-                    <th className="w-[34%] px-3 py-3 font-black">User</th>
+                    <th className="w-[28%] px-3 py-3 font-black">User</th>
                     {/* <th className="w-16 px-3 py-3 font-black">Level</th> */}
-                    <th className="w-24 px-3 py-3 font-black">Status</th>
+                    <th className="w-20 px-3 py-3 font-black">Status</th>
                     <th className="w-20 px-3 py-3 font-black">Directs</th>
-                    <th className="w-32 px-3 py-3 font-black">Team Business</th>
-                    <th className="w-28 px-3 py-3 font-black">Joined</th>
+                    <th className="w-28 px-3 py-3 font-black">Team Business</th>
+                    <th className="w-28 px-3 py-3 font-black">Self Business</th>
+                    <th className="w-24 px-3 py-3 font-black">Joined</th>
                   </tr>
                 </thead>
                 <tbody>

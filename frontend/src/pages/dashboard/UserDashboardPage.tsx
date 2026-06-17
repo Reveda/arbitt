@@ -93,7 +93,7 @@ export function UserDashboardPage() {
   const dashboard = dashboardQuery.data;
   const stats = [
     {
-      title: "Wallet Balance",
+      title: "Income Wallet",
       value: dashboard
         ? formatUsdt(dashboard.wallet.availableUsdt)
         : dashboardQuery.isLoading
@@ -115,15 +115,13 @@ export function UserDashboardPage() {
       tone: "blue",
     },
     {
-      title: "Total Earnings",
+      title: "Available Limit",
       value: dashboard
-        ? formatUsdt(
-            dashboard.wallet.lifetimeRewardsUsdt || dashboard.totalRewardsUsdt,
-          )
+        ? formatUsdt(dashboard.availableLimitUsdt)
         : dashboardQuery.isLoading
           ? "Loading..."
           : "0.00 USDT",
-      detail: "Lifetime rewards",
+      detail: "Remaining reward capacity",
       icon: CircleDollarSign,
       tone: "emerald",
     },

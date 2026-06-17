@@ -282,9 +282,7 @@ export async function calculateUserRoyaltyRanks(royaltyCutoff?: Date) {
   for (const ref of sortedReferrals) {
     const userIdStr = String(ref.userId);
     const children = childrenMap.get(userIdStr) ?? [];
-    const legVolumes = children.map(
-      (child) => teamVolumeWithOwnMap.get(String(child.userId)) ?? 0,
-    );
+    const legVolumes = children.map((child) => teamVolumeWithOwnMap.get(String(child.userId)) ?? 0);
     const directCount = children.length;
 
     let qualifiedRank = 0;
@@ -297,10 +295,10 @@ export async function calculateUserRoyaltyRanks(royaltyCutoff?: Date) {
       const qualifiedLegs =
         requirement.requiredSubtreeRank > 0
           ? children.filter(
-              (child) =>
-                (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >=
-                requirement.requiredSubtreeRank,
-            ).length
+            (child) =>
+              (maxRoyaltyInSubtreeMap.get(String(child.userId)) ?? 0) >=
+              requirement.requiredSubtreeRank,
+          ).length
           : 0;
 
       if (
@@ -427,9 +425,9 @@ export class RewardService {
   async generateSalaryRoyaltyRewards(input: SalaryRoyaltyRewardInput = {}) {
     const royaltyPeriod = input.periodStart
       ? {
-          end: input.periodEnd ?? getSalaryRoyaltyPeriod(input.periodStart).end,
-          start: input.periodStart,
-        }
+        end: input.periodEnd ?? getSalaryRoyaltyPeriod(input.periodStart).end,
+        start: input.periodStart,
+      }
       : getSalaryRoyaltyPeriod();
     const ruleSet = await planRepository.ensureDefaultRuleSet();
     const tiers = getActiveInvestmentTiers(ruleSet);
@@ -451,7 +449,7 @@ export class RewardService {
             royaltyPeriod.start.getUTCMonth(),
             royaltyPeriod.start.getUTCDate(),
           )) /
-          (1000 * 60 * 60 * 24),
+        (1000 * 60 * 60 * 24),
       ) + 1;
 
     const walletMatch: Record<string, any> = {
@@ -519,11 +517,8 @@ export class RewardService {
       return [];
     }
 
-    const {
-      userRoyaltyRankMap,
-      childrenMap,
-      teamVolumeWithOwnMap,
-    } = await calculateUserRoyaltyRanks(input.royaltyCutoff);
+    const { userRoyaltyRankMap, childrenMap, teamVolumeWithOwnMap } =
+      await calculateUserRoyaltyRanks(input.royaltyCutoff);
 
     const activeSalaryRules = [...ruleSet.salaryRoyaltyRules].filter(
       (rule) => rule.isActive !== false,

@@ -23,6 +23,7 @@ export type RewardDto = {
 
 export type UserDashboardMetricsResponseDto = {
   wallet: WalletBalanceDto;
+  availableLimitUsdt: number;
   referrals: {
     directCount: number;
     activeTeamCount: number;

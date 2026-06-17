@@ -5,11 +5,13 @@ import { logger } from "./config/logger";
 import { connectRedis, disconnectRedis } from "./config/redis";
 import { createApp } from "./app";
 import { roleService } from "./modules/roles/services/role.service";
+import { payoutSchedulerService } from "./modules/admin/services/payout-scheduler.service";
 
 async function bootstrap() {
   await connectDatabase();
   await connectRedis();
   await roleService.seedDefaultRoles();
+  payoutSchedulerService.init();
 
   const app = createApp();
   const server = createServer(app);

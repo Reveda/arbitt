@@ -337,11 +337,11 @@ export class AdminRepository {
     const search = input.search?.trim();
     const filter = search
       ? {
-          $or: [
-            { username: new RegExp(escapeRegex(search), "i") },
-            { referralCode: new RegExp(escapeRegex(search), "i") },
-          ],
-        }
+        $or: [
+          { username: new RegExp(escapeRegex(search), "i") },
+          { referralCode: new RegExp(escapeRegex(search), "i") },
+        ],
+      }
       : {};
 
     const [users, total] = await Promise.all([

@@ -15,8 +15,10 @@ import {
   listAdminWithdrawals,
   reviewAdminPlanPurchase,
   reviewAdminPayout,
+  approveAllAdminPayouts,
   reviewAdminWithdrawal,
   updateAdminPaymentWallet,
+  exportAdminPayouts,
 } from "../controllers/admin.controller";
 import {
   listAdminSupportTickets,
@@ -112,12 +114,24 @@ adminRoutes.get(
   validateRequest({ query: listAdminPayoutsQuerySchema }),
   listAdminPayouts,
 );
+adminRoutes.get(
+  "/payouts/export",
+  requirePermissions("admin:withdrawals:review"),
+  validateRequest({ query: listAdminPayoutsQuerySchema }),
+  exportAdminPayouts,
+);
 adminRoutes.post(
   "/payouts/generate",
   requirePermissions("admin:withdrawals:review"),
   financialActionRateLimiter,
   validateRequest({ body: generateAdminPayoutsBodySchema }),
   generateAdminPayouts,
+);
+adminRoutes.post(
+  "/payouts/approve-all",
+  requirePermissions("admin:withdrawals:review"),
+  financialActionRateLimiter,
+  approveAllAdminPayouts,
 );
 adminRoutes.patch(
   "/payouts/:transactionId/review",

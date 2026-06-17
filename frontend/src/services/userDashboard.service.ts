@@ -9,6 +9,7 @@ export type UserDashboardOverview = {
     lifetimeWithdrawalsUsdt: number;
     lifetimeRewardsUsdt: number;
   };
+  availableLimitUsdt: number;
   referrals: {
     directCount: number;
     activeTeamCount: number;

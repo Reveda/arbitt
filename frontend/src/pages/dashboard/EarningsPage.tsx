@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleDollarSign,
-  Clock3,
   Gift,
   HandCoins,
   Layers3,
@@ -214,32 +213,25 @@ export function EarningsPage() {
   const lastRow = Math.min(pagination.page * pagination.limit, pagination.total);
   const metrics = [
     {
+      detail: "Available balance",
+      icon: WalletCards,
+      label: "Income Wallet",
+      tone: "bg-cyan-50 text-cyan-700",
+      value: formatUsdt(summary.availableUsdt)
+    },
+    {
       detail: `${summary.approvedCount} approved`,
       icon: CircleDollarSign,
-      label: "Credited Earnings",
+      label: "Total Earnings",
       tone: "bg-emerald-50 text-emerald-700",
       value: formatUsdt(summary.lifetimeRewardsUsdt || summary.totalApprovedUsdt)
     },
     {
-      detail: `${summary.pendingCount} waiting`,
-      icon: Clock3,
-      label: "Pending Payouts",
-      tone: "bg-amber-50 text-amber-700",
-      value: formatUsdt(summary.totalPendingUsdt)
-    },
-    {
       detail: "Earning limit remaining",
-      icon: WalletCards,
-      label: "Available Limit",
-      tone: "bg-cyan-50 text-cyan-700",
-      value: formatUsdt(summary.availableLimitUsdt)
-    },
-    {
-      detail: `${summary.rejectedCount} rejected`,
       icon: HandCoins,
-      label: "Generated Rewards",
-      tone: "bg-violet-50 text-violet-700",
-      value: formatUsdt(summary.totalGeneratedUsdt)
+      label: "Available Limit",
+      tone: "bg-indigo-50 text-indigo-700",
+      value: formatUsdt(summary.availableLimitUsdt)
     }
   ];
   const kindCards = useMemo(
@@ -276,7 +268,7 @@ export function EarningsPage() {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {metrics.map((item) => {
           const Icon = item.icon;
 
@@ -300,6 +292,12 @@ export function EarningsPage() {
       <div className="grid gap-3 lg:grid-cols-3">
         {kindCards.map((item) => {
           const Icon = item.icon;
+          const labels =
+            item.kind === "weekly"
+              ? { left: "ROI Wallet", right: "Total ROI" }
+              : item.kind === "level"
+                ? { left: "Level Wallet", right: "Total Level Income" }
+                : { left: "Royalty Wallet", right: "Total Royalty" };
 
           return (
             <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-sm" key={item.kind}>
@@ -316,13 +314,13 @@ export function EarningsPage() {
                   </span>
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2">
-                  <div className="rounded-xl bg-emerald-50 px-3 py-2">
-                    <p className="text-[11px] font-black text-emerald-700">Credited</p>
+                  <div className="rounded-xl bg-cyan-50 px-3 py-2">
+                    <p className="text-[11px] font-black text-cyan-700">{labels.left}</p>
                     <p className="mt-1 text-xs font-black text-slate-950">{formatUsdt(item.approvedUsdt)}</p>
                   </div>
-                  <div className="rounded-xl bg-amber-50 px-3 py-2">
-                    <p className="text-[11px] font-black text-amber-700">Pending</p>
-                    <p className="mt-1 text-xs font-black text-slate-950">{formatUsdt(item.pendingUsdt)}</p>
+                  <div className="rounded-xl bg-emerald-50 px-3 py-2">
+                    <p className="text-[11px] font-black text-emerald-700">{labels.right}</p>
+                    <p className="mt-1 text-xs font-black text-slate-950">{formatUsdt(item.totalUsdt)}</p>
                   </div>
                 </div>
               </CardContent>

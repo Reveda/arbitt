@@ -8,11 +8,7 @@ async function updatePlanPurchaseHashes() {
   // Find plan purchases where txnHash is missing, null, or not set
   const query = {
     type: "plan_purchase",
-    $or: [
-      { txnHash: { $exists: false } },
-      { txnHash: null },
-      { txnHash: "" }
-    ]
+    $or: [{ txnHash: { $exists: false } }, { txnHash: null }, { txnHash: "" }],
   };
   const transactions = await TransactionModel.find(query);
 

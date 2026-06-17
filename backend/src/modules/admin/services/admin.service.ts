@@ -91,8 +91,6 @@ type AdminWalletRecord = {
   updatedAt?: Date | string | null;
 };
 
-
-
 const TOTAL_REWARD_EARNING_MULTIPLIER = 3;
 const TOTAL_REWARD_PAYOUT_KINDS = ["weekly", "level", "salary_royalty"];
 const TOTAL_REWARD_GENERATION_STATUSES = ["pending", "approved", "completed"];
@@ -139,7 +137,7 @@ function toReferralNode(record: AdminReferralRecord, teamBusinessMap?: Map<strin
     path: (record.path ?? []).map((entry) => String(entry)),
     directCount: record.directCount ?? 0,
     activeTeamCount: record.activeTeamCount ?? 0,
-    teamBusinessUsdt: (userIdStr && teamBusinessMap) ? (teamBusinessMap.get(userIdStr) ?? 0) : 0,
+    teamBusinessUsdt: userIdStr && teamBusinessMap ? (teamBusinessMap.get(userIdStr) ?? 0) : 0,
     createdAt: record.createdAt ?? null,
   };
 }
@@ -186,7 +184,8 @@ function toPayoutNode(record: AdminPayoutRecord) {
 }
 
 function toPlanPurchaseRequestNode(record: AdminPlanPurchaseRecord) {
-  const planName = cleanTransactionNotes(record.notes).replace(/^Plan purchase (request|approved):\s*/i, "") ?? "";
+  const planName =
+    cleanTransactionNotes(record.notes).replace(/^Plan purchase (request|approved):\s*/i, "") ?? "";
 
   return {
     id: String(record._id),
@@ -288,8 +287,6 @@ function getPeriodCutoff(periodEnd: Date) {
 function formatPeriodDate(value: Date) {
   return value.toISOString().slice(0, 10);
 }
-
-
 
 function hasWeeklyPayoutChanged(
   record: AdminPayoutRecord,
@@ -489,9 +486,9 @@ export class AdminService {
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
           ? {
-              end: payoutPeriodEnd,
-              start: payoutPeriodStart,
-            }
+            end: payoutPeriodEnd,
+            start: payoutPeriodStart,
+          }
           : undefined,
       skip,
       limit,
@@ -519,12 +516,93 @@ export class AdminService {
     };
   }
 
+  async exportPayoutsCsv(input: {
+    search?: string;
+    status?: string;
+    fromDate?: string;
+    toDate?: string;
+    weekStart?: string;
+  }) {
+    const payoutPeriodStart = input.weekStart ? getPayoutWeekStart(input.weekStart) : null;
+    const payoutPeriodEnd = payoutPeriodStart ? getPeriodEnd(payoutPeriodStart) : null;
+    const { payouts } = await adminRepository.listPayouts({
+      search: input.search,
+      status: input.status,
+      dateRange: buildDateRangeFilter({ fromDate: input.fromDate, toDate: input.toDate }),
+      payoutPeriod:
+        payoutPeriodStart && payoutPeriodEnd
+          ? {
+            end: payoutPeriodEnd,
+            start: payoutPeriodStart,
+          }
+          : undefined,
+      skip: 0,
+      limit: 100000,
+    });
+
+    const headers = [
+      "Username",
+      "Type",
+      "Amount (USDT)",
+      "Tier",
+      "Principal (USDT)",
+      "Percent (%)",
+      "Period Start",
+      "Period End",
+      "Status",
+      "Notes",
+    ];
+
+    const rows = payouts.map((payout) => {
+      const u = toPayoutNode(payout as AdminPayoutRecord);
+      const userObj = payout.userId as any;
+      const username = userObj?.username ?? "Unknown";
+
+      const periodStartStr = u.payoutPeriodStart ? new Date(u.payoutPeriodStart).toISOString().slice(0, 10) : "";
+      const periodEndStr = u.payoutPeriodEnd ? new Date(u.payoutPeriodEnd).toISOString().slice(0, 10) : "";
+
+      return [
+        username,
+        u.payoutKind,
+        u.amountUsdt.toFixed(2),
+        u.payoutTier ?? "",
+        u.payoutPrincipalUsdt !== null ? u.payoutPrincipalUsdt.toFixed(2) : "",
+        u.payoutPercent !== null ? u.payoutPercent.toFixed(2) : "",
+        periodStartStr,
+        periodEndStr,
+        u.status,
+        `"${(u.notes ?? "").replace(/"/g, '""')}"`,
+      ];
+    });
+
+    return [
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
+  }
+
   async generateWeeklyPayouts(input: {
     weekStart?: string;
     payoutType?: "roi" | "level" | "royalty";
-    adminUserId: string;
+    adminUserId?: string;
     ipAddress?: string;
   }) {
+    let adminUserId = input.adminUserId;
+    if (!adminUserId) {
+      const admin = await UserModel.findOne({ role: "admin", status: "active" })
+        .sort({ createdAt: 1 })
+        .select("_id")
+        .lean();
+      adminUserId = admin ? String(admin._id) : undefined;
+    }
+
+    if (!adminUserId) {
+      throw new ApiError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "No active admin user found for payout generation.",
+      );
+    }
+
     const payoutDate = input.weekStart ? new Date(`${input.weekStart}T00:00:00.000Z`) : new Date();
     const periodStart = new Date(
       Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate()),
@@ -755,7 +833,7 @@ export class AdminService {
     const skippedCount = eligibleWallets.length - createdPayouts.length - updatedPayouts.length;
 
     await adminRepository.recordAuditLog({
-      actorUserId: input.adminUserId,
+      actorUserId: adminUserId,
       action: "admin.payouts.generated",
       entityType: "weekly_payout",
       entityId: `${formatPeriodDate(periodStart)}`,
@@ -1110,7 +1188,9 @@ export class AdminService {
       status: input.status,
     });
     const teamBusinessMap = await getTeamBusinessMap();
-    const nodes = referrals.map((record) => toReferralNode(record as AdminReferralRecord, teamBusinessMap));
+    const nodes = referrals.map((record) =>
+      toReferralNode(record as AdminReferralRecord, teamBusinessMap),
+    );
     const levels = nodes.reduce<Record<string, typeof nodes>>((levelMap, node) => {
       const key = `L${node.level}`;
       levelMap[key] = [...(levelMap[key] ?? []), node];
@@ -1148,6 +1228,40 @@ export class AdminService {
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1,
       },
+    };
+  }
+
+  async approveAllPendingPayouts(input: { adminUserId: string; ipAddress?: string }) {
+    const pendingPayouts = await TransactionModel.find({
+      status: "pending",
+      type: "reward",
+      payoutKind: { $in: ["weekly", "level", "salary_royalty"] },
+    }).lean();
+
+    let approvedCount = 0;
+    let failedCount = 0;
+    const errors: string[] = [];
+
+    for (const payout of pendingPayouts) {
+      try {
+        await this.reviewPayout({
+          transactionId: String(payout._id),
+          adminUserId: input.adminUserId,
+          action: "approve",
+          ipAddress: input.ipAddress,
+        });
+        approvedCount++;
+      } catch (err) {
+        failedCount++;
+        errors.push(`${payout._id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    return {
+      totalPending: pendingPayouts.length,
+      approvedCount,
+      failedCount,
+      errors,
     };
   }
 }

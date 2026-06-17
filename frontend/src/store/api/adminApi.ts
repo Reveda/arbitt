@@ -88,6 +88,21 @@ export const adminApi = baseApi.injectEndpoints({
       }),
       invalidatesTags: ["AdminOverview", "AdminPayouts", "AdminWallets"],
     }),
+    approveAllAdminPayouts: builder.mutation<
+      ApiSuccessResponse<{
+        totalPending: number;
+        approvedCount: number;
+        failedCount: number;
+        errors: string[];
+      }>,
+      void
+    >({
+      query: () => ({
+        method: "POST",
+        url: `${API_ENDPOINTS.admin.payouts}/approve-all`,
+      }),
+      invalidatesTags: ["AdminOverview", "AdminPayouts", "AdminWallets"],
+    }),
   }),
 });
 
@@ -97,4 +112,5 @@ export const {
   useAdminPayoutsQuery,
   useGenerateAdminPayoutsMutation,
   useReviewAdminPayoutMutation,
+  useApproveAllAdminPayoutsMutation,
 } = adminApi;

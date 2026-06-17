@@ -11,9 +11,7 @@ export class SupportTicketRepository {
   }
 
   async findByUserId(userId: string) {
-    return SupportTicketModel.find({ userId })
-      .sort({ createdAt: -1 })
-      .lean();
+    return SupportTicketModel.find({ userId }).sort({ createdAt: -1 }).lean();
   }
 
   async findAll() {
@@ -24,9 +22,7 @@ export class SupportTicketRepository {
   }
 
   async findById(ticketId: string) {
-    return SupportTicketModel.findById(ticketId)
-      .populate("userId", "email username")
-      .lean();
+    return SupportTicketModel.findById(ticketId).populate("userId", "email username").lean();
   }
 
   async resolve(ticketId: string, reply: string) {

@@ -12,10 +12,7 @@ import {
   updateWalletAddressSchema,
   createSupportTicketSchema,
 } from "../validations/user.validation";
-import {
-  createSupportTicket,
-  listUserSupportTickets,
-} from "../controllers/support.controller";
+import { createSupportTicket, listUserSupportTickets } from "../controllers/support.controller";
 
 export const userRoutes = Router();
 
@@ -50,4 +47,3 @@ userRoutes.get(
   requirePermissions("profile:read"),
   listUserSupportTickets,
 );
-
