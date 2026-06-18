@@ -83,15 +83,6 @@ type WalletAggregationResult = {
   counts: WalletAggregationStats[];
 };
 
-type PlatformWalletAggregationStats = {
-  platformWalletCount?: number;
-  platformAvailableUsdt?: number;
-  platformLockedUsdt?: number;
-  platformLifetimeDepositsUsdt?: number;
-  platformLifetimeWithdrawalsUsdt?: number;
-  platformLifetimeRewardsUsdt?: number;
-};
-
 type PrincipalAggregationResult = {
   principalUsdt?: number;
 };
@@ -130,8 +121,41 @@ async function sumTransactionAmount(match: Record<string, unknown>): Promise<num
   return result?.total ?? 0;
 }
 
+type DateRangeFilter = Partial<Record<"$gte" | "$lte", Date>>;
+
+async function countActiveUsersWithActivePlans(
+  dateRangeFilter: DateRangeFilter | null,
+): Promise<number> {
+  const [result] = await UserPlanPurchaseModel.aggregate<{ total: number }>([
+    { $match: { status: "active" } },
+    { $group: { _id: "$userId" } },
+    {
+      $lookup: {
+        as: "user",
+        foreignField: "_id",
+        from: "users",
+        localField: "_id",
+      },
+    },
+    { $unwind: "$user" },
+    {
+      $match: {
+        "user.role": "user",
+        "user.status": "active",
+        ...(dateRangeFilter ? { "user.createdAt": dateRangeFilter } : {}),
+      },
+    },
+    { $count: "total" },
+  ]);
+
+  return result?.total ?? 0;
+}
+
 export class AdminRepository {
-  async getOverviewCounts(filter?: { fromDate?: string; toDate?: string }): Promise<AdminOverviewRepositoryResult> {
+  async getOverviewCounts(filter?: {
+    fromDate?: string;
+    toDate?: string;
+  }): Promise<AdminOverviewRepositoryResult> {
     const completedStatuses = ["approved", "completed"];
     const monthBuckets = buildLastMonthBuckets(7);
     const firstBucketStart = monthBuckets[0]?.start ?? new Date();
@@ -140,7 +164,7 @@ export class AdminRepository {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Parse filter dates
-    let dateRangeFilter: Record<string, any> | null = null;
+    let dateRangeFilter: DateRangeFilter | null = null;
     if (filter?.fromDate || filter?.toDate) {
       dateRangeFilter = {};
       if (filter.fromDate) {
@@ -173,19 +197,64 @@ export class AdminRepository {
       depositOverview,
     ] = await Promise.all([
       UserModel.countDocuments(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
-      UserModel.countDocuments({ status: "active", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      TransactionModel.countDocuments({ status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      TransactionModel.countDocuments({ type: "deposit", status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      TransactionModel.countDocuments({ type: "plan_purchase", status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      TransactionModel.countDocuments({ type: "withdrawal", status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      TransactionModel.countDocuments({ type: "reward", payoutKind: "weekly", status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      UserPlanPurchaseModel.countDocuments({ status: "active", ...(dateRangeFilter ? { purchasedAt: dateRangeFilter } : {}) }),
-      sumTransactionAmount({ type: "deposit", status: { $in: completedStatuses }, ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      sumTransactionAmount({ type: "withdrawal", status: { $in: completedStatuses }, ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      sumTransactionAmount({ type: "reward", status: { $in: completedStatuses }, ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      sumTransactionAmount({ type: "plan_purchase", status: { $in: completedStatuses }, ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
-      AuditLogModel.find(dateRangeFilter ? { createdAt: dateRangeFilter } : {}).sort({ createdAt: -1 }).limit(10).lean(),
-      TransactionModel.find({ type: "deposit", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) })
+      countActiveUsersWithActivePlans(dateRangeFilter),
+      TransactionModel.countDocuments({
+        status: "pending",
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      TransactionModel.countDocuments({
+        type: "deposit",
+        status: "pending",
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      TransactionModel.countDocuments({
+        type: "plan_purchase",
+        status: "pending",
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      TransactionModel.countDocuments({
+        type: "withdrawal",
+        status: "pending",
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      TransactionModel.countDocuments({
+        type: "reward",
+        payoutKind: "weekly",
+        status: "pending",
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      UserPlanPurchaseModel.countDocuments({
+        status: "active",
+        ...(dateRangeFilter ? { purchasedAt: dateRangeFilter } : {}),
+      }),
+      sumTransactionAmount({
+        type: "deposit",
+        status: { $in: completedStatuses },
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      sumTransactionAmount({
+        type: "withdrawal",
+        status: { $in: completedStatuses },
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      sumTransactionAmount({
+        type: "reward",
+        status: { $in: completedStatuses },
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      sumTransactionAmount({
+        type: "plan_purchase",
+        status: { $in: completedStatuses },
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      }),
+      AuditLogModel.find(dateRangeFilter ? { createdAt: dateRangeFilter } : {})
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean(),
+      TransactionModel.find({
+        type: "deposit",
+        ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      })
         .populate({ path: "userId", select: "username" })
         .sort({ createdAt: -1 })
         .limit(4)
@@ -356,11 +425,11 @@ export class AdminRepository {
     const search = input.search?.trim();
     const filter = search
       ? {
-        $or: [
-          { username: new RegExp(escapeRegex(search), "i") },
-          { referralCode: new RegExp(escapeRegex(search), "i") },
-        ],
-      }
+          $or: [
+            { username: new RegExp(escapeRegex(search), "i") },
+            { referralCode: new RegExp(escapeRegex(search), "i") },
+          ],
+        }
       : {};
 
     const [users, total] = await Promise.all([
@@ -819,10 +888,7 @@ export class AdminRepository {
             {
               $match: {
                 $expr: {
-                  $and: [
-                    { $eq: ["$userId", "$$uId"] },
-                    { $eq: ["$status", "active"] },
-                  ],
+                  $and: [{ $eq: ["$userId", "$$uId"] }, { $eq: ["$status", "active"] }],
                 },
               },
             },
@@ -839,10 +905,7 @@ export class AdminRepository {
       {
         $addFields: {
           activePlanSum: {
-            $ifNull: [
-              { $arrayElemAt: ["$activePlans.totalActivePlanAmount", 0] },
-              0,
-            ],
+            $ifNull: [{ $arrayElemAt: ["$activePlans.totalActivePlanAmount", 0] }, 0],
           },
         },
       },
@@ -852,10 +915,7 @@ export class AdminRepository {
             $min: [
               "$availableUsdt",
               {
-                $max: [
-                  0,
-                  { $subtract: ["$lifetimeDepositsUsdt", "$activePlanSum"] },
-                ],
+                $max: [0, { $subtract: ["$lifetimeDepositsUsdt", "$activePlanSum"] }],
               },
             ],
           },
