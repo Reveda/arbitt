@@ -15,6 +15,7 @@ import {
   useAdminDepositsQuery as useAdminDepositsRtkQuery,
   useAdminOverviewQuery,
   useAdminPayoutsQuery as useAdminPayoutsRtkQuery,
+  type AdminOverviewFilter,
 } from "@/store/api/adminApi";
 import { getQueryErrorMessage } from "@/store/api/queryError";
 
@@ -24,8 +25,8 @@ type QueryState<TData> = {
   isLoading: boolean;
 };
 
-export function useAdminOverview() {
-  const adminOverviewQuery = useAdminOverviewQuery();
+export function useAdminOverview(filter?: AdminOverviewFilter) {
+  const adminOverviewQuery = useAdminOverviewQuery(filter ?? undefined);
   const refetch = useCallback(async () => {
     const response = await adminOverviewQuery.refetch();
 

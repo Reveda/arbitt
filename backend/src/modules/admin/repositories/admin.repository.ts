@@ -130,13 +130,27 @@ async function sumTransactionAmount(match: Record<string, unknown>): Promise<num
 }
 
 export class AdminRepository {
-  async getOverviewCounts(): Promise<AdminOverviewRepositoryResult> {
+  async getOverviewCounts(filter?: { fromDate?: string; toDate?: string }): Promise<AdminOverviewRepositoryResult> {
     const completedStatuses = ["approved", "completed"];
     const monthBuckets = buildLastMonthBuckets(7);
     const firstBucketStart = monthBuckets[0]?.start ?? new Date();
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    // Parse filter dates
+    let dateRangeFilter: Record<string, any> | null = null;
+    if (filter?.fromDate || filter?.toDate) {
+      dateRangeFilter = {};
+      if (filter.fromDate) {
+        const [y, m, d] = filter.fromDate.split("-").map(Number);
+        dateRangeFilter.$gte = new Date(y, m - 1, d, 0, 0, 0, 0);
+      }
+      if (filter.toDate) {
+        const [y, m, d] = filter.toDate.split("-").map(Number);
+        dateRangeFilter.$lte = new Date(y, m - 1, d, 23, 59, 59, 999);
+      }
+    }
 
     const [
       totalUsers,
@@ -150,25 +164,27 @@ export class AdminRepository {
       totalDepositsUsdt,
       totalWithdrawalsUsdt,
       earningsPaidUsdt,
+      totalPackagesSellUsdt,
       recentAuditLogs,
       recentDeposits,
       usersBeforeGrowthWindow,
       monthlyUsers,
       depositOverview,
     ] = await Promise.all([
-      UserModel.countDocuments(),
-      UserModel.countDocuments({ status: "active" }),
-      TransactionModel.countDocuments({ status: "pending" }),
-      TransactionModel.countDocuments({ type: "deposit", status: "pending" }),
-      TransactionModel.countDocuments({ type: "plan_purchase", status: "pending" }),
-      TransactionModel.countDocuments({ type: "withdrawal", status: "pending" }),
-      TransactionModel.countDocuments({ type: "reward", payoutKind: "weekly", status: "pending" }),
-      UserPlanPurchaseModel.countDocuments({ status: "active" }),
-      sumTransactionAmount({ type: "deposit", status: { $in: completedStatuses } }),
-      sumTransactionAmount({ type: "withdrawal", status: { $in: completedStatuses } }),
-      sumTransactionAmount({ type: "reward", status: { $in: completedStatuses } }),
-      AuditLogModel.find().sort({ createdAt: -1 }).limit(10).lean(),
-      TransactionModel.find({ type: "deposit" })
+      UserModel.countDocuments(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
+      UserModel.countDocuments({ status: "active", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      TransactionModel.countDocuments({ status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      TransactionModel.countDocuments({ type: "deposit", status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      TransactionModel.countDocuments({ type: "plan_purchase", status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      TransactionModel.countDocuments({ type: "withdrawal", status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      TransactionModel.countDocuments({ type: "reward", payoutKind: "weekly", status: "pending", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      UserPlanPurchaseModel.countDocuments({ status: "active", ...(dateRangeFilter ? { purchasedAt: dateRangeFilter } : {}) }),
+      sumTransactionAmount({ type: "deposit", status: { $in: completedStatuses }, ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      sumTransactionAmount({ type: "withdrawal", status: { $in: completedStatuses }, ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      sumTransactionAmount({ type: "reward", status: { $in: completedStatuses }, ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      sumTransactionAmount({ type: "plan_purchase", status: { $in: completedStatuses }, ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) }),
+      AuditLogModel.find(dateRangeFilter ? { createdAt: dateRangeFilter } : {}).sort({ createdAt: -1 }).limit(10).lean(),
+      TransactionModel.find({ type: "deposit", ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}) })
         .populate({ path: "userId", select: "username" })
         .sort({ createdAt: -1 })
         .limit(4)
@@ -190,6 +206,7 @@ export class AdminRepository {
         {
           $match: {
             type: "deposit",
+            ...(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
           },
         },
         {
@@ -295,6 +312,7 @@ export class AdminRepository {
       pendingPayouts,
       activePlans,
       totalDepositsUsdt,
+      totalPackagesSellUsdt,
       depositOverview: {
         monthApprovedCount: depositOverview[0]?.monthApprovedCount ?? 0,
         monthApprovedUsdt: depositOverview[0]?.monthApprovedUsdt ?? 0,

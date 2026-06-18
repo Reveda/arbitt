@@ -117,3 +117,13 @@ export const updateAdminPaymentWalletBodySchema = z.object({
     .max(180, "Wallet address is too long."),
   network: z.enum(["BEP20"]),
 });
+
+export const adminOverviewQuerySchema = z
+  .object({
+    fromDate: dateFilterSchema,
+    toDate: dateFilterSchema,
+  })
+  .refine((query) => !query.fromDate || !query.toDate || query.fromDate <= query.toDate, {
+    message: "To date must be same as or after from date.",
+    path: ["toDate"],
+  });

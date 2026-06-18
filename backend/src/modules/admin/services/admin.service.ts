@@ -306,8 +306,8 @@ function hasWeeklyPayoutChanged(
 }
 
 export class AdminService {
-  getOverview() {
-    return adminRepository.getOverviewCounts();
+  getOverview(filter?: { fromDate?: string; toDate?: string }) {
+    return adminRepository.getOverviewCounts(filter);
   }
 
   async listUsers(input: { page: number; limit: number; search?: string }) {

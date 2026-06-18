@@ -36,10 +36,12 @@ import {
   reviewAdminPayoutBodySchema,
   reviewAdminWithdrawalBodySchema,
   updateAdminPaymentWalletBodySchema,
+  adminOverviewQuerySchema,
 } from "../validations/admin.validation";
 
-export const getAdminOverview = catchAsync(async (_req: Request, res: Response) => {
-  const result = await adminService.getOverview();
+export const getAdminOverview = catchAsync(async (req: Request, res: Response) => {
+  const query = adminOverviewQuerySchema.parse(req.query);
+  const result = await adminService.getOverview(query);
   res
     .status(HTTP_STATUS.OK)
     .json(apiResponse<AdminOverviewResponseDto>(HTTP_STATUS.OK, "Admin overview loaded.", result));

@@ -52,10 +52,28 @@ function buildAdminPayoutsPath(params: AdminPayoutsParams) {
   return `${API_ENDPOINTS.admin.payouts}?${query}`;
 }
 
+export type AdminOverviewFilter = {
+  fromDate?: string;
+  toDate?: string;
+};
+
+function buildAdminOverviewPath(params?: AdminOverviewFilter) {
+  if (!params?.fromDate && !params?.toDate) {
+    return API_ENDPOINTS.admin.overview;
+  }
+
+  const query = buildQuery({
+    fromDate: params?.fromDate,
+    toDate: params?.toDate,
+  });
+
+  return `${API_ENDPOINTS.admin.overview}?${query}`;
+}
+
 export const adminApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    adminOverview: builder.query<ApiSuccessResponse<AdminOverview>, void>({
-      query: () => API_ENDPOINTS.admin.overview,
+    adminOverview: builder.query<ApiSuccessResponse<AdminOverview>, AdminOverviewFilter | void>({
+      query: (params) => buildAdminOverviewPath(params ?? undefined),
       providesTags: ["AdminOverview"],
     }),
     adminDeposits: builder.query<ApiSuccessResponse<AdminDepositsResponse>, AdminDepositsParams>({

@@ -194,22 +194,16 @@ export function AdminPayoutsPage() {
       value: formatUsdt(summary.totalPayoutUsdt),
     },
     {
-      icon: Clock3,
-      label: "Pending",
-      tone: "bg-amber-50 text-amber-700",
-      value: `${summary.pendingCount} / ${formatUsdt(summary.totalPendingUsdt)}`,
-    },
-    {
-      icon: CheckCircle2,
-      label: "Approved",
-      tone: "bg-emerald-50 text-emerald-700",
-      value: `${summary.approvedCount} / ${formatUsdt(summary.totalApprovedUsdt)}`,
-    },
-    {
       icon: XCircle,
       label: "Rejected",
       tone: "bg-rose-50 text-rose-700",
       value: String(summary.rejectedCount),
+    },
+    {
+      icon: BadgeDollarSign,
+      label: "Earnings Paid",
+      tone: "bg-emerald-50 text-emerald-700",
+      value: `${summary.approvedCount} / ${formatUsdt(summary.totalApprovedUsdt)}`,
     },
   ];
 
@@ -256,7 +250,7 @@ export function AdminPayoutsPage() {
 
       <ToastMessage message={message} onClose={() => setMessage(null)} />
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
 

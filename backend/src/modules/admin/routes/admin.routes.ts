@@ -40,12 +40,18 @@ import {
   reviewAdminPayoutBodySchema,
   reviewAdminWithdrawalBodySchema,
   updateAdminPaymentWalletBodySchema,
+  adminOverviewQuerySchema,
 } from "../validations/admin.validation";
 
 export const adminRoutes = Router();
 
 adminRoutes.use(requireAuth, requireRoles("admin", "super_admin"));
-adminRoutes.get("/overview", requirePermissions("admin:overview:read"), getAdminOverview);
+adminRoutes.get(
+  "/overview",
+  requirePermissions("admin:overview:read"),
+  validateRequest({ query: adminOverviewQuerySchema }),
+  getAdminOverview,
+);
 adminRoutes.get(
   "/users",
   requirePermissions("admin:users:manage"),

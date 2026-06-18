@@ -14,6 +14,7 @@ export type AdminOverview = {
   pendingPayouts: number;
   activePlans: number;
   totalDepositsUsdt: number;
+  totalPackagesSellUsdt: number;
   depositOverview: {
     monthApprovedCount: number;
     monthApprovedUsdt: number;
