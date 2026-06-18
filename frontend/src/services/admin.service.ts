@@ -273,6 +273,7 @@ export type AdminWallet = {
   id: string;
   user: AdminReferralUser | null;
   availableUsdt: number;
+  topUpBalance: number;
   lockedUsdt: number;
   lifetimeDepositsUsdt: number;
   lifetimeWithdrawalsUsdt: number;
@@ -291,6 +292,7 @@ export type AdminWalletsResponse = {
     platformLockedUsdt: number;
     platformWalletCount: number;
     totalAvailableUsdt: number;
+    totalTopUpBalanceUsdt: number;
     totalLockedUsdt: number;
     totalLifetimeDepositsUsdt: number;
     totalLifetimeWithdrawalsUsdt: number;

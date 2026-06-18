@@ -71,6 +71,7 @@ type PayoutAggregationResult = {
 type WalletAggregationStats = {
   total?: number;
   totalAvailableUsdt?: number;
+  totalTopUpBalanceUsdt?: number;
   totalLockedUsdt?: number;
   totalLifetimeDepositsUsdt?: number;
   totalLifetimeWithdrawalsUsdt?: number;
@@ -355,11 +356,11 @@ export class AdminRepository {
     const search = input.search?.trim();
     const filter = search
       ? {
-          $or: [
-            { username: new RegExp(escapeRegex(search), "i") },
-            { referralCode: new RegExp(escapeRegex(search), "i") },
-          ],
-        }
+        $or: [
+          { username: new RegExp(escapeRegex(search), "i") },
+          { referralCode: new RegExp(escapeRegex(search), "i") },
+        ],
+      }
       : {};
 
     const [users, total] = await Promise.all([
@@ -810,6 +811,56 @@ export class AdminRepository {
     }
 
     pipeline.push(
+      {
+        $lookup: {
+          from: "userplanpurchases",
+          let: { uId: "$userId" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$userId", "$$uId"] },
+                    { $eq: ["$status", "active"] },
+                  ],
+                },
+              },
+            },
+            {
+              $group: {
+                _id: null,
+                totalActivePlanAmount: { $sum: "$amountUsdt" },
+              },
+            },
+          ],
+          as: "activePlans",
+        },
+      },
+      {
+        $addFields: {
+          activePlanSum: {
+            $ifNull: [
+              { $arrayElemAt: ["$activePlans.totalActivePlanAmount", 0] },
+              0,
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          topUpBalance: {
+            $min: [
+              "$availableUsdt",
+              {
+                $max: [
+                  0,
+                  { $subtract: ["$lifetimeDepositsUsdt", "$activePlanSum"] },
+                ],
+              },
+            ],
+          },
+        },
+      },
       { $sort: { updatedAt: -1, createdAt: -1 } },
       {
         $facet: {
@@ -819,6 +870,7 @@ export class AdminRepository {
                 _id: null,
                 total: { $sum: 1 },
                 totalAvailableUsdt: { $sum: "$availableUsdt" },
+                totalTopUpBalanceUsdt: { $sum: "$topUpBalance" },
                 totalLockedUsdt: { $sum: "$lockedUsdt" },
                 totalLifetimeDepositsUsdt: { $sum: "$lifetimeDepositsUsdt" },
                 totalLifetimeRewardsUsdt: { $sum: "$lifetimeRewardsUsdt" },
@@ -833,6 +885,7 @@ export class AdminRepository {
               $project: {
                 _id: 1,
                 availableUsdt: 1,
+                topUpBalance: 1,
                 createdAt: 1,
                 lifetimeDepositsUsdt: 1,
                 lifetimeRewardsUsdt: 1,
@@ -913,6 +966,7 @@ export class AdminRepository {
         platformLockedUsdt: 0,
         platformWalletCount: 0,
         totalAvailableUsdt: stats.totalAvailableUsdt ?? 0,
+        totalTopUpBalanceUsdt: stats.totalTopUpBalanceUsdt ?? 0,
         totalLockedUsdt: stats.totalLockedUsdt ?? 0,
         totalLifetimeDepositsUsdt: stats.totalLifetimeDepositsUsdt ?? 0,
         totalLifetimeWithdrawalsUsdt: stats.totalLifetimeWithdrawalsUsdt ?? 0,

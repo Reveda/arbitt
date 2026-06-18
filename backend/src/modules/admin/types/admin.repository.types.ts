@@ -79,6 +79,7 @@ export type AdminWalletRepositoryRecord = {
   _id?: unknown;
   userId: unknown | AdminPopulatedUserRepositoryRecord;
   availableUsdt?: number;
+  topUpBalance?: number;
   lockedUsdt?: number;
   lifetimeDepositsUsdt?: number;
   lifetimeWithdrawalsUsdt?: number;
@@ -186,6 +187,7 @@ export type AdminWalletSummaryRepositoryRecord = {
   platformLockedUsdt: number;
   platformWalletCount: number;
   totalAvailableUsdt: number;
+  totalTopUpBalanceUsdt: number;
   totalLockedUsdt: number;
   totalLifetimeDepositsUsdt: number;
   totalLifetimeWithdrawalsUsdt: number;

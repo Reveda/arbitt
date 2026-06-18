@@ -83,6 +83,7 @@ type AdminWalletRecord = {
   _id?: unknown;
   userId?: unknown;
   availableUsdt?: number;
+  topUpBalance?: number;
   lockedUsdt?: number;
   lifetimeDepositsUsdt?: number;
   lifetimeWithdrawalsUsdt?: number;
@@ -231,6 +232,7 @@ function toWalletNode(record: AdminWalletRecord) {
     id: String(record._id),
     user: toUserSummary(record.userId),
     availableUsdt: record.availableUsdt ?? 0,
+    topUpBalance: record.topUpBalance ?? 0,
     lockedUsdt: record.lockedUsdt ?? 0,
     lifetimeDepositsUsdt: record.lifetimeDepositsUsdt ?? 0,
     lifetimeWithdrawalsUsdt: record.lifetimeWithdrawalsUsdt ?? 0,
