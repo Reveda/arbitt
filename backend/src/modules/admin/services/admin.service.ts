@@ -486,9 +486,9 @@ export class AdminService {
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
           ? {
-            end: payoutPeriodEnd,
-            start: payoutPeriodStart,
-          }
+              end: payoutPeriodEnd,
+              start: payoutPeriodStart,
+            }
           : undefined,
       skip,
       limit,
@@ -532,9 +532,9 @@ export class AdminService {
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
           ? {
-            end: payoutPeriodEnd,
-            start: payoutPeriodStart,
-          }
+              end: payoutPeriodEnd,
+              start: payoutPeriodStart,
+            }
           : undefined,
       skip: 0,
       limit: 100000,
@@ -558,8 +558,12 @@ export class AdminService {
       const userObj = payout.userId as any;
       const username = userObj?.username ?? "Unknown";
 
-      const periodStartStr = u.payoutPeriodStart ? new Date(u.payoutPeriodStart).toISOString().slice(0, 10) : "";
-      const periodEndStr = u.payoutPeriodEnd ? new Date(u.payoutPeriodEnd).toISOString().slice(0, 10) : "";
+      const periodStartStr = u.payoutPeriodStart
+        ? new Date(u.payoutPeriodStart).toISOString().slice(0, 10)
+        : "";
+      const periodEndStr = u.payoutPeriodEnd
+        ? new Date(u.payoutPeriodEnd).toISOString().slice(0, 10)
+        : "";
 
       return [
         username,
@@ -575,10 +579,7 @@ export class AdminService {
       ];
     });
 
-    return [
-      headers.join(","),
-      ...rows.map((row) => row.join(",")),
-    ].join("\n");
+    return [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
   }
 
   async generateWeeklyPayouts(input: {
@@ -586,6 +587,7 @@ export class AdminService {
     payoutType?: "roi" | "level" | "royalty";
     adminUserId?: string;
     ipAddress?: string;
+    autoApprove?: boolean;
   }) {
     let adminUserId = input.adminUserId;
     if (!adminUserId) {
@@ -786,8 +788,8 @@ export class AdminService {
     }
 
     // 2. Generate Daily Level Income
-    let createdLevelPayouts: any[] = [];
-    let updatedLevelPayouts: any[] = [];
+    const createdLevelPayouts: any[] = [];
+    const updatedLevelPayouts: any[] = [];
     let allLevelPayouts: any[] = [];
 
     if (payoutType === "level") {
@@ -853,6 +855,13 @@ export class AdminService {
       },
     });
 
+    if (input.autoApprove !== false && allGeneratedPayouts.length > 0) {
+      await this.approveAllPendingPayouts({
+        adminUserId,
+        ipAddress: input.ipAddress,
+      });
+    }
+
     return {
       createdCount: allGeneratedPayouts.length,
       eligibleCount: eligibleWallets.length,
@@ -906,6 +915,7 @@ export class AdminService {
     action: "approve" | "reject";
     notes?: string;
     ipAddress?: string;
+    autoApproveRewards?: boolean;
   }) {
     const reviewedPurchase =
       input.action === "approve"
@@ -952,6 +962,13 @@ export class AdminService {
         transactionId: input.transactionId,
         userId: String(reviewedPurchase.userId),
       });
+
+      if (input.autoApproveRewards !== false) {
+        await this.approveAllPendingPayouts({
+          adminUserId: input.adminUserId,
+          ipAddress: input.ipAddress,
+        });
+      }
     } else {
       await walletRepository.unlockPlanAmount(
         String(reviewedPurchase.userId),
@@ -1231,7 +1248,23 @@ export class AdminService {
     };
   }
 
-  async approveAllPendingPayouts(input: { adminUserId: string; ipAddress?: string }) {
+  async approveAllPendingPayouts(input: { adminUserId?: string; ipAddress?: string }) {
+    let adminUserId = input.adminUserId;
+    if (!adminUserId) {
+      const admin = await UserModel.findOne({ role: "admin", status: "active" })
+        .sort({ createdAt: 1 })
+        .select("_id")
+        .lean();
+      adminUserId = admin ? String(admin._id) : undefined;
+    }
+
+    if (!adminUserId) {
+      throw new ApiError(
+        HTTP_STATUS.INTERNAL_SERVER_ERROR,
+        "No active admin user found for payout approval.",
+      );
+    }
+
     const pendingPayouts = await TransactionModel.find({
       status: "pending",
       type: "reward",
@@ -1246,7 +1279,7 @@ export class AdminService {
       try {
         await this.reviewPayout({
           transactionId: String(payout._id),
-          adminUserId: input.adminUserId,
+          adminUserId,
           action: "approve",
           ipAddress: input.ipAddress,
         });

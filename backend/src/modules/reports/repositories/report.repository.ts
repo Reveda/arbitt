@@ -443,7 +443,11 @@ export class ReportRepository {
               },
               totalGeneratedUsdt: {
                 $sum: {
-                  $cond: [{ $in: ["$status", ["approved", "completed", "pending"]] }, "$amountUsdt", 0],
+                  $cond: [
+                    { $in: ["$status", ["approved", "completed", "pending"]] },
+                    "$amountUsdt",
+                    0,
+                  ],
                 },
               },
               totalPendingUsdt: {
@@ -473,7 +477,11 @@ export class ReportRepository {
               totalCount: { $sum: 1 },
               totalUsdt: {
                 $sum: {
-                  $cond: [{ $in: ["$status", ["approved", "completed", "pending"]] }, "$amountUsdt", 0],
+                  $cond: [
+                    { $in: ["$status", ["approved", "completed", "pending"]] },
+                    "$amountUsdt",
+                    0,
+                  ],
                 },
               },
             },

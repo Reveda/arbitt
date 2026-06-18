@@ -10,6 +10,7 @@ import { rewardService } from "../../rewards/services/reward.service";
 import { toTransactionNode } from "../../transactions/dtos/transaction.dto";
 import { TransactionModel } from "../../transactions/models/transaction.model";
 import { getPlatformPaymentWalletForNetwork } from "../../admin/services/payment-wallet.service";
+import { adminService } from "../../admin/services/admin.service";
 import { walletRepository } from "../../wallet/repositories/wallet.repository";
 import {
   getPaymentNetworkByChainId,
@@ -901,6 +902,8 @@ export class PaymentService {
         transactionId: String(transaction._id),
         userId: String(input.intent.userId),
       });
+
+      await adminService.approveAllPendingPayouts({});
 
       return "completed";
     } catch (caughtError) {

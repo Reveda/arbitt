@@ -5,6 +5,7 @@ import { ApiError } from "../../../utils/ApiError";
 import { TransactionModel } from "../../transactions/models/transaction.model";
 import { toTransactionNode } from "../../transactions/dtos/transaction.dto";
 import { rewardService } from "../../rewards/services/reward.service";
+import { adminService } from "../../admin/services/admin.service";
 import { walletRepository } from "../../wallet/repositories/wallet.repository";
 import { UserPlanPurchaseModel } from "../models/user-plan-purchase.model";
 import type {
@@ -276,6 +277,8 @@ export class PlanService {
         transactionId: String(transaction._id),
         userId,
       });
+
+      await adminService.approveAllPendingPayouts({});
 
       return {
         purchase: purchase

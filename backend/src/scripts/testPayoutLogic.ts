@@ -319,6 +319,7 @@ async function assertWeeklyPayoutStopsAtThreeTimesPrincipal(userId: string, admi
     adminUserId,
     payoutType: "roi",
     weekStart: "2026-05-22",
+    autoApprove: false,
   });
   const cappedPayout = await TransactionModel.findOne({
     payoutKind: "weekly",
@@ -645,6 +646,7 @@ async function assertRoyaltyWeeklyCutoff(
     adminUserId,
     payoutType: "royalty",
     weekStart: "2026-05-22",
+    autoApprove: false,
   });
 
   const royaltyRewardThisWeek = await TransactionModel.findOne({
@@ -690,6 +692,7 @@ async function assertRoyaltyWeeklyCutoff(
     adminUserId,
     payoutType: "royalty",
     weekStart: "2026-05-22",
+    autoApprove: false,
   });
 
   const royaltyRewardEligible = await TransactionModel.findOne({

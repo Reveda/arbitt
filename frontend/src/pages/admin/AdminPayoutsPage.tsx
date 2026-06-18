@@ -23,7 +23,6 @@ import { cn } from "@/lib/utils";
 import type { AdminPayout } from "@/services/admin.service";
 import {
   useReviewAdminPayoutMutation,
-  useApproveAllAdminPayoutsMutation,
 } from "@/store/api/adminApi";
 import { getQueryErrorMessage } from "@/store/api/queryError";
 import { AdminCard, AdminPageHeader } from "./admin.components";
@@ -105,30 +104,7 @@ export function AdminPayoutsPage() {
   const [confirmation, setConfirmation] = useState<ReviewConfirmation | null>(
     null,
   );
-  const [showApproveAllConfirm, setShowApproveAllConfirm] = useState(false);
   const [reviewAdminPayout] = useReviewAdminPayoutMutation();
-  const [approveAllAdminPayouts, approveAllState] = useApproveAllAdminPayoutsMutation();
-
-  const handleApproveAll = async () => {
-    setMessage(null);
-    try {
-      const response = await approveAllAdminPayouts().unwrap();
-      const approvedCount = response.data.approvedCount;
-      const failedCount = response.data.failedCount;
-
-      setMessage({
-        text: `Successfully approved ${approvedCount} payouts.${failedCount > 0 ? ` Failed: ${failedCount}.` : ""}`,
-        tone: failedCount > 0 ? "info" : "success",
-      });
-    } catch (caughtError) {
-      setMessage({
-        text:
-          getQueryErrorMessage(caughtError, "Unable to approve payouts.") ??
-          "Unable to approve payouts.",
-        tone: "error",
-      });
-    }
-  };
 
   const handleExportCsv = async () => {
     const params = new URLSearchParams();
@@ -362,21 +338,8 @@ export function AdminPayoutsPage() {
               Showing {firstRow}-{lastRow} of {pagination.total} payout records
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              className="h-9 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:bg-emerald-600/50 disabled:cursor-not-allowed"
-              disabled={summary.pendingCount === 0 || approveAllState.isLoading}
-              onClick={() => setShowApproveAllConfirm(true)}
-              size="sm"
-              type="button"
-            >
-              {approveAllState.isLoading ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="size-4" />
-              )}
-              Approve All
-            </Button>
+          <div className="flex flex-wrap items-center gap-2">
+
             <Button
               className="h-9 rounded-xl bg-cyan-600 text-white hover:bg-cyan-700 disabled:opacity-50 disabled:bg-cyan-600/50 disabled:cursor-not-allowed"
               disabled={payouts.length === 0}
@@ -621,57 +584,7 @@ export function AdminPayoutsPage() {
         </div>
       ) : null}
 
-      {showApproveAllConfirm ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl">
-            <div className="flex items-center gap-3 border-b border-emerald-100 bg-emerald-50 px-4 py-4">
-              <span className="grid size-10 place-items-center rounded-xl bg-white text-emerald-700">
-                <CheckCircle2 className="size-5" />
-              </span>
-              <div>
-                <p className="text-base font-black text-slate-950">
-                  Are you sure you want to approve all?
-                </p>
-                <p className="mt-1 text-xs font-semibold text-slate-500">
-                  Total pending: {summary.pendingCount} ({formatUsdt(summary.totalPendingUsdt)})
-                </p>
-              </div>
-            </div>
-            <div className="p-4">
-              <p className="text-sm font-semibold leading-relaxed text-slate-600">
-                This will approve all currently pending payouts. Users' wallets will be credited, and the admin payout balance will be debited.
-              </p>
-              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button
-                  className="h-10 rounded-xl"
-                  disabled={approveAllState.isLoading}
-                  onClick={() => setShowApproveAllConfirm(false)}
-                  type="button"
-                  variant="outline"
-                >
-                  No
-                </Button>
-                <Button
-                  className="h-10 rounded-xl text-white bg-emerald-600 hover:bg-emerald-700"
-                  disabled={approveAllState.isLoading}
-                  onClick={async () => {
-                    setShowApproveAllConfirm(false);
-                    await handleApproveAll();
-                  }}
-                  type="button"
-                >
-                  {approveAllState.isLoading ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="size-4" />
-                  )}
-                  Yes, Approve All
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+
     </section>
   );
 }
