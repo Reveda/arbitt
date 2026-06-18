@@ -13,6 +13,7 @@ import type {
   WalletSummaryResponseDto,
 } from "../dtos/wallet.dto";
 import { walletRepository } from "../repositories/wallet.repository";
+import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
 import type {
   createDepositRequestSchema,
   createWithdrawalRequestSchema,
@@ -29,6 +30,16 @@ function roundUsdt(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+export async function calculateTopUpBalance(
+  userId: string,
+  rawWalletAvailable: number,
+  rawWalletLifetimeDeposits: number,
+): Promise<number> {
+  const activePlans = await UserPlanPurchaseModel.find({ userId, status: "active" }).lean();
+  const activePlanSum = activePlans.reduce((sum, plan) => sum + (plan.amountUsdt ?? 0), 0);
+  return Math.min(rawWalletAvailable, Math.max(0, rawWalletLifetimeDeposits - activePlanSum));
+}
+
 export class WalletService {
   async getWalletSummary(userId: string): Promise<WalletSummaryResponseDto> {
     const [wallet, platformDepositWallet] = await Promise.all([
@@ -36,8 +47,14 @@ export class WalletService {
       getPlatformPaymentWallet(),
     ]);
 
+    const topUpBalance = await calculateTopUpBalance(
+      userId,
+      wallet?.availableUsdt ?? 0,
+      wallet?.lifetimeDepositsUsdt ?? 0,
+    );
+
     return {
-      availableUsdt: wallet?.availableUsdt ?? 0,
+      availableUsdt: topUpBalance,
       lockedUsdt: wallet?.lockedUsdt ?? 0,
       lifetimeDepositsUsdt: wallet?.lifetimeDepositsUsdt ?? 0,
       lifetimeWithdrawalsUsdt: wallet?.lifetimeWithdrawalsUsdt ?? 0,
@@ -132,7 +149,11 @@ export class WalletService {
         grossAmountUsdt,
         netAmountUsdt,
         wallet: {
-          availableUsdt: wallet.availableUsdt ?? 0,
+          availableUsdt: await calculateTopUpBalance(
+            userId,
+            wallet.availableUsdt ?? 0,
+            wallet.lifetimeDepositsUsdt ?? 0,
+          ),
           lockedUsdt: wallet.lockedUsdt ?? 0,
           lifetimeDepositsUsdt: wallet.lifetimeDepositsUsdt ?? 0,
           lifetimeRewardsUsdt: wallet.lifetimeRewardsUsdt ?? 0,

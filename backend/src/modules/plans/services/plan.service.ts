@@ -211,6 +211,21 @@ export class PlanService {
     }
 
     await walletRepository.ensureWallet(userId);
+    const walletDoc = await walletRepository.findByUserId(userId);
+    const activePlans = await UserPlanPurchaseModel.find({ userId, status: "active" }).lean();
+    const activePlanSum = activePlans.reduce((sum, plan) => sum + (plan.amountUsdt ?? 0), 0);
+    const topUpBalance = Math.min(
+      walletDoc?.availableUsdt ?? 0,
+      Math.max(0, (walletDoc?.lifetimeDepositsUsdt ?? 0) - activePlanSum),
+    );
+
+    if (amountUsdt > topUpBalance) {
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        "Insufficient top-up wallet balance for this plan purchase.",
+      );
+    }
+
     const wallet = await walletRepository.lockPlanAmount(userId, amountUsdt);
 
     if (!wallet) {
@@ -268,7 +283,10 @@ export class PlanService {
           : toPlanPurchaseTransactionDto(transaction),
         transaction: toTransactionNode(transaction),
         wallet: {
-          availableUsdt: wallet.availableUsdt ?? 0,
+          availableUsdt: Math.min(
+            wallet.availableUsdt ?? 0,
+            Math.max(0, (wallet.lifetimeDepositsUsdt ?? 0) - (activePlanSum + amountUsdt)),
+          ),
           lockedUsdt: wallet.lockedUsdt ?? 0,
           lifetimeDepositsUsdt: wallet.lifetimeDepositsUsdt ?? 0,
           lifetimeRewardsUsdt: wallet.lifetimeRewardsUsdt ?? 0,

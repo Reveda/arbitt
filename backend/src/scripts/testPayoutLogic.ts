@@ -44,6 +44,11 @@ function getTestUsers(): TestUserInput[] {
       lifetimeDepositsUsdt: 100,
       parentEmail: `child${testDomain}`,
     },
+    {
+      email: `withdraw_user${testDomain}`,
+      username: "logic_withdraw_user",
+      lifetimeDepositsUsdt: 1000,
+    },
     ...Array.from({ length: 9 }, (_, index) => ({
       email: `direct${String(index + 1).padStart(2, "0")}${testDomain}`,
       username: `logic_direct_${String(index + 1).padStart(2, "0")}`,
@@ -488,11 +493,13 @@ async function assertTotalRewardCapIncludesLevelAndRoyalty(input: {
 async function assertWithdrawalChargeFlow(input: { adminUserId: string; userId: string }) {
   await Promise.all([
     TransactionModel.deleteMany({ type: "withdrawal", userId: input.userId }),
+    UserPlanPurchaseModel.deleteMany({ userId: input.userId }),
     WalletModel.updateOne(
       { userId: input.userId },
       {
         $set: {
           availableUsdt: 1000,
+          lifetimeDepositsUsdt: 1000,
           lifetimeWithdrawalsUsdt: 0,
           lockedUsdt: 0,
         },
@@ -743,10 +750,12 @@ async function runPayoutLogicTest() {
   const sponsor = usersByEmail.get(`sponsor${testDomain}`);
   const child = usersByEmail.get(`child${testDomain}`);
   const grandchild = usersByEmail.get(`grandchild${testDomain}`);
+  const withdrawUser = usersByEmail.get(`withdraw_user${testDomain}`);
 
   assert.ok(sponsor, "Sponsor test user was not created.");
   assert.ok(child, "Child test user was not created.");
   assert.ok(grandchild, "Grandchild test user was not created.");
+  assert.ok(withdrawUser, "Withdraw test user was not created.");
 
   await assertSundayPurchaseMovesToNextWeek(String(child._id));
 
@@ -897,7 +906,7 @@ async function runPayoutLogicTest() {
   );
   await assertWithdrawalChargeFlow({
     adminUserId: String(sponsor._id),
-    userId: String(child._id),
+    userId: String(withdrawUser._id),
   });
   await assertTotalRewardCapIncludesLevelAndRoyalty({
     adminUserId: String(sponsor._id),
