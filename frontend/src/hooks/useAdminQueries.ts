@@ -51,6 +51,11 @@ export function useAdminUsers(params: AdminUsersParams) {
     error: null,
     isLoading: true
   });
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refetch = useCallback(() => {
+    setRefreshTrigger((prev) => prev + 1);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -78,9 +83,12 @@ export function useAdminUsers(params: AdminUsersParams) {
     return () => {
       active = false;
     };
-  }, [params.limit, params.page, params.search]);
+  }, [params.limit, params.page, params.search, refreshTrigger]);
 
-  return state;
+  return {
+    ...state,
+    refetch
+  };
 }
 
 export function useAdminReferrals(params: AdminReferralsParams) {

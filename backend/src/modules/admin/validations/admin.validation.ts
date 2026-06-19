@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { USER_STATUSES } from "../../../constants/roles";
+import { USER_ROLES, USER_STATUSES } from "../../../constants/roles";
 import { TRANSACTION_STATUSES } from "../../transactions/models/transaction.model";
 
 const dateFilterSchema = z
@@ -127,3 +127,18 @@ export const adminOverviewQuerySchema = z
     message: "To date must be same as or after from date.",
     path: ["toDate"],
   });
+
+export const adminUserParamsSchema = z.object({
+  userId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid user id."),
+});
+
+export const editAdminUserBodySchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(3, "Username must be at least 3 characters.")
+    .max(30, "Username cannot exceed 30 characters.")
+    .optional(),
+  role: z.enum(USER_ROLES).optional(),
+  status: z.enum(USER_STATUSES).optional(),
+});

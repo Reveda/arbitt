@@ -735,5 +735,18 @@ export const adminService = {
       method: "PATCH",
       body: input
     });
+  },
+
+  editUser(userId: string, body: { username?: string; role?: string; status?: string }) {
+    return apiRequest<any>(`${API_ENDPOINTS.admin.users}/${userId}`, {
+      method: "PATCH",
+      body
+    });
+  },
+
+  deleteUser(userId: string) {
+    return apiRequest<any>(`${API_ENDPOINTS.admin.users}/${userId}`, {
+      method: "DELETE"
+    });
   }
 };

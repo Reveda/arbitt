@@ -526,21 +526,14 @@ export class RewardService {
 
     const existingSalaryRewards = await TransactionModel.find({
       payoutKind: "salary_royalty",
-      payoutPeriodEnd: royaltyPeriod.end,
-      payoutPeriodStart: royaltyPeriod.start,
+      payoutPeriodStart: { $gte: royaltyPeriod.start, $lte: royaltyPeriod.end },
       type: "reward",
     })
-      .select("userId payoutTier payoutPeriodStart payoutPeriodEnd")
+      .select("userId")
       .lean<ExistingSalaryRewardRecord[]>();
 
-    const existingKeys = new Set(
-      existingSalaryRewards.map(
-        (reward) =>
-          `${String(reward.userId)}:${reward.payoutTier}:${getPeriodKey(
-            reward.payoutPeriodStart,
-            reward.payoutPeriodEnd,
-          )}`,
-      ),
+    const existingUserIds = new Set(
+      existingSalaryRewards.map((reward) => String(reward.userId)),
     );
 
     const qualifiedCandidates = [...candidateUserIds].filter((userId) => {
@@ -565,12 +558,7 @@ export class RewardService {
 
       const payoutTier = rule.royaltyPool;
       const tierName = `M${rank}`;
-      const existingKey = `${userId}:${payoutTier}:${getPeriodKey(
-        royaltyPeriod.start,
-        royaltyPeriod.end,
-      )}`;
-
-      if (existingKeys.has(existingKey)) {
+      if (existingUserIds.has(userId)) {
         continue;
       }
 
@@ -609,7 +597,7 @@ export class RewardService {
         userId: toObjectId(userId),
       });
 
-      existingKeys.add(existingKey);
+      existingUserIds.add(userId);
     }
 
     return insertRewardRows(rewardRows);

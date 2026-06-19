@@ -423,14 +423,16 @@ export class AdminRepository {
 
   async listUsers(input: AdminListUsersInput): Promise<AdminListUsersRepositoryResult> {
     const search = input.search?.trim();
-    const filter = search
-      ? {
-          $or: [
-            { username: new RegExp(escapeRegex(search), "i") },
-            { referralCode: new RegExp(escapeRegex(search), "i") },
-          ],
-        }
-      : {};
+    const filter: Record<string, any> = {
+      isDeleted: { $ne: true },
+    };
+
+    if (search) {
+      filter.$or = [
+        { username: new RegExp(escapeRegex(search), "i") },
+        { referralCode: new RegExp(escapeRegex(search), "i") },
+      ];
+    }
 
     const [users, total] = await Promise.all([
       UserModel.find(filter)

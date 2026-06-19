@@ -87,7 +87,8 @@ function formatDate(value: string | null) {
   return new Intl.DateTimeFormat("en-IN", {
     day: "2-digit",
     month: "short",
-    year: "numeric"
+    year: "numeric",
+    timeZone: "UTC"
   }).format(new Date(value));
 }
 

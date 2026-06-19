@@ -15,6 +15,7 @@ import { UserModel } from "../../users/models/user.model";
 import { TransactionModel } from "../../transactions/models/transaction.model";
 import { Types } from "mongoose";
 import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
+import { authRepository } from "../../auth/repositories/auth.repository";
 
 type PopulatedAdminUser = {
   _id?: unknown;
@@ -861,6 +862,7 @@ export class AdminService {
       await this.approveAllPendingPayouts({
         adminUserId,
         ipAddress: input.ipAddress,
+        transactionIds: allGeneratedPayouts.map((payout) => String(payout._id)),
       });
     }
 
@@ -1250,7 +1252,11 @@ export class AdminService {
     };
   }
 
-  async approveAllPendingPayouts(input: { adminUserId?: string; ipAddress?: string }) {
+  async approveAllPendingPayouts(input: {
+    adminUserId?: string;
+    ipAddress?: string;
+    transactionIds?: string[];
+  }) {
     let adminUserId = input.adminUserId;
     if (!adminUserId) {
       const admin = await UserModel.findOne({ role: "admin", status: "active" })
@@ -1267,11 +1273,17 @@ export class AdminService {
       );
     }
 
-    const pendingPayouts = await TransactionModel.find({
+    const query: Record<string, any> = {
       status: "pending",
       type: "reward",
       payoutKind: { $in: ["weekly", "level", "salary_royalty"] },
-    }).lean();
+    };
+
+    if (input.transactionIds && input.transactionIds.length > 0) {
+      query._id = { $in: input.transactionIds };
+    }
+
+    const pendingPayouts = await TransactionModel.find(query).lean();
 
     let approvedCount = 0;
     let failedCount = 0;
@@ -1298,6 +1310,69 @@ export class AdminService {
       failedCount,
       errors,
     };
+  }
+
+  async editUser(
+    userId: string,
+    update: { username?: string; role?: string; status?: string },
+  ) {
+    const user = await UserModel.findOne({ _id: userId, isDeleted: { $ne: true } });
+    if (!user) {
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
+    }
+
+    if (update.username) {
+      const usernameLower = update.username.toLowerCase().trim();
+      const existing = await UserModel.findOne({
+        username: usernameLower,
+        _id: { $ne: user._id },
+        isDeleted: { $ne: true },
+      });
+      if (existing) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Username is already taken.");
+      }
+      user.username = usernameLower;
+    }
+
+    if (update.role) {
+      user.role = update.role as any;
+    }
+
+    if (update.status) {
+      user.status = update.status as any;
+    }
+
+    await user.save();
+
+    return user.toObject();
+  }
+
+  async deleteUser(userId: string, adminUserId: string) {
+    const user = await UserModel.findOne({ _id: userId, isDeleted: { $ne: true } });
+    if (!user) {
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
+    }
+
+    user.isDeleted = true;
+    user.deletedAt = new Date();
+    await user.save();
+
+    // Revoke all sessions for the deleted user
+    await authRepository.revokeUserSessions(userId);
+
+    // Audit log
+    await adminRepository.recordAuditLog({
+      actorUserId: adminUserId,
+      action: "admin.user.deleted",
+      entityType: "user",
+      entityId: userId,
+      metadata: {
+        username: user.username,
+        email: user.email,
+      },
+    });
+
+    return { success: true };
   }
 }
 

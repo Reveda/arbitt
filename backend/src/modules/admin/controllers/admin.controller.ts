@@ -37,6 +37,8 @@ import {
   reviewAdminWithdrawalBodySchema,
   updateAdminPaymentWalletBodySchema,
   adminOverviewQuerySchema,
+  adminUserParamsSchema,
+  editAdminUserBodySchema,
 } from "../validations/admin.validation";
 
 export const getAdminOverview = catchAsync(async (req: Request, res: Response) => {
@@ -255,4 +257,23 @@ export const exportAdminPayouts = catchAsync(async (req: Request, res: Response)
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
   res.status(HTTP_STATUS.OK).send(csvData);
+});
+
+export const editAdminUser = catchAsync(async (req: Request, res: Response) => {
+  const params = adminUserParamsSchema.parse(req.params);
+  const body = editAdminUserBodySchema.parse(req.body);
+  const result = await adminService.editUser(params.userId, body);
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(apiResponse(HTTP_STATUS.OK, "User updated successfully.", result));
+});
+
+export const deleteAdminUser = catchAsync(async (req: Request, res: Response) => {
+  const params = adminUserParamsSchema.parse(req.params);
+  const result = await adminService.deleteUser(params.userId, req.user!.id);
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(apiResponse(HTTP_STATUS.OK, "User deleted successfully.", result));
 });

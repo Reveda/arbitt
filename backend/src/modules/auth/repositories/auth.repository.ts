@@ -43,35 +43,35 @@ type AuditLogDocumentRecord = HydratedDocument<AuditLogDocument>;
 
 export class AuthRepository {
   async findUserById(userId: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findById(userId).lean();
+    return UserModel.findOne({ _id: userId, isDeleted: { $ne: true } }).lean();
   }
 
   async findUserByEmail(email: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ email: email.toLowerCase().trim() }).lean();
+    return UserModel.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } }).lean();
   }
 
   async findUserByUsername(username: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ username: username.toLowerCase().trim() }).lean();
+    return UserModel.findOne({ username: username.toLowerCase().trim(), isDeleted: { $ne: true } }).lean();
   }
 
   async findUserByReferralCode(referralCode: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ referralCode: referralCode.trim() }).lean();
+    return UserModel.findOne({ referralCode: referralCode.trim(), isDeleted: { $ne: true } }).lean();
   }
 
   async findUserByEmailWithPassword(email: string): Promise<AuthUserDocumentRecord | null> {
-    return UserModel.findOne({ email: email.toLowerCase().trim() }).select("+passwordHash");
+    return UserModel.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } }).select("+passwordHash");
   }
 
   async findUserByEmailWithEmailVerificationOtp(
     email: string,
   ): Promise<AuthUserDocumentRecord | null> {
-    return UserModel.findOne({ email: email.toLowerCase().trim() }).select(
+    return UserModel.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } }).select(
       "+emailVerificationOtpHash",
     );
   }
 
   async findUserByEmailWithPasswordResetOtp(email: string): Promise<AuthUserDocumentRecord | null> {
-    return UserModel.findOne({ email: email.toLowerCase().trim() }).select("+passwordResetOtpHash");
+    return UserModel.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } }).select("+passwordResetOtpHash");
   }
 
   createUser(input: CreateAuthUserInput): Promise<AuthUserDocumentRecord> {

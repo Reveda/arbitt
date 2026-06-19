@@ -3,31 +3,37 @@ import type { UserRepositoryRecord } from "../types/user.repository.types";
 
 export class UserRepository {
   async findById(userId: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findById(userId).select("-passwordHash").lean();
+    return UserModel.findOne({ _id: userId, isDeleted: { $ne: true } })
+      .select("-passwordHash")
+      .lean();
   }
 
   async findByIdWithTransactionPassword(userId: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findById(userId).select("+transactionPasswordHash").lean();
+    return UserModel.findOne({ _id: userId, isDeleted: { $ne: true } })
+      .select("+transactionPasswordHash")
+      .lean();
   }
 
   async findByEmail(email: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ email: email.toLowerCase().trim() }).lean();
+    return UserModel.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } }).lean();
   }
 
   async findByEmailWithPassword(email: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ email: email.toLowerCase().trim() }).select("+passwordHash").lean();
+    return UserModel.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } })
+      .select("+passwordHash")
+      .lean();
   }
 
   async findByReferralCode(referralCode: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ referralCode }).lean();
+    return UserModel.findOne({ referralCode, isDeleted: { $ne: true } }).lean();
   }
 
   async findByUsername(username: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ username: username.toLowerCase().trim() }).lean();
+    return UserModel.findOne({ username: username.toLowerCase().trim(), isDeleted: { $ne: true } }).lean();
   }
 
   countUsers(): Promise<number> {
-    return UserModel.countDocuments();
+    return UserModel.countDocuments({ isDeleted: { $ne: true } });
   }
 
   async updateWalletAddress(

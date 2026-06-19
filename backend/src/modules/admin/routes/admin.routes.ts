@@ -19,6 +19,8 @@ import {
   reviewAdminWithdrawal,
   updateAdminPaymentWallet,
   exportAdminPayouts,
+  editAdminUser,
+  deleteAdminUser,
 } from "../controllers/admin.controller";
 import {
   listAdminSupportTickets,
@@ -41,6 +43,8 @@ import {
   reviewAdminWithdrawalBodySchema,
   updateAdminPaymentWalletBodySchema,
   adminOverviewQuerySchema,
+  adminUserParamsSchema,
+  editAdminUserBodySchema,
 } from "../validations/admin.validation";
 
 export const adminRoutes = Router();
@@ -57,6 +61,23 @@ adminRoutes.get(
   requirePermissions("admin:users:manage"),
   validateRequest({ query: listAdminUsersQuerySchema }),
   listAdminUsers,
+);
+adminRoutes.patch(
+  "/users/:userId",
+  requirePermissions("admin:users:manage"),
+  validateRequest({
+    params: adminUserParamsSchema,
+    body: editAdminUserBodySchema,
+  }),
+  editAdminUser,
+);
+adminRoutes.delete(
+  "/users/:userId",
+  requirePermissions("admin:users:manage"),
+  validateRequest({
+    params: adminUserParamsSchema,
+  }),
+  deleteAdminUser,
 );
 adminRoutes.get(
   "/wallets",
