@@ -297,6 +297,7 @@ export type AdminWalletsResponse = {
     totalLifetimeDepositsUsdt: number;
     totalLifetimeWithdrawalsUsdt: number;
     totalLifetimeRewardsUsdt: number;
+    totalPlanPurchasesUsdt: number;
   };
   wallets: AdminWallet[];
   pagination: {
@@ -539,28 +540,40 @@ function buildAdminWalletsPath(params: AdminWalletsParams) {
 }
 
 export const adminService = {
-  getOverview() {
-    if (overviewCache && Date.now() - overviewCache.cachedAt < ADMIN_OVERVIEW_CACHE_TTL_MS) {
-      return Promise.resolve(overviewCache.data);
-    }
+  getOverview(params?: { fromDate?: string; toDate?: string }) {
+    const query = params
+      ? new URLSearchParams({
+          ...(params.fromDate && { fromDate: params.fromDate }),
+          ...(params.toDate && { toDate: params.toDate }),
+        }).toString()
+      : "";
+    const path = query ? `${API_ENDPOINTS.admin.overview}?${query}` : API_ENDPOINTS.admin.overview;
 
-    if (overviewRequest) {
+    if (!params) {
+      if (overviewCache && Date.now() - overviewCache.cachedAt < ADMIN_OVERVIEW_CACHE_TTL_MS) {
+        return Promise.resolve(overviewCache.data);
+      }
+
+      if (overviewRequest) {
+        return overviewRequest;
+      }
+
+      overviewRequest = apiRequest<AdminOverview>(path)
+        .then((response) => {
+          overviewCache = {
+            cachedAt: Date.now(),
+            data: response
+          };
+          return response;
+        })
+        .finally(() => {
+          overviewRequest = null;
+        });
+
       return overviewRequest;
     }
 
-    overviewRequest = apiRequest<AdminOverview>(API_ENDPOINTS.admin.overview)
-      .then((response) => {
-        overviewCache = {
-          cachedAt: Date.now(),
-          data: response
-        };
-        return response;
-      })
-      .finally(() => {
-        overviewRequest = null;
-      });
-
-    return overviewRequest;
+    return apiRequest<AdminOverview>(path);
   },
 
   listUsers(params: AdminUsersParams) {

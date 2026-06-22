@@ -192,6 +192,7 @@ export type AdminWalletSummaryRepositoryRecord = {
   totalLifetimeDepositsUsdt: number;
   totalLifetimeWithdrawalsUsdt: number;
   totalLifetimeRewardsUsdt: number;
+  totalPlanPurchasesUsdt: number;
 };
 
 export type AdminListWalletsRepositoryResult = {

@@ -140,7 +140,8 @@ export function AdminWalletsPage() {
     totalLockedUsdt: 0,
     totalLifetimeDepositsUsdt: 0,
     totalLifetimeWithdrawalsUsdt: 0,
-    totalLifetimeRewardsUsdt: 0
+    totalLifetimeRewardsUsdt: 0,
+    totalPlanPurchasesUsdt: 0
   };
   const pagination = data?.pagination ?? {
     hasNextPage: false,
@@ -152,36 +153,32 @@ export function AdminWalletsPage() {
   };
   const firstRow = pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
   const lastRow = Math.min(pagination.page * pagination.limit, pagination.total);
-  const platformReserveUsdt = Math.max(summary.platformAvailableUsdt, 0);
-  const platformReserveDeficitUsdt = Math.max(-summary.platformAvailableUsdt, 0);
   const metricCards = [
     {
-      label: "Platform Reserve",
-      value: walletsQuery.isLoading ? "Loading..." : formatUsdt(platformReserveUsdt),
-      caption: platformReserveDeficitUsdt > 0
-        ? `Ledger deficit: ${formatUsdt(platformReserveDeficitUsdt)}`
-        : "Admin ledger balance",
+      label: "Platform Top-UP",
+      value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.platformLifetimeDepositsUsdt),
+      caption: "Total platform deposits",
       icon: Wallet,
-      tone: platformReserveDeficitUsdt > 0 ? "bg-rose-50 text-rose-700" : "bg-cyan-50 text-cyan-700"
+      tone: "bg-cyan-50 text-cyan-700"
     },
     {
-      label: "User Available",
+      label: "USER Wallet AVAILABLE",
       value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalAvailableUsdt),
       caption: "Spendable user balance",
       icon: TrendingUp,
       tone: "bg-emerald-50 text-emerald-700"
     },
     {
-      label: "User Deposits",
-      value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalLifetimeDepositsUsdt),
-      caption: "Approved user deposits",
+      label: "Total Package Sell",
+      value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalPlanPurchasesUsdt),
+      caption: "Completed package sales",
       icon: Wallet,
       tone: "bg-violet-50 text-violet-700"
     },
     {
-      label: "Withdrawn",
+      label: "Total Withdrawal",
       value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalLifetimeWithdrawalsUsdt),
-      caption: "Lifetime outflow",
+      caption: "Lifetime user withdrawals",
       icon: TrendingDown,
       tone: "bg-rose-50 text-rose-700"
     }

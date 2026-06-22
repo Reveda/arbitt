@@ -976,11 +976,12 @@ export class AdminRepository {
         totalDepositsUsdt: number;
         totalWithdrawalsUsdt: number;
         totalRewardsUsdt: number;
+        totalPlanPurchasesUsdt: number;
       }>([
         {
           $match: {
             status: { $in: ["approved", "completed"] },
-            type: { $in: ["deposit", "withdrawal", "reward"] },
+            type: { $in: ["deposit", "withdrawal", "reward", "plan_purchase"] },
           },
         },
         {
@@ -1001,6 +1002,11 @@ export class AdminRepository {
                 $cond: [{ $eq: ["$type", "reward"] }, "$amountUsdt", 0],
               },
             },
+            totalPlanPurchasesUsdt: {
+              $sum: {
+                $cond: [{ $eq: ["$type", "plan_purchase"] }, "$amountUsdt", 0],
+              },
+            },
           },
         },
       ]),
@@ -1011,6 +1017,7 @@ export class AdminRepository {
       totalDepositsUsdt: 0,
       totalWithdrawalsUsdt: 0,
       totalRewardsUsdt: 0,
+      totalPlanPurchasesUsdt: 0,
     };
     const platformReserveUsdt =
       (flow.totalDepositsUsdt ?? 0) -
@@ -1033,6 +1040,7 @@ export class AdminRepository {
         totalLifetimeDepositsUsdt: stats.totalLifetimeDepositsUsdt ?? 0,
         totalLifetimeWithdrawalsUsdt: stats.totalLifetimeWithdrawalsUsdt ?? 0,
         totalLifetimeRewardsUsdt: stats.totalLifetimeRewardsUsdt ?? 0,
+        totalPlanPurchasesUsdt: flow.totalPlanPurchasesUsdt ?? 0,
       },
     };
   }

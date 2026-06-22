@@ -46,6 +46,7 @@ import { AdminPlansPage } from "@/pages/admin/AdminPlansPage";
 import { AdminReferralNetworkPage } from "@/pages/admin/AdminReferralNetworkPage";
 import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
 import { AdminWalletsPage } from "@/pages/admin/AdminWalletsPage";
+import { AdminRevenueAnalyticsPage } from "@/pages/admin/AdminRevenueAnalyticsPage";
 import { SuperAdminDashboardPage } from "@/pages/super-admin/SuperAdminDashboardPage";
 import { SuperAdminModulePage } from "@/pages/super-admin/SuperAdminModulePage";
 import { NotFoundPage } from "@/pages/shared/NotFoundPage";
@@ -174,7 +175,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "analytics",
-        element: <AdminModulePage description="Track revenue, user growth, deposit flow, withdrawals, and operational KPIs." icon={BarChart3} title="Revenue Analytics" />
+        element: <AdminRevenueAnalyticsPage />
       },
       {
         path: "support",
