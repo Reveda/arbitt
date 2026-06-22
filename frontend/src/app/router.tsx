@@ -2,7 +2,6 @@ import { createBrowserRouter, Navigate } from "react-router-dom";
 import {
   Activity,
   ArrowUpRight,
-  BarChart3,
   Bell,
   ClipboardList,
   CreditCard,

@@ -287,42 +287,51 @@ export function AdminRevenueAnalyticsPage() {
       </AdminCard>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-slate-200">
+      <div className="grid grid-cols-3 border-b border-slate-200 w-full text-center">
         <button
           onClick={() => setActiveTab("deposits")}
           className={cn(
-            "flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-black transition-all outline-none",
+            "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 border-b-2 py-2.5 sm:py-3 text-[11px] min-[360px]:text-xs sm:text-sm font-black transition-all outline-none px-1",
             activeTab === "deposits"
               ? "border-cyan-600 text-cyan-700"
               : "border-transparent text-slate-500 hover:text-slate-900"
           )}
         >
-          <ArrowDownCircle className="size-4" />
-          Deposit Monitor
+          <ArrowDownCircle className="size-3.5 sm:size-4 shrink-0" />
+          <span className="text-center leading-tight">
+            <span className="hidden sm:inline">Deposit Monitor</span>
+            <span className="inline sm:hidden">Deposits</span>
+          </span>
         </button>
         <button
           onClick={() => setActiveTab("withdrawals")}
           className={cn(
-            "flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-black transition-all outline-none",
+            "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 border-b-2 py-2.5 sm:py-3 text-[11px] min-[360px]:text-xs sm:text-sm font-black transition-all outline-none px-1",
             activeTab === "withdrawals"
               ? "border-cyan-600 text-cyan-700"
               : "border-transparent text-slate-500 hover:text-slate-900"
           )}
         >
-          <ArrowUpCircle className="size-4" />
-          Withdrawal Monitor
+          <ArrowUpCircle className="size-3.5 sm:size-4 shrink-0" />
+          <span className="text-center leading-tight">
+            <span className="hidden sm:inline">Withdrawal Monitor</span>
+            <span className="inline sm:hidden">Withdrawals</span>
+          </span>
         </button>
         <button
           onClick={() => setActiveTab("liquidity")}
           className={cn(
-            "flex items-center gap-2 border-b-2 px-5 py-3 text-sm font-black transition-all outline-none",
+            "flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 border-b-2 py-2.5 sm:py-3 text-[11px] min-[360px]:text-xs sm:text-sm font-black transition-all outline-none px-1",
             activeTab === "liquidity"
               ? "border-cyan-600 text-cyan-700"
               : "border-transparent text-slate-500 hover:text-slate-900"
           )}
         >
-          <Activity className="size-4" />
-          Liquidity System
+          <Activity className="size-3.5 sm:size-4 shrink-0" />
+          <span className="text-center leading-tight">
+            <span className="hidden sm:inline">Liquidity System</span>
+            <span className="inline sm:hidden">Liquidity</span>
+          </span>
         </button>
       </div>
 
