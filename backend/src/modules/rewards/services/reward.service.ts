@@ -283,7 +283,9 @@ export async function calculateUserRoyaltyRanks(royaltyCutoff?: Date) {
     const userIdStr = String(ref.userId);
     const children = childrenMap.get(userIdStr) ?? [];
     const legVolumes = children.map((child) => teamVolumeWithOwnMap.get(String(child.userId)) ?? 0);
-    const directCount = children.length;
+    const directCount = children.filter(
+      (child) => (purchaseMap.get(String(child.userId)) ?? 0) > 0,
+    ).length;
 
     let qualifiedRank = 0;
 

@@ -19,9 +19,9 @@ const ROYALTY_REQUIREMENTS: Record<
   }
 > = {
   M1: {
-    detail: "50% max count from one leg",
+    detail: "10 directs must have active purchase & 50% single-leg cap",
     label: "M1",
-    requirement: "10 direct + 50000 team business",
+    requirement: "10 active direct + 50000 team business",
   },
   M2: {
     detail: "2 M1 legs + 50% single-leg cap",

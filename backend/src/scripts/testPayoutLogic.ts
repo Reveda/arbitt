@@ -132,6 +132,7 @@ async function createTestUser(input: TestUserInput, passwordHash: string) {
   await UserPlanPurchaseModel.create({
     amountUsdt: input.lifetimeDepositsUsdt,
     name: "Initial Pool",
+    purchasedAt: new Date("2026-05-01T00:00:00.000Z"),
     sourceTransactionId: sourceTransaction._id,
     tier: "INITIAL",
     userId: user._id,
