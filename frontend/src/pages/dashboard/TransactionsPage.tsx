@@ -113,10 +113,14 @@ const emptyPagination: UserTransactionsResponse["pagination"] = {
 
 export function TransactionsPage() {
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [type, setType] = useState<(typeof transactionTypes)[number]>("all");
   const [status, setStatus] = useState<(typeof transactionStatuses)[number]>("all");
   const [transactions, setTransactions] = useState<UserTransaction[]>([]);
-  const [pagination, setPagination] = useState<UserTransactionsResponse["pagination"]>(emptyPagination);
+  const [pagination, setPagination] = useState<UserTransactionsResponse["pagination"]>({
+    ...emptyPagination,
+    limit: PAGE_SIZE
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fromDate, setFromDate] = useState("");
@@ -124,7 +128,7 @@ export function TransactionsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [fromDate, status, toDate, type]);
+  }, [fromDate, status, toDate, type, limit]);
 
   useEffect(() => {
     let active = true;
@@ -134,7 +138,7 @@ export function TransactionsPage() {
     transactionService
       .listTransactions({
         page,
-        limit: PAGE_SIZE,
+        limit,
         type: type === "all" ? undefined : type,
         status: status === "all" ? undefined : status,
         fromDate: fromDate || undefined,
@@ -165,7 +169,7 @@ export function TransactionsPage() {
     return () => {
       active = false;
     };
-  }, [fromDate, page, status, toDate, type]);
+  }, [fromDate, page, status, toDate, type, limit]);
 
 
   return (
@@ -343,6 +347,22 @@ export function TransactionsPage() {
               {pagination.total ? "Transaction history is ready" : "No transaction history yet"}
             </p>
             <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-2">
+                <span>Show rows:</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none transition-colors focus:border-cyan-300"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
               <Button
                 className="h-9 rounded-xl"
                 disabled={!pagination.hasPreviousPage || isLoading}

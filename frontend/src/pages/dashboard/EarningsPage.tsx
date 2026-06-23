@@ -154,19 +154,23 @@ function getPeriodLabel(record: UserEarningRecord) {
 
 export function EarningsPage() {
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [kind, setKind] = useState<(typeof EARNING_KINDS)[number]>("all");
   const [status, setStatus] = useState<(typeof EARNING_STATUSES)[number]>("all");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [rewards, setRewards] = useState<UserEarningRecord[]>([]);
   const [summary, setSummary] = useState<UserEarningsResponse["summary"]>(emptySummary);
-  const [pagination, setPagination] = useState<UserEarningsResponse["pagination"]>(emptyPagination);
+  const [pagination, setPagination] = useState<UserEarningsResponse["pagination"]>({
+    ...emptyPagination,
+    limit: PAGE_SIZE
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(1);
-  }, [fromDate, kind, status, toDate]);
+  }, [fromDate, kind, status, toDate, limit]);
 
   useEffect(() => {
     let active = true;
@@ -176,7 +180,7 @@ export function EarningsPage() {
     earningsService
       .getEarnings({
         page,
-        limit: PAGE_SIZE,
+        limit,
         fromDate: fromDate || undefined,
         kind: kind === "all" ? undefined : kind,
         status: status === "all" ? undefined : status,
@@ -208,7 +212,7 @@ export function EarningsPage() {
     return () => {
       active = false;
     };
-  }, [fromDate, kind, page, status, toDate]);
+  }, [fromDate, kind, page, status, toDate, limit]);
 
   const firstRow = pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
   const lastRow = Math.min(pagination.page * pagination.limit, pagination.total);
@@ -482,6 +486,22 @@ export function EarningsPage() {
               {pagination.total ? `Showing ${firstRow}-${lastRow} rewards` : "No rewards yet"}
             </p>
             <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-2">
+                <span>Show rows:</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none transition-colors focus:border-cyan-300"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
               <Button
                 className="h-9 rounded-xl"
                 disabled={!pagination.hasPreviousPage || isLoading}

@@ -916,6 +916,7 @@ function PaginatedRecordsPanel({
   const mode = modeOverride ?? getRecordMode(moduleKey);
   const defaultFilters = useMemo(() => getDefaultRecordFilters(moduleKey, mode), [mode, moduleKey]);
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(RECORDS_PAGE_SIZE);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [status, setStatus] = useState(defaultFilters.status);
@@ -924,7 +925,10 @@ function PaginatedRecordsPanel({
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [state, setState] = useState<RecordsState>({
-    pagination: emptyRecordsPagination,
+    pagination: {
+      ...emptyRecordsPagination,
+      limit: RECORDS_PAGE_SIZE
+    },
     records: [],
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -948,13 +952,13 @@ function PaginatedRecordsPanel({
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, fromDate, mode, role, status, toDate, type]);
+  }, [debouncedSearch, fromDate, mode, role, status, toDate, type, limit]);
 
   useEffect(() => {
     let active = true;
     const commonParams = {
       fromDate: fromDate || undefined,
-      limit: RECORDS_PAGE_SIZE,
+      limit,
       page,
       search: debouncedSearch || undefined,
       toDate: toDate || undefined,
@@ -1032,7 +1036,7 @@ function PaginatedRecordsPanel({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, fromDate, mode, page, role, status, toDate, type]);
+  }, [debouncedSearch, fromDate, mode, page, role, status, toDate, type, limit]);
 
   const pagination = state.pagination;
   const firstRow = pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
@@ -1435,6 +1439,22 @@ function PaginatedRecordsPanel({
           {state.summary?.totalAmountUsdt ? ` · ${formatUsdt(state.summary.totalAmountUsdt)}` : ""}
         </p>
         <div className="flex items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-2">
+            <span>Show rows:</span>
+            <select
+              value={limit}
+              onChange={(e) => {
+                setLimit(Number(e.target.value));
+                setPage(1);
+              }}
+              className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none transition-colors focus:border-cyan-300"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </label>
           <button
             className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:bg-slate-100 disabled:text-slate-400"
             disabled={!pagination.hasPreviousPage || isLoading}

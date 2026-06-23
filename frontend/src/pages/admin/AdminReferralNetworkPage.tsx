@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 import type { AdminReferralNode } from "@/services/admin.service";
 import { AdminCard, AdminPageHeader } from "./admin.components";
 
-const DEFAULT_PAGE_SIZE = 12;
-const PAGE_SIZE_OPTIONS = [12, 25, 50];
+const DEFAULT_PAGE_SIZE = 10;
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
@@ -292,8 +292,8 @@ export function AdminReferralNetworkPage() {
               : "No members in this list"}
           </p>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              Rows
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-2">
+              <span>Show rows:</span>
               <select
                 className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700 outline-none transition-colors focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
                 onChange={(event) => setPageSize(Number(event.target.value))}

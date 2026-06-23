@@ -68,6 +68,7 @@ function getStatusTone(status?: string) {
 
 export function AdminWalletsPage() {
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(PAGE_SIZE);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [paymentWallet, setPaymentWallet] = useState<PlatformDepositWallet | null>(null);
@@ -123,7 +124,7 @@ export function AdminWalletsPage() {
 
   const walletsQuery = useAdminWallets({
     page,
-    limit: PAGE_SIZE,
+    limit,
     search: debouncedSearch || undefined
   });
   const data = walletsQuery.data?.data;
@@ -146,7 +147,7 @@ export function AdminWalletsPage() {
   const pagination = data?.pagination ?? {
     hasNextPage: false,
     hasPreviousPage: false,
-    limit: PAGE_SIZE,
+    limit,
     page,
     total: 0,
     totalPages: 1
@@ -399,6 +400,22 @@ export function AdminWalletsPage() {
             {pagination.total ? `Showing ${firstRow}-${lastRow} of ${pagination.total}` : "No wallets yet"}
           </p>
           <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-2">
+              <span>Show rows:</span>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none transition-colors focus:border-cyan-300"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
             <Button
               className="h-9 rounded-xl border-slate-200 bg-white text-slate-700 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-100"
               disabled={!pagination.hasPreviousPage || walletsQuery.isLoading}

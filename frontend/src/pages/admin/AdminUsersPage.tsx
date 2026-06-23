@@ -36,6 +36,7 @@ function getVisiblePages(currentPage: number, totalPages: number) {
 
 export function AdminUsersPage() {
   const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(USERS_PAGE_LIMIT);
   const [searchValue, setSearchValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -66,7 +67,7 @@ export function AdminUsersPage() {
 
   const usersQuery = useAdminUsers({
     page,
-    limit: USERS_PAGE_LIMIT,
+    limit,
     search: debouncedSearch || undefined
   });
   const users = usersQuery.data?.data.users ?? [];
@@ -249,7 +250,23 @@ export function AdminUsersPage() {
             Showing page {pagination?.page ?? page} of {pagination?.totalPages ?? 1}
             {typeof pagination?.total === "number" ? ` · ${pagination.total} total users` : ""}
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-2">
+              <span>Show rows:</span>
+              <select
+                value={limit}
+                onChange={(e) => {
+                  setLimit(Number(e.target.value));
+                  setPage(1);
+                }}
+                className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none transition-colors focus:border-cyan-300"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
             <Button
               className="h-9 border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:opacity-100"
               disabled={usersQuery.isLoading || !pagination?.hasPreviousPage}

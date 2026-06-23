@@ -9,7 +9,7 @@ export const landingStats: LandingStat[] = [
 ];
 
 export const aboutHighlights: AboutHighlight[] = [
-  { title: "Our Mission", description: "Enable trusted decentralized earning for everyone." },
+  { title: "Our Mission", description: "Enable trusted and  transparent ecosystem earning for everyone." },
   { title: "Our Vision", description: "Create a globally connected referral ecosystem." }
 ];
 
@@ -33,7 +33,7 @@ export const onboardingSteps: StepItem[] = [
 
 export const whyChooseItems: WhyChooseItem[] = [
   {
-    title: "Decentralized Layer",
+    title: "Digital Asset Infrastructure",
     description: "Built on a blockchain-first approach for transparent ecosystem growth.",
     icon: Layers
   },

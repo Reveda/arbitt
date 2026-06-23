@@ -123,9 +123,13 @@ export function DepositPage() {
   const [isPlansLoading, setIsPlansLoading] = useState(true);
   const [isDepositsLoading, setIsDepositsLoading] = useState(true);
   const [depositPage, setDepositPage] = useState(1);
+  const [depositLimit, setDepositLimit] = useState(DEPOSITS_PAGE_SIZE);
   const [deposits, setDeposits] = useState<UserDeposit[]>([]);
   const [depositsPagination, setDepositsPagination] =
-    useState<WalletDepositsResponse["pagination"]>(emptyDepositsPagination);
+    useState<WalletDepositsResponse["pagination"]>({
+      ...emptyDepositsPagination,
+      limit: DEPOSITS_PAGE_SIZE
+    });
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +177,7 @@ export function DepositPage() {
 
   useEffect(() => {
     setDepositPage(1);
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, depositLimit]);
 
   useEffect(() => {
     let active = true;
@@ -248,7 +252,7 @@ export function DepositPage() {
     walletService
       .listDeposits({
         page: depositPage,
-        limit: DEPOSITS_PAGE_SIZE,
+        limit: depositLimit,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined
       })
@@ -279,7 +283,7 @@ export function DepositPage() {
     return () => {
       active = false;
     };
-  }, [depositPage, fromDate, toDate]);
+  }, [depositPage, fromDate, toDate, depositLimit]);
 
   const closeModal = () => {
     if (isSubmitting || isSubmittingDepositTxHash) {
@@ -351,7 +355,7 @@ export function DepositPage() {
       walletService.getSummary(),
       walletService.listDeposits({
         page: 1,
-        limit: DEPOSITS_PAGE_SIZE,
+        limit: depositLimit,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined
       })
@@ -873,6 +877,22 @@ export function DepositPage() {
               {depositsPagination.total ? "Wallet top-up history is ready" : "No wallet top-ups yet"}
             </p>
             <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-2">
+                <span>Show rows:</span>
+                <select
+                  value={depositLimit}
+                  onChange={(e) => {
+                    setDepositLimit(Number(e.target.value));
+                    setDepositPage(1);
+                  }}
+                  className="h-9 rounded-xl border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700 outline-none transition-colors focus:border-cyan-300"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
               <Button
                 className="h-9 rounded-xl"
                 disabled={!depositsPagination.hasPreviousPage || isDepositsLoading}
