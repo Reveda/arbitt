@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/toast-message";
 import { useAdminPayouts } from "@/hooks/useAdminQueries";
 import { cn } from "@/lib/utils";
-import type { AdminPayout } from "@/services/admin.service";
+import { adminService, type AdminPayout } from "@/services/admin.service";
 import {
   useReviewAdminPayoutMutation,
 } from "@/store/api/adminApi";
@@ -105,6 +105,19 @@ export function AdminPayoutsPage() {
     null,
   );
   const [reviewAdminPayout] = useReviewAdminPayoutMutation();
+  const [totalWithdrawals, setTotalWithdrawals] = useState<number>(0);
+
+  useEffect(() => {
+    adminService
+      .getOverview({
+        fromDate: fromDate || undefined,
+        toDate: toDate || undefined,
+      })
+      .then((res) => {
+        setTotalWithdrawals(res.data.totalWithdrawalsUsdt);
+      })
+      .catch((err) => console.error("Error loading overview for payouts page:", err));
+  }, [fromDate, toDate]);
 
   const handleExportCsv = async () => {
     const params = new URLSearchParams();
@@ -203,7 +216,7 @@ export function AdminPayoutsPage() {
       icon: BadgeDollarSign,
       label: "Earnings Paid",
       tone: "bg-emerald-50 text-emerald-700",
-      value: `${summary.approvedCount} / ${formatUsdt(summary.totalApprovedUsdt)}`,
+      value: formatUsdt(totalWithdrawals),
     },
   ];
 

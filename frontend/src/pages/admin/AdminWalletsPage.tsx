@@ -162,9 +162,9 @@ export function AdminWalletsPage() {
       tone: "bg-cyan-50 text-cyan-700"
     },
     {
-      label: "USER Wallet AVAILABLE",
-      value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalAvailableUsdt),
-      caption: "Spendable user balance",
+      label: "Total Payout Generated",
+      value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalLifetimeRewardsUsdt),
+      caption: "Lifetime generated payouts",
       icon: TrendingUp,
       tone: "bg-emerald-50 text-emerald-700"
     },

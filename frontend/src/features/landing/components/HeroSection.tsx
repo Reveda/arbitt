@@ -29,14 +29,13 @@ export function HeroSection() {
 
           <div className="relative z-10">
             <h1 className="premium-hero-title hero-title-kinetic max-w-2xl text-[1.9rem] font-extrabold leading-[1.12] sm:text-4xl md:text-5xl">
-              The Next Generation Decentralized Earning Ecosystem{" "}
+              The Next Generation Asset Under Management Infrastructure Ecosystem{" "}
               <span className="premium-hero-accent bg-gradient-to-r from-cyan-300 via-sky-300 to-blue-400 bg-clip-text text-transparent">
                 - Arbitrum
               </span>
             </h1>
             <p className="premium-body-copy hero-copy-kinetic mt-3 max-w-2xl text-sm leading-relaxed text-slate-300 md:mt-4 md:text-base">
-              Join a transparent and secure earning ecosystem built on Arbitrum blockchain infrastructure.
-              Manage teams, monitor wallet flows, and scale your earnings with confidence.
+              Join a transparent and secure earning ecosystem built on Arbitrum blockchain infrastructure. Build, secure and automate digital asset solutions at scale. Monitor teams, monitor wallet flows and scale your earnings with confidence.
             </p>
             <div className="animate-fade-up-soft mt-5 flex flex-wrap items-center gap-2.5 [animation-delay:120ms] md:mt-6 md:gap-3">
               <Button asChild className="bg-gradient-to-r from-blue-500 to-cyan-400 text-slate-950 hover:opacity-90">

@@ -18,6 +18,7 @@ export type ReferralMember = {
   teamBusinessUsdt: number;
   selfBusinessUsdt: number;
   createdAt: string | null;
+  rank: string | null;
 };
 
 export type ReferralSummary = {

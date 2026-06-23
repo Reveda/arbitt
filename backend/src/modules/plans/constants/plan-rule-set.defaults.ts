@@ -65,7 +65,7 @@ export const defaultPlanRuleSet = {
       royaltyPool: "M3",
       directRequired: 0,
       requiredDirectTier: null,
-      bonusUsdt: 600,
+      bonusUsdt: 500,
       isActive: true,
     },
     {

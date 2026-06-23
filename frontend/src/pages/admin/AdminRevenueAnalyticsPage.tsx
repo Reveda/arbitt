@@ -198,7 +198,7 @@ export function AdminRevenueAnalyticsPage() {
       <AdminCard>
         <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-3 w-full lg:w-auto sm:flex-row sm:items-end">
-            <div className="grid grid-cols-2 gap-3 w-full sm:w-auto">
+            <div className="grid grid-cols-1 gap-3 w-full sm:grid-cols-2 sm:w-auto">
               <div className="w-full sm:w-44">
                 <label className="text-xs font-black text-slate-500 uppercase tracking-wider block mb-1.5">
                   From Date

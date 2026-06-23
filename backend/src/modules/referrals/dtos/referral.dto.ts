@@ -17,6 +17,7 @@ export type ReferralMemberDto = {
   teamBusinessUsdt: number;
   selfBusinessUsdt: number;
   createdAt: Date | string | null;
+  rank: string | null;
 };
 
 export type ReferralTreeResponseDto = {

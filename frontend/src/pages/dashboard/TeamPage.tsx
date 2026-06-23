@@ -82,6 +82,11 @@ function TeamMemberRow({
           </div>
         </div>
       </td>
+      <td className="px-3 py-3">
+        <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-100">
+          {member.rank ?? "Unranked"}
+        </span>
+      </td>
       {/* <td className="px-3 py-3">
         <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
           L{member.relativeLevel}
@@ -281,7 +286,7 @@ export function TeamPage() {
                 <tbody>
                   {Array.from({ length: 5 }, (_, rowIndex) => (
                     <tr className="border-b border-slate-100 last:border-0" key={rowIndex}>
-                      {Array.from({ length: 6 }, (_, cellIndex) => (
+                      {Array.from({ length: 7 }, (_, cellIndex) => (
                         <td className="px-3 py-4" key={cellIndex}>
                           <div className="h-4 w-full max-w-24 animate-pulse rounded bg-slate-100" />
                         </td>
@@ -302,6 +307,7 @@ export function TeamPage() {
                   <tr>
                     <th className="w-[28%] px-3 py-3 font-black">User</th>
                     {/* <th className="w-16 px-3 py-3 font-black">Level</th> */}
+                    <th className="w-20 px-3 py-3 font-black">Rank</th>
                     <th className="w-20 px-3 py-3 font-black">Status</th>
                     <th className="w-20 px-3 py-3 font-black">Directs</th>
                     <th className="w-28 px-3 py-3 font-black">Team Business</th>

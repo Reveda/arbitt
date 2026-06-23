@@ -283,7 +283,7 @@ export function AdminPlansPage() {
                   const royaltyRequirement = ROYALTY_REQUIREMENTS[rule.royaltyPool];
 
                   return (
-                    <tr className="border-b border-slate-100 last:border-0" key={rule.tier}>
+                    <tr className="border-b border-slate-100 last:border-0" key={rule.royaltyPool}>
                       <td className="px-4 py-4">
                         <span className="grid size-10 place-items-center rounded-xl border border-orange-100 bg-orange-50 text-sm font-black text-orange-800">
                           {royaltyRequirement?.label ?? rule.royaltyPool}

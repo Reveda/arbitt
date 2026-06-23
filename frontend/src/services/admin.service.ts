@@ -319,6 +319,7 @@ export type AdminReferralUser = {
   referralCode: string | null;
   emailVerified: boolean;
   joinedAt: string | null;
+  rank: string | null;
 };
 
 export type AdminReferralNode = {

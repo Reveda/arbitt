@@ -4,7 +4,7 @@ import { buildDateRangeFilter } from "../../../utils/dateRange";
 import { walletRepository } from "../../wallet/repositories/wallet.repository";
 import { planRepository } from "../../plans/repositories/plan.repository";
 import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
-import { rewardService } from "../../rewards/services/reward.service";
+import { rewardService, calculateUserRoyaltyRanks } from "../../rewards/services/reward.service";
 import { getSalaryRoyaltyPeriod } from "../../rewards/utils/salaryRoyalty";
 import { adminRepository } from "../repositories/admin.repository";
 import { getPlatformPaymentWallet, updatePlatformPaymentWallet } from "./payment-wallet.service";
@@ -106,15 +106,19 @@ function getPopulatedUser(value: unknown): PopulatedAdminUser | null {
   return value as PopulatedAdminUser;
 }
 
-function toUserSummary(value: unknown) {
+function toUserSummary(value: unknown, userRoyaltyRankMap?: Map<string, number>) {
   const user = getPopulatedUser(value);
 
   if (!user) {
     return null;
   }
 
+  const userIdStr = String(user._id);
+  const rankNum = userRoyaltyRankMap?.get(userIdStr) ?? 0;
+  const rank = rankNum > 0 ? `M${rankNum}` : null;
+
   return {
-    id: String(user._id),
+    id: userIdStr,
     email: null,
     username: user.username ?? null,
     role: user.role ?? "user",
@@ -122,12 +126,17 @@ function toUserSummary(value: unknown) {
     referralCode: user.referralCode ?? null,
     emailVerified: Boolean(user.emailVerifiedAt),
     joinedAt: user.createdAt ?? null,
+    rank,
   };
 }
 
-function toReferralNode(record: AdminReferralRecord, teamBusinessMap?: Map<string, number>) {
-  const user = toUserSummary(record.userId);
-  const parent = toUserSummary(record.parentUserId);
+function toReferralNode(
+  record: AdminReferralRecord,
+  teamBusinessMap?: Map<string, number>,
+  userRoyaltyRankMap?: Map<string, number>,
+) {
+  const user = toUserSummary(record.userId, userRoyaltyRankMap);
+  const parent = toUserSummary(record.parentUserId, userRoyaltyRankMap);
   const userIdStr = user?.id;
 
   return {
@@ -1208,9 +1217,12 @@ export class AdminService {
       skip,
       status: input.status,
     });
-    const teamBusinessMap = await getTeamBusinessMap();
+    const [teamBusinessMap, { userRoyaltyRankMap }] = await Promise.all([
+      getTeamBusinessMap(),
+      calculateUserRoyaltyRanks(),
+    ]);
     const nodes = referrals.map((record) =>
-      toReferralNode(record as AdminReferralRecord, teamBusinessMap),
+      toReferralNode(record as AdminReferralRecord, teamBusinessMap, userRoyaltyRankMap),
     );
     const levels = nodes.reduce<Record<string, typeof nodes>>((levelMap, node) => {
       const key = `L${node.level}`;

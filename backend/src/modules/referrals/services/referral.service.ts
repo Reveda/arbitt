@@ -2,6 +2,7 @@ import { referralRepository } from "../repositories/referral.repository";
 import { buildPaginationDto } from "../../../utils/ApiResponse";
 import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
 import { ReferralModel } from "../models/referral.model";
+import { calculateUserRoyaltyRanks } from "../../rewards/services/reward.service";
 import type {
   ListTeamMembersResponseDto,
   ReferralMemberDto,
@@ -123,9 +124,13 @@ function toReferralMember(
   rootUserId: string,
   teamBusinessMap?: Map<string, number>,
   selfBusinessMap?: Map<string, number>,
+  userRoyaltyRankMap?: Map<string, number>,
 ): ReferralMemberDto {
   const user = getPopulatedUser(record.userId);
   const userIdStr = toObjectIdString(user?._id ?? record.userId) ?? "";
+
+  const rankNum = userRoyaltyRankMap?.get(userIdStr) ?? 0;
+  const rank = rankNum > 0 ? `M${rankNum}` : null;
 
   return {
     id: String(record._id),
@@ -144,12 +149,13 @@ function toReferralMember(
     teamBusinessUsdt: teamBusinessMap ? (teamBusinessMap.get(userIdStr) ?? 0) : 0,
     selfBusinessUsdt: selfBusinessMap ? (selfBusinessMap.get(userIdStr) ?? 0) : 0,
     createdAt: record.createdAt ?? null,
+    rank,
   };
 }
 
 export class ReferralService {
   async getReferralTree(userId: string): Promise<ReferralTreeResponseDto> {
-    const [root, directRecords, teamRecords, teamBusinessMap, userPurchases, selfBusinessMap] =
+    const [root, directRecords, teamRecords, teamBusinessMap, userPurchases, selfBusinessMap, { userRoyaltyRankMap }] =
       await Promise.all([
         referralRepository.findByUserId(userId),
         referralRepository.findDirectMembers(userId),
@@ -157,13 +163,14 @@ export class ReferralService {
         getTeamBusinessMap(),
         UserPlanPurchaseModel.find({ userId, status: "active" }).lean(),
         getSelfBusinessMap(),
+        calculateUserRoyaltyRanks(),
       ]);
     const selfBusinessUsdt = userPurchases.reduce((sum, p) => sum + (p.amountUsdt ?? 0), 0);
     const directMembers = directRecords.map((record) =>
-      toReferralMember(record as ReferralRecord, userId, teamBusinessMap, selfBusinessMap),
+      toReferralMember(record as ReferralRecord, userId, teamBusinessMap, selfBusinessMap, userRoyaltyRankMap),
     );
     const teamMembers = teamRecords.map((record) =>
-      toReferralMember(record as ReferralRecord, userId, teamBusinessMap, selfBusinessMap),
+      toReferralMember(record as ReferralRecord, userId, teamBusinessMap, selfBusinessMap, userRoyaltyRankMap),
     );
     const levels = teamMembers.reduce<Record<string, typeof teamMembers>>((levelMap, member) => {
       const key = `L${member.relativeLevel}`;
@@ -194,13 +201,14 @@ export class ReferralService {
   }
 
   async getReferralSummary(userId: string): Promise<ReferralSummaryResponseDto> {
-    const [referral, teamRecords, selfBusinessMap] = await Promise.all([
+    const [referral, teamRecords, selfBusinessMap, { userRoyaltyRankMap }] = await Promise.all([
       referralRepository.findByUserId(userId),
       referralRepository.findTeamMembers(userId),
       getSelfBusinessMap(),
+      calculateUserRoyaltyRanks(),
     ]);
     const teamMembers = teamRecords.map((record) =>
-      toReferralMember(record as ReferralRecord, userId, undefined, selfBusinessMap),
+      toReferralMember(record as ReferralRecord, userId, undefined, selfBusinessMap, userRoyaltyRankMap),
     );
 
     return {
@@ -220,7 +228,7 @@ export class ReferralService {
     const page = input.page;
     const limit = input.limit;
     const skip = (page - 1) * limit;
-    const [{ teamMembers, total }, teamBusinessMap, selfBusinessMap] = await Promise.all([
+    const [{ teamMembers, total }, teamBusinessMap, selfBusinessMap, { userRoyaltyRankMap }] = await Promise.all([
       referralRepository.listTeamMembers({
         userId: input.userId,
         search: input.search,
@@ -229,11 +237,12 @@ export class ReferralService {
       }),
       getTeamBusinessMap(),
       getSelfBusinessMap(),
+      calculateUserRoyaltyRanks(),
     ]);
 
     return {
       teamMembers: teamMembers.map((record) =>
-        toReferralMember(record as ReferralRecord, input.userId, teamBusinessMap, selfBusinessMap),
+        toReferralMember(record as ReferralRecord, input.userId, teamBusinessMap, selfBusinessMap, userRoyaltyRankMap),
       ),
       pagination: buildPaginationDto({
         page,

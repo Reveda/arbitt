@@ -54,7 +54,7 @@ export const levelIncomeRules = [
 export const salaryRoyaltyRules = [
   { tier: "INITIAL", royaltyPool: "M1", directRequired: 10, requiredDirectTier: null, bonusUsdt: 50, status: "Active" },
   { tier: "GROWTH", royaltyPool: "M2", directRequired: 0, requiredDirectTier: null, bonusUsdt: 150, status: "Active" },
-  { tier: "PREMIUM", royaltyPool: "M3", directRequired: 0, requiredDirectTier: null, bonusUsdt: 600, status: "Active" },
+  { tier: "PREMIUM", royaltyPool: "M3", directRequired: 0, requiredDirectTier: null, bonusUsdt: 500, status: "Active" },
   { tier: "PREMIUM", royaltyPool: "M4", directRequired: 0, requiredDirectTier: null, bonusUsdt: 1500, status: "Active" },
   { tier: "PREMIUM", royaltyPool: "M5", directRequired: 0, requiredDirectTier: null, bonusUsdt: 10000, status: "Active" }
 ];

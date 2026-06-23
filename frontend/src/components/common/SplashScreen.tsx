@@ -231,7 +231,7 @@ export function SplashScreen({ appName = "ARBITRUM", onFinish }: SplashScreenPro
 
       <div className={`splash-overlay ${isExiting ? "exiting" : ""}`}>
         <div className="ambient-glow" />
-        
+
         {/* Center Logo Group */}
         <div className="logo-container">
           {/* Rotating sweep scanners (circle backgrounds rotating) */}
@@ -251,7 +251,7 @@ export function SplashScreen({ appName = "ARBITRUM", onFinish }: SplashScreenPro
         {/* Brand Text Group */}
         <div className="brand-text-container">
           <h1 className="brand-text">{appName}</h1>
-          <span className="brand-subtitle">Decentralized Platform</span>
+          <span className="brand-subtitle">Digital Asset Infrastructure</span>
         </div>
       </div>
     </>

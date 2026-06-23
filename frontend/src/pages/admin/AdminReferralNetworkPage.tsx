@@ -97,6 +97,11 @@ function ReferralNodeRow({
           </span>
         )}
       </td>
+      <td className="px-3 py-3">
+        <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-xs font-black text-cyan-700 ring-1 ring-cyan-100">
+          {node.user?.rank ?? "Unranked"}
+        </span>
+      </td>
       {/* <td className="px-3 py-3">
         <span className="inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-700 ring-1 ring-blue-100">
           L{node.level}
@@ -237,8 +242,9 @@ export function AdminReferralNetworkPage() {
             <thead className="sticky top-0 z-10 bg-white text-xs text-slate-500 shadow-[0_1px_0_#e2e8f0]">
               <tr>
                 <th className="w-10 px-3 py-3 font-black">#</th>
-                <th className="w-[22%] px-3 py-3 font-black">User</th>
-                <th className="w-[20%] px-3 py-3 font-black">Sponsor</th>
+                <th className="w-[20%] px-3 py-3 font-black">User</th>
+                <th className="w-[18%] px-3 py-3 font-black">Sponsor</th>
+                <th className="w-20 px-3 py-3 font-black">Rank</th>
                 {/* <th className="w-16 px-3 py-3 font-black">Level</th> */}
                 <th className="w-24 px-3 py-3 font-black">Status</th>
                 <th className="w-20 px-3 py-3 font-black">Directs</th>
@@ -250,7 +256,7 @@ export function AdminReferralNetworkPage() {
               {referralsQuery.isLoading ? (
                 Array.from({ length: loadingRows }, (_, rowIndex) => (
                   <tr className="border-b border-slate-100 last:border-0" key={rowIndex}>
-                    {Array.from({ length: 7 }, (_, cellIndex) => (
+                    {Array.from({ length: 8 }, (_, cellIndex) => (
                       <td className="px-3 py-4" key={cellIndex}>
                         <div className="h-4 w-full max-w-24 animate-pulse rounded bg-slate-100" />
                       </td>
@@ -268,7 +274,7 @@ export function AdminReferralNetworkPage() {
                 ))
               ) : (
                 <tr>
-                  <td className="py-12 text-center text-sm font-semibold text-slate-500" colSpan={7}>
+                  <td className="py-12 text-center text-sm font-semibold text-slate-500" colSpan={8}>
                     {focusedNode
                       ? `No direct members found under ${getUserName(focusedNode)}.`
                       : "No root members found."}
