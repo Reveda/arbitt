@@ -6,8 +6,7 @@ import {
   levelIncomeRules as fallbackLevelIncomeRules,
   salaryRoyaltyRules as fallbackSalaryRoyaltyRules
 } from "./admin.data";
-import { cn } from "@/lib/utils";
-import { planService, type PlanRuleSet } from "@/services/plan.service";
+import { planService, type PlanRuleSet, type InvestmentTierRule } from "@/services/plan.service";
 
 const POOL_UNIT = "USDT";
 const ROYALTY_REQUIREMENTS: Record<
@@ -69,7 +68,7 @@ export function AdminPlansPage() {
   const [ruleSet, setRuleSet] = useState<PlanRuleSet | null>(null);
   const [ruleSetError, setRuleSetError] = useState<string | null>(null);
   const [isRuleSetLoading, setIsRuleSetLoading] = useState(true);
-  const adminPlans = ruleSet?.investmentTiers ?? fallbackInvestmentTiers;
+  const adminPlans: InvestmentTierRule[] = ruleSet?.investmentTiers ?? fallbackInvestmentTiers;
   const levelIncomeRules = ruleSet?.levelIncomeRules ?? fallbackLevelIncomeRules;
   const salaryRoyaltyRules = ruleSet?.salaryRoyaltyRules ?? fallbackSalaryRoyaltyRules;
   const terms = ruleSet?.terms ?? {
