@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   ArrowDownLeft,
-  BadgeCheck,
   ChevronLeft,
   ChevronRight,
   CheckCircle2,
@@ -152,17 +151,6 @@ export function DepositPage() {
     () => (ruleSet?.investmentTiers ?? []).filter((tier) => tier.status !== "Inactive"),
     [ruleSet?.investmentTiers]
   );
-  const latestPlanPurchase =
-    planPurchases.find((purchase) => purchase.status === "active" || purchase.status === "completed") ?? null;
-  const currentActiveTier = useMemo(() => {
-    const totalActiveAmount = wallet?.lockedUsdt ?? 0;
-    if (totalActiveAmount <= 0) return null;
-    return (
-      activeInvestmentTiers.find(
-        (tier) => totalActiveAmount >= tier.minUsdt && totalActiveAmount <= tier.maxUsdt
-      ) ?? (activeInvestmentTiers[activeInvestmentTiers.length - 1] ?? null)
-    );
-  }, [wallet?.lockedUsdt, activeInvestmentTiers]);
   const availableWalletBalance = wallet?.availableUsdt ?? 0;
   const currentPurchaseAmount = Number(purchaseAmountUsdt);
   const hasValidPurchaseAmount = selectedPlan
