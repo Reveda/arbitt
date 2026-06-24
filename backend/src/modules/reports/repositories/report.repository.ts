@@ -116,29 +116,7 @@ function toRewardNode(record: RewardRecord): RewardDto {
 }
 
 export class ReportRepository {
-  async autoGenerateRoyalty(userId: string) {
-    try {
-      const today = new Date();
-      const todayStart = new Date(
-        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
-      );
-      const todayEnd = new Date(
-        Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(), 23, 59, 59, 999),
-      );
-
-      await rewardService.generateSalaryRoyaltyRewards({
-        userIds: [userId],
-        periodStart: todayStart,
-        periodEnd: todayEnd,
-        royaltyCutoff: todayEnd,
-      });
-    } catch (err) {
-      console.error("Failed to auto-generate daily royalty reward:", err);
-    }
-  }
-
   async getDashboardMetrics(userId: string): Promise<UserDashboardMetricsResponseDto> {
-    await this.autoGenerateRoyalty(userId);
     const userObjectId = new Types.ObjectId(userId);
     const monthBuckets = buildLastMonthBuckets(7);
     const firstBucketStart = monthBuckets[0]?.start ?? new Date();
@@ -384,7 +362,6 @@ export class ReportRepository {
   }
 
   async getEarnings(input: EarningsListInput): Promise<EarningsResponseDto> {
-    await this.autoGenerateRoyalty(input.userId);
     const userObjectId = new Types.ObjectId(input.userId);
     const skip = (input.page - 1) * input.limit;
     const now = new Date();

@@ -767,7 +767,7 @@ export class AdminRepository {
     }
 
     pipeline.push(
-      { $sort: { updatedAt: -1, createdAt: -1, payoutPeriodStart: -1 } },
+      { $sort: { createdAt: -1, updatedAt: -1, payoutPeriodStart: -1 } },
       {
         $facet: {
           counts: [{ $count: "total" }],

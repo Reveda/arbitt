@@ -13,11 +13,9 @@ export class PayoutSchedulerService {
         async () => {
           logger.info("Running automated daily payout generation...");
 
-          const today = new Date();
-          const year = today.getFullYear();
-          const month = String(today.getMonth() + 1).padStart(2, "0");
-          const day = String(today.getDate()).padStart(2, "0");
-          const dateString = `${year}-${month}-${day}`;
+          const dateString = new Date().toLocaleDateString("en-CA", {
+            timeZone: "Asia/Kuala_Lumpur",
+          });
 
           // Daily Level Income
           try {
@@ -62,11 +60,9 @@ export class PayoutSchedulerService {
         async () => {
           logger.info("Running automated weekly ROI payout generation...");
 
-          const today = new Date();
-          const year = today.getFullYear();
-          const month = String(today.getMonth() + 1).padStart(2, "0");
-          const day = String(today.getDate()).padStart(2, "0");
-          const dateString = `${year}-${month}-${day}`;
+          const dateString = new Date().toLocaleDateString("en-CA", {
+            timeZone: "Asia/Kuala_Lumpur",
+          });
 
           try {
             logger.info(`Auto-generating weekly ROI payouts for date: ${dateString}`);

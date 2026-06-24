@@ -647,6 +647,7 @@ export function DepositPage() {
         </CardContent>
       </Card>
 
+      {/*
       {currentActiveTier && wallet?.lockedUsdt ? (
         <Card className="form-motion-off border-emerald-200 bg-emerald-50/70 text-slate-950 shadow-sm">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -690,6 +691,7 @@ export function DepositPage() {
           </CardContent>
         </Card>
       ) : null}
+      */}
 
       {latestDeposit ? (
         <Card className="form-motion-off border-cyan-200 bg-cyan-50/60 text-slate-950 shadow-sm">

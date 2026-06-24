@@ -9,7 +9,7 @@ const dateFilterSchema = z
 export const listTransactionsQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(50).default(12),
+    limit: z.coerce.number().int().min(1).max(100).default(12),
     type: z.enum(TRANSACTION_TYPES).optional(),
     status: z.enum(TRANSACTION_STATUSES).optional(),
     fromDate: dateFilterSchema,

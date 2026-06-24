@@ -198,15 +198,15 @@ export function AdminRevenueAnalyticsPage() {
       <AdminCard>
         <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex flex-col gap-3 w-full lg:w-auto sm:flex-row sm:items-end">
-            <div className="grid grid-cols-1 gap-3 w-full sm:grid-cols-2 sm:w-auto">
-              <div className="w-full sm:w-44">
+            <div className="flex flex-col gap-3 w-full sm:flex-row sm:w-auto">
+              <div className="w-full sm:w-44 min-w-0">
                 <label className="text-xs font-black text-slate-500 uppercase tracking-wider block mb-1.5">
                   From Date
                 </label>
-                <div className="relative">
+                <div className="relative w-full">
                   <input
                     type="date"
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 pr-10 text-sm font-bold text-slate-700 outline-none transition-all focus:border-cyan-400 focus:ring-2 focus:ring-cyan-50"
+                    className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 pr-10 text-sm font-bold text-slate-700 outline-none transition-all focus:border-cyan-400 focus:ring-2 focus:ring-cyan-50 [color-scheme:light]"
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
                   />
@@ -214,14 +214,14 @@ export function AdminRevenueAnalyticsPage() {
                 </div>
               </div>
 
-              <div className="w-full sm:w-44">
+              <div className="w-full sm:w-44 min-w-0">
                 <label className="text-xs font-black text-slate-500 uppercase tracking-wider block mb-1.5">
                   To Date
                 </label>
-                <div className="relative">
+                <div className="relative w-full">
                   <input
                     type="date"
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 pr-10 text-sm font-bold text-slate-700 outline-none transition-all focus:border-cyan-400 focus:ring-2 focus:ring-cyan-50"
+                    className="h-10 w-full min-w-0 rounded-xl border border-slate-200 bg-slate-50 px-3 pr-10 text-sm font-bold text-slate-700 outline-none transition-all focus:border-cyan-400 focus:ring-2 focus:ring-cyan-50 [color-scheme:light]"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
                   />

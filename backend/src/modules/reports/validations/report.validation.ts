@@ -10,7 +10,7 @@ export const listEarningsQuerySchema = z
   .object({
     fromDate: dateFilterSchema,
     kind: z.enum(["weekly", "level", "salary_royalty"]).optional(),
-    limit: z.coerce.number().int().min(1).max(50).default(10),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
     page: z.coerce.number().int().min(1).default(1),
     status: z.enum(TRANSACTION_STATUSES).optional(),
     toDate: dateFilterSchema,
