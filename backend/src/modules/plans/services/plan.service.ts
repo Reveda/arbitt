@@ -172,7 +172,29 @@ export class PlanService {
 
   async getPlanRuleSet(): Promise<PlanRuleSetResponseDto> {
     const ruleSet = await planRepository.ensureDefaultRuleSet();
-    return { ruleSet: toPlanRuleSetDto(ruleSet as PlanRuleSetRecord) };
+    
+    const activeCounts = await UserPlanPurchaseModel.aggregate<{ _id: string; count: number }>([
+      { $match: { status: "active" } },
+      { $group: { _id: "$tier", count: { $sum: 1 } } },
+    ]);
+
+    const countMap = new Map<string, number>();
+    for (const item of activeCounts) {
+      if (item._id) {
+        countMap.set(item._id.trim().toUpperCase(), item.count);
+      }
+    }
+
+    const ruleSetDto = toPlanRuleSetDto(ruleSet as PlanRuleSetRecord);
+    ruleSetDto.investmentTiers = ruleSetDto.investmentTiers.map((tier) => {
+      const tierKey = tier.tier.trim().toUpperCase();
+      return {
+        ...tier,
+        packagesSold: countMap.get(tierKey) ?? 0,
+      };
+    });
+
+    return { ruleSet: ruleSetDto };
   }
 
   async listMyPurchases(userId: string): Promise<ListPlanPurchasesResponseDto> {

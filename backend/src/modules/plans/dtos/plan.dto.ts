@@ -21,6 +21,7 @@ export type InvestmentTierRuleDto = {
   returnMinPercent: number;
   returnMaxPercent: number;
   status: string;
+  packagesSold?: number;
 };
 
 export type LevelIncomeRuleDto = {

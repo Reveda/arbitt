@@ -61,7 +61,9 @@ function TeamMemberRow({
         "group cursor-pointer border-b border-slate-100 bg-white transition-colors last:border-0 hover:bg-cyan-50/40 focus:bg-cyan-50/40",
         isSelected
           ? "bg-cyan-50/70"
-          : ""
+          : member.directCount > 0
+            ? "bg-blue-100/60 hover:bg-blue-200/40"
+            : ""
       )}
       onClick={openMember}
       onKeyDown={(event) => {

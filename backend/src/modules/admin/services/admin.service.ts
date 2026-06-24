@@ -10,7 +10,7 @@ import { adminRepository } from "../repositories/admin.repository";
 import { getPlatformPaymentWallet, updatePlatformPaymentWallet } from "./payment-wallet.service";
 import { toSafeUser } from "../../auth/dtos/auth.dto";
 import { ReferralModel } from "../../referrals/models/referral.model";
-import { getTeamBusinessMap } from "../../referrals/services/referral.service";
+import { getTeamBusinessMap, getSelfBusinessMap } from "../../referrals/services/referral.service";
 import { UserModel } from "../../users/models/user.model";
 import { TransactionModel } from "../../transactions/models/transaction.model";
 import { Types } from "mongoose";
@@ -133,6 +133,7 @@ function toUserSummary(value: unknown, userRoyaltyRankMap?: Map<string, number>)
 function toReferralNode(
   record: AdminReferralRecord,
   teamBusinessMap?: Map<string, number>,
+  selfBusinessMap?: Map<string, number>,
   userRoyaltyRankMap?: Map<string, number>,
 ) {
   const user = toUserSummary(record.userId, userRoyaltyRankMap);
@@ -149,6 +150,7 @@ function toReferralNode(
     directCount: record.directCount ?? 0,
     activeTeamCount: record.activeTeamCount ?? 0,
     teamBusinessUsdt: userIdStr && teamBusinessMap ? (teamBusinessMap.get(userIdStr) ?? 0) : 0,
+    selfBusinessUsdt: userIdStr && selfBusinessMap ? (selfBusinessMap.get(userIdStr) ?? 0) : 0,
     createdAt: record.createdAt ?? null,
   };
 }
@@ -482,6 +484,7 @@ export class AdminService {
     limit: number;
     search?: string;
     status?: string;
+    payoutKind?: string;
     fromDate?: string;
     weekStart?: string;
     toDate?: string;
@@ -494,6 +497,7 @@ export class AdminService {
     const { payouts, summary, total } = await adminRepository.listPayouts({
       search: input.search,
       status: input.status,
+      payoutKind: input.payoutKind,
       dateRange: buildDateRangeFilter({ fromDate: input.fromDate, toDate: input.toDate }),
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
@@ -531,6 +535,7 @@ export class AdminService {
   async exportPayoutsCsv(input: {
     search?: string;
     status?: string;
+    payoutKind?: string;
     fromDate?: string;
     toDate?: string;
     weekStart?: string;
@@ -540,6 +545,7 @@ export class AdminService {
     const { payouts } = await adminRepository.listPayouts({
       search: input.search,
       status: input.status,
+      payoutKind: input.payoutKind,
       dateRange: buildDateRangeFilter({ fromDate: input.fromDate, toDate: input.toDate }),
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
@@ -1217,12 +1223,13 @@ export class AdminService {
       skip,
       status: input.status,
     });
-    const [teamBusinessMap, { userRoyaltyRankMap }] = await Promise.all([
+    const [teamBusinessMap, selfBusinessMap, { userRoyaltyRankMap }] = await Promise.all([
       getTeamBusinessMap(),
+      getSelfBusinessMap(),
       calculateUserRoyaltyRanks(),
     ]);
     const nodes = referrals.map((record) =>
-      toReferralNode(record as AdminReferralRecord, teamBusinessMap, userRoyaltyRankMap),
+      toReferralNode(record as AdminReferralRecord, teamBusinessMap, selfBusinessMap, userRoyaltyRankMap),
     );
     const levels = nodes.reduce<Record<string, typeof nodes>>((levelMap, node) => {
       const key = `L${node.level}`;

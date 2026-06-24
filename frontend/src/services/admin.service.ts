@@ -26,6 +26,7 @@ export type AdminOverview = {
   };
   totalWithdrawalsUsdt: number;
   earningsPaidUsdt: number;
+  totalRoiGeneratedUsdt: number;
   platformEarningsUsdt: number;
   depositWithdrawalFlow: {
     depositsUsdt: number;
@@ -78,6 +79,7 @@ export type AdminPayoutsParams = {
   limit: number;
   search?: string;
   status?: string;
+  payoutKind?: string;
   fromDate?: string;
   weekStart?: string;
   toDate?: string;
@@ -332,6 +334,7 @@ export type AdminReferralNode = {
   directCount: number;
   activeTeamCount: number;
   teamBusinessUsdt: number;
+  selfBusinessUsdt: number;
   createdAt: string | null;
 };
 
@@ -460,6 +463,10 @@ function buildAdminPayoutsPath(params: AdminPayoutsParams) {
 
   if (params.status?.trim()) {
     query.set("status", params.status.trim());
+  }
+
+  if (params.payoutKind?.trim()) {
+    query.set("payoutKind", params.payoutKind.trim());
   }
 
   if (params.fromDate?.trim()) {

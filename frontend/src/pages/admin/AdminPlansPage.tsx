@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, Gift, Layers3, Network, Percent, WalletCards } from "lucide-react";
+import { CheckCircle2, Gift, Layers3, Network, Percent, WalletCards, ShoppingBag } from "lucide-react";
 import { AdminCard, AdminPageHeader, MetricCard } from "./admin.components";
 import {
   adminPlans as fallbackInvestmentTiers,
@@ -162,14 +162,12 @@ export function AdminPlansPage() {
                 <th className="px-4 py-3 font-black">Pool Name</th>
                 <th className="px-4 py-3 font-black">Range ({POOL_UNIT})</th>
                 <th className="px-4 py-3 font-black">Weekly ROI</th>
-                <th className="px-4 py-3 font-black">Range Weight</th>
+                <th className="px-4 py-3 font-black">Packages Sold</th>
                 <th className="px-4 py-3 font-black">Status</th>
               </tr>
             </thead>
             <tbody>
               {adminPlans.map((plan) => {
-                const weight = Math.max(10, Math.round((plan.maxUsdt / maxEntry) * 100));
-
                 return (
                   <tr className="border-b border-slate-100 last:border-0" key={plan.tier}>
                     <td className="px-4 py-4">
@@ -195,18 +193,11 @@ export function AdminPlansPage() {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <div className="h-2.5 w-44 overflow-hidden rounded-full bg-slate-100">
-                        <div
-                          className={cn(
-                            "h-full rounded-full",
-                            plan.maxUsdt === maxEntry
-                              ? "bg-emerald-500"
-                              : plan.maxUsdt >= 10000
-                                ? "bg-cyan-600"
-                                : "bg-sky-500"
-                          )}
-                          style={{ width: `${weight}%` }}
-                        />
+                      <div className="flex items-center gap-1.5">
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50/70 border border-blue-100/50 px-2.5 py-1 text-xs font-black text-blue-700 shadow-sm">
+                          <ShoppingBag className="size-3.5 text-blue-500" />
+                          {plan.packagesSold ?? 0}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-4">

@@ -43,6 +43,7 @@ function buildAdminPayoutsPath(params: AdminPayoutsParams) {
     fromDate: params.fromDate,
     limit: params.limit,
     page: params.page,
+    payoutKind: params.payoutKind,
     search: params.search,
     status: params.status,
     toDate: params.toDate,

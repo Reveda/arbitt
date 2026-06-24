@@ -42,7 +42,10 @@ async function sendRequest<T>(path: string, options: ApiRequestOptions = {}): Pr
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined
     });
   } catch {
-    throw new ApiClientError("Unable to connect to API. Please check backend server and CORS configuration.");
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      throw new ApiClientError("Internet disconnected. Please connect to the internet.");
+    }
+    throw new ApiClientError("Unable to connect to the server. Please check your internet connection.");
   }
 
   const payload = (await response.json().catch(() => null)) as ApiResponse<T> | null;

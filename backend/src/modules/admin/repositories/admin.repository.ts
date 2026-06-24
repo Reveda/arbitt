@@ -195,6 +195,7 @@ export class AdminRepository {
       usersBeforeGrowthWindow,
       monthlyUsers,
       depositOverview,
+      totalRoiGeneratedUsdt,
     ] = await Promise.all([
       UserModel.countDocuments(dateRangeFilter ? { createdAt: dateRangeFilter } : {}),
       countActiveUsersWithActivePlans(dateRangeFilter),
@@ -351,6 +352,11 @@ export class AdminRepository {
           },
         },
       ]),
+      sumTransactionAmount({
+        type: "reward",
+        payoutKind: "weekly",
+        status: { $in: ["pending", "approved", "completed"] },
+      }),
     ]);
 
     const monthlyUserMap = new Map(
@@ -383,6 +389,7 @@ export class AdminRepository {
       activePlans,
       totalDepositsUsdt,
       totalPackagesSellUsdt,
+      totalRoiGeneratedUsdt,
       depositOverview: {
         monthApprovedCount: depositOverview[0]?.monthApprovedCount ?? 0,
         monthApprovedUsdt: depositOverview[0]?.monthApprovedUsdt ?? 0,
@@ -710,8 +717,12 @@ export class AdminRepository {
     const search = input.search?.trim();
     const match: Record<string, unknown> = {
       type: "reward",
-      payoutKind: { $in: ["weekly", "level", "salary_royalty"] },
     };
+    if (input.payoutKind) {
+      match.payoutKind = input.payoutKind;
+    } else {
+      match.payoutKind = { $in: ["weekly", "level", "salary_royalty"] };
+    }
     const pipeline: PipelineStage[] = [];
 
     if (input.status) {
@@ -725,18 +736,30 @@ export class AdminRepository {
     if (input.payoutPeriod) {
       const salaryRoyaltyPeriod = getSalaryRoyaltyPeriod(input.payoutPeriod.start);
       delete match.payoutKind;
-      match.$or = [
-        {
-          payoutKind: "weekly",
-          payoutPeriodEnd: input.payoutPeriod.end,
-          payoutPeriodStart: input.payoutPeriod.start,
-        },
-        {
-          payoutKind: "salary_royalty",
-          payoutPeriodEnd: salaryRoyaltyPeriod.end,
-          payoutPeriodStart: salaryRoyaltyPeriod.start,
-        },
-      ];
+      if (input.payoutKind === "weekly") {
+        match.payoutKind = "weekly";
+        match.payoutPeriodEnd = input.payoutPeriod.end;
+        match.payoutPeriodStart = input.payoutPeriod.start;
+      } else if (input.payoutKind === "salary_royalty") {
+        match.payoutKind = "salary_royalty";
+        match.payoutPeriodEnd = salaryRoyaltyPeriod.end;
+        match.payoutPeriodStart = salaryRoyaltyPeriod.start;
+      } else if (input.payoutKind === "level") {
+        match.payoutKind = "level";
+      } else {
+        match.$or = [
+          {
+            payoutKind: "weekly",
+            payoutPeriodEnd: input.payoutPeriod.end,
+            payoutPeriodStart: input.payoutPeriod.start,
+          },
+          {
+            payoutKind: "salary_royalty",
+            payoutPeriodEnd: salaryRoyaltyPeriod.end,
+            payoutPeriodStart: salaryRoyaltyPeriod.start,
+          },
+        ];
+      }
     }
 
     pipeline.push(

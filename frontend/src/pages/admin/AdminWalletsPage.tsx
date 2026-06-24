@@ -338,7 +338,6 @@ export function AdminWalletsPage() {
             <thead className="bg-white text-xs text-slate-500 shadow-[0_1px_0_#e2e8f0]">
               <tr>
                 <th className="px-4 py-3 font-black">User</th>
-                <th className="px-4 py-3 font-black">Available</th>
                 <th className="px-4 py-3 font-black">Locked</th>
                 <th className="px-4 py-3 font-black">Deposits</th>
                 <th className="px-4 py-3 font-black">Rewards</th>
@@ -351,7 +350,7 @@ export function AdminWalletsPage() {
               {walletsQuery.isLoading ? (
                 Array.from({ length: 6 }, (_, rowIndex) => (
                   <tr className="border-b border-slate-100 last:border-0" key={rowIndex}>
-                    {Array.from({ length: 8 }, (_, cellIndex) => (
+                    {Array.from({ length: 7 }, (_, cellIndex) => (
                       <td className="px-4 py-4" key={cellIndex}>
                         <div className="h-4 w-24 animate-pulse rounded bg-slate-100" />
                       </td>
@@ -371,7 +370,6 @@ export function AdminWalletsPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm font-black text-slate-900">{formatUsdt(wallet.availableUsdt)}</td>
                     <td className="px-4 py-3 text-sm font-black text-slate-900">{formatUsdt(wallet.lockedUsdt)}</td>
                     <td className="px-4 py-3 text-xs font-bold text-slate-500">{formatUsdt(wallet.lifetimeDepositsUsdt)}</td>
                     <td className="px-4 py-3 text-xs font-bold text-slate-500">{formatUsdt(wallet.lifetimeRewardsUsdt)}</td>
@@ -386,7 +384,7 @@ export function AdminWalletsPage() {
                 ))
               ) : (
                 <tr>
-                  <td className="py-12 text-center text-sm font-semibold text-slate-500" colSpan={8}>
+                  <td className="py-12 text-center text-sm font-semibold text-slate-500" colSpan={7}>
                     No wallets found.
                   </td>
                 </tr>

@@ -9,6 +9,9 @@ import {
   Loader2,
   Search,
   XCircle,
+  Crown,
+  Layers,
+  Percent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
@@ -100,6 +103,7 @@ export function AdminPayoutsPage() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [activeTab, setActiveTab] = useState<"salary_royalty" | "level" | "weekly">("salary_royalty");
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [message, setMessage] = useState<ToastMessageValue | null>(null);
   const [confirmation, setConfirmation] = useState<ReviewConfirmation | null>(
@@ -107,6 +111,7 @@ export function AdminPayoutsPage() {
   );
   const [reviewAdminPayout] = useReviewAdminPayoutMutation();
   const [totalWithdrawals, setTotalWithdrawals] = useState<number>(0);
+  const [totalRoiGenerated, setTotalRoiGenerated] = useState<number>(0);
 
   useEffect(() => {
     adminService
@@ -116,6 +121,7 @@ export function AdminPayoutsPage() {
       })
       .then((res) => {
         setTotalWithdrawals(res.data.totalWithdrawalsUsdt);
+        setTotalRoiGenerated(res.data.totalRoiGeneratedUsdt);
       })
       .catch((err) => console.error("Error loading overview for payouts page:", err));
   }, [fromDate, toDate]);
@@ -126,6 +132,7 @@ export function AdminPayoutsPage() {
     if (status !== "all") params.append("status", status);
     if (fromDate) params.append("fromDate", fromDate);
     if (toDate) params.append("toDate", toDate);
+    if (activeTab) params.append("payoutKind", activeTab);
 
     const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5000/api/v1").replace(/\/$/, "");
     const url = `${API_BASE_URL}/admin/payouts/export?${params.toString()}`;
@@ -165,7 +172,7 @@ export function AdminPayoutsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, fromDate, status, toDate]);
+  }, [debouncedSearch, fromDate, status, toDate, activeTab]);
 
   const payoutsQuery = useAdminPayouts({
     page,
@@ -174,6 +181,7 @@ export function AdminPayoutsPage() {
     status: status === "all" ? undefined : status,
     fromDate: fromDate || undefined,
     toDate: toDate || undefined,
+    payoutKind: activeTab,
   });
   const data = payoutsQuery.data?.data;
   const payouts = data?.payouts ?? [];
@@ -208,10 +216,10 @@ export function AdminPayoutsPage() {
       value: formatUsdt(summary.totalPayoutUsdt),
     },
     {
-      icon: XCircle,
-      label: "Rejected",
-      tone: "bg-rose-50 text-rose-700",
-      value: String(summary.rejectedCount),
+      icon: Percent,
+      label: "ROI Generated",
+      tone: "bg-blue-50 text-blue-700",
+      value: formatUsdt(totalRoiGenerated),
     },
     {
       icon: BadgeDollarSign,
@@ -338,6 +346,46 @@ export function AdminPayoutsPage() {
         </div>
       </AdminCard>
 
+      {/* Tabs Selector */}
+      <div className="grid grid-cols-3 gap-1 bg-slate-100/80 p-1 rounded-2xl">
+        <button
+          onClick={() => setActiveTab("salary_royalty")}
+          className={cn(
+            "flex items-center justify-center gap-2 py-2.5 text-xs sm:text-sm font-black transition-all duration-200 rounded-xl outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 select-none",
+            activeTab === "salary_royalty"
+              ? "bg-white text-cyan-700 shadow-sm border border-slate-200/50"
+              : "text-slate-500 hover:text-slate-900 hover:bg-white/40 border border-transparent"
+          )}
+        >
+          <Crown className="size-4 shrink-0 text-cyan-600" />
+          <span>Royalty</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("level")}
+          className={cn(
+            "flex items-center justify-center gap-2 py-2.5 text-xs sm:text-sm font-black transition-all duration-200 rounded-xl outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 select-none",
+            activeTab === "level"
+              ? "bg-white text-cyan-700 shadow-sm border border-slate-200/50"
+              : "text-slate-500 hover:text-slate-900 hover:bg-white/40 border border-transparent"
+          )}
+        >
+          <Layers className="size-4 shrink-0 text-cyan-600" />
+          <span>Level</span>
+        </button>
+        <button
+          onClick={() => setActiveTab("weekly")}
+          className={cn(
+            "flex items-center justify-center gap-2 py-2.5 text-xs sm:text-sm font-black transition-all duration-200 rounded-xl outline-none focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 select-none",
+            activeTab === "weekly"
+              ? "bg-white text-cyan-700 shadow-sm border border-slate-200/50"
+              : "text-slate-500 hover:text-slate-900 hover:bg-white/40 border border-transparent"
+          )}
+        >
+          <Percent className="size-4 shrink-0 text-cyan-600" />
+          <span>ROI</span>
+        </button>
+      </div>
+
       <AdminCard className="min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
           <div>
@@ -372,7 +420,7 @@ export function AdminPayoutsPage() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className={cn("overflow-x-auto transition-all duration-300", payoutsQuery.isLoading ? "opacity-50" : "opacity-100")}>
           <table className="w-full min-w-[1160px] text-left">
             <thead className="bg-white text-xs text-slate-500 shadow-[0_1px_0_#e2e8f0]">
               <tr>

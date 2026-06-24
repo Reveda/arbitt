@@ -9,6 +9,7 @@ export type InvestmentTierRule = {
   returnMinPercent: number;
   returnMaxPercent: number;
   status: string;
+  packagesSold?: number;
 };
 
 export type LevelIncomeRule = {

@@ -110,6 +110,7 @@ export type AdminOverviewRepositoryResult = {
   activePlans: number;
   totalDepositsUsdt: number;
   totalPackagesSellUsdt: number;
+  totalRoiGeneratedUsdt: number;
   depositOverview: {
     monthApprovedCount: number;
     monthApprovedUsdt: number;
@@ -231,6 +232,7 @@ export type AdminWithdrawalListInput = AdminDepositListInput;
 export type AdminPayoutListInput = {
   search?: string;
   status?: string;
+  payoutKind?: string;
   dateRange?: DateRangeFilter;
   payoutPeriod?: {
     end: Date;
