@@ -273,6 +273,7 @@ export type CreatePayoutTransactionInput = {
   payoutTier: string;
   payoutPercent: number;
   payoutPrincipalUsdt: number;
+  payoutSourceTransactionId?: unknown;
 };
 
 export type UpdateWeeklyPayoutInput = CreatePayoutTransactionInput & {

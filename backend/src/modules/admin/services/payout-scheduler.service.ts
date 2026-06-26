@@ -2,8 +2,76 @@ import { adminService } from "./admin.service";
 import { logger } from "../../../config/logger";
 
 export class PayoutSchedulerService {
+  async runStartupCheck() {
+    logger.info("Running payout startup check...");
+
+    const dateString = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Kuala_Lumpur",
+    });
+
+    // 1. Check and generate daily level payouts
+    try {
+      logger.info(`Startup check: Auto-generating daily level payouts for date: ${dateString}`);
+      const resultLevel = await adminService.generateWeeklyPayouts({
+        weekStart: dateString,
+        payoutType: "level",
+      });
+      logger.info(`Startup check: Daily level payouts completed. Created: ${resultLevel.levelCreatedCount}`);
+    } catch (err) {
+      logger.error(`Error in startup daily level check: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // 2. Check and generate daily royalty payouts
+    try {
+      logger.info(`Startup check: Auto-generating daily royalty payouts for date: ${dateString}`);
+      const resultRoyalty = await adminService.generateWeeklyPayouts({
+        weekStart: dateString,
+        payoutType: "royalty",
+      });
+      logger.info(`Startup check: Daily royalty payouts completed. Created: ${resultRoyalty.salaryRoyaltyCreatedCount}`);
+    } catch (err) {
+      logger.error(`Error in startup daily royalty check: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
+    // 3. Check and generate weekly ROI payouts (if Friday, Saturday, or Sunday)
+    const day = new Date().toLocaleDateString("en-US", { timeZone: "Asia/Kuala_Lumpur", weekday: "long" });
+    const isFriday = day === "Friday";
+    const isSaturday = day === "Saturday";
+    const isSunday = day === "Sunday";
+
+    if (isFriday || isSaturday || isSunday) {
+      try {
+        let targetFridayString = dateString;
+        if (isSaturday) {
+          const prevDay = new Date();
+          prevDay.setDate(prevDay.getDate() - 1);
+          targetFridayString = prevDay.toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" });
+        } else if (isSunday) {
+          const prevDay = new Date();
+          prevDay.setDate(prevDay.getDate() - 2);
+          targetFridayString = prevDay.toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" });
+        }
+
+        logger.info(`Startup check: Auto-generating weekly ROI payouts for target Friday: ${targetFridayString}`);
+        const resultRoi = await adminService.generateWeeklyPayouts({
+          weekStart: targetFridayString,
+          payoutType: "roi",
+        });
+        logger.info(`Startup check: Weekly ROI payouts completed. Created: ${resultRoi.weeklyCreatedCount}`);
+      } catch (err) {
+        logger.error(`Error in startup weekly ROI check: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+  }
+
   async init() {
     logger.info("Initializing Payout Daily Scheduler...");
+
+    // Run startup check asynchronously
+    this.runStartupCheck().catch((err) => {
+      logger.error(`Failed to execute startup check: ${err}`);
+    });
+
     try {
       const cron = await import("node-cron");
 

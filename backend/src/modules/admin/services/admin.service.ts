@@ -302,6 +302,24 @@ function formatPeriodDate(value: Date) {
   return value.toISOString().slice(0, 10);
 }
 
+function countFridaysBetween(startDate: Date, endDate: Date): number {
+  let count = 0;
+  const current = new Date(startDate.getTime());
+  current.setUTCHours(0, 0, 0, 0);
+  current.setUTCDate(current.getUTCDate() + 1);
+
+  const end = new Date(endDate.getTime());
+  end.setUTCHours(0, 0, 0, 0);
+
+  while (current.getTime() <= end.getTime()) {
+    if (current.getUTCDay() === 5) {
+      count++;
+    }
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return count;
+}
+
 function hasWeeklyPayoutChanged(
   record: AdminPayoutRecord,
   payout: {
@@ -623,7 +641,18 @@ export class AdminService {
       );
     }
 
-    const payoutDate = input.weekStart ? new Date(`${input.weekStart}T00:00:00.000Z`) : new Date();
+    const payoutType = input.payoutType ?? "roi";
+
+    let payoutDate = input.weekStart ? new Date(`${input.weekStart}T00:00:00.000Z`) : new Date();
+
+    // Automatically default to the most recent Friday if it's ROI and no weekStart was passed
+    if (payoutType === "roi" && !input.weekStart) {
+      const day = payoutDate.getUTCDay();
+      // Sunday is 0, Monday is 1, ..., Friday is 5, Saturday is 6
+      const diffToFriday = day >= 5 ? day - 5 : day + 2; 
+      payoutDate.setUTCDate(payoutDate.getUTCDate() - diffToFriday);
+    }
+
     const periodStart = new Date(
       Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate()),
     );
@@ -639,16 +668,26 @@ export class AdminService {
       ),
     );
     const periodCutoff = periodEnd;
-    const eligibleUntil = periodStart;
+    
+    // For ROI, only plans purchased BEFORE the weekly cycle started are eligible.
+    // The cycle starts 7 days before the Friday (excluding Friday-Thursday cycle purchases).
+    const eligibleUntil = payoutType === "roi"
+      ? new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+      : periodStart;
 
-    if (periodStart.getTime() > Date.now()) {
+    // Get current date in Malaysia Time (Kuala Lumpur)
+    const currentMalaysiaDateString = new Date().toLocaleDateString("en-CA", {
+      timeZone: "Asia/Kuala_Lumpur",
+    });
+    const currentMalaysiaDate = new Date(`${currentMalaysiaDateString}T23:59:59.999Z`);
+
+    if (periodStart.getTime() > currentMalaysiaDate.getTime()) {
       throw new ApiError(
         HTTP_STATUS.BAD_REQUEST,
         "Payout period is in the future. Select a completed or current date.",
       );
     }
 
-    const payoutType = input.payoutType ?? "roi";
     const isFriday = periodStart.getUTCDay() === 5;
 
     if (payoutType === "roi" && !isFriday) {
@@ -686,7 +725,7 @@ export class AdminService {
     const updatedPayouts: any[] = [];
     let allRoiPayouts: any[] = [];
 
-    // 1. Generate Daily ROI (7 days of the week ending on the selected Friday)
+    // 1. Generate Weekly ROI in one single payout
     if (payoutType === "roi") {
       const remainingCapacityMap = new Map<string, number>();
       for (const wallet of eligibleWallets) {
@@ -698,110 +737,124 @@ export class AdminService {
         remainingCapacityMap.set(userId, remainingEarningUsdt);
       }
 
-      for (let d = 0; d < 7; d++) {
-        const dayDate = new Date(periodStart);
-        dayDate.setUTCDate(dayDate.getUTCDate() - (6 - d));
+      // Fetch all past approved/completed weekly ROI payouts for each user to get the total ROI received so far
+      const eligibleUserIds = eligibleWallets.map((w) => w.userId);
+      const pastWeeklyPayouts = await TransactionModel.find({
+        userId: { $in: eligibleUserIds },
+        type: "reward",
+        payoutKind: "weekly",
+        status: { $in: ["approved", "completed"] },
+      }).lean();
 
-        const dayStart = new Date(dayDate);
-        dayStart.setUTCHours(0, 0, 0, 0);
-        const dayEnd = new Date(dayDate);
-        dayEnd.setUTCHours(23, 59, 59, 999);
+      const totalRoiReceivedMap = new Map<string, number>();
+      for (const p of pastWeeklyPayouts) {
+        const uId = String(p.userId);
+        totalRoiReceivedMap.set(uId, roundUsdt((totalRoiReceivedMap.get(uId) ?? 0) + (p.amountUsdt ?? 0)));
+      }
 
-        // Fetch existing payouts for this specific day to avoid double generation
-        const dayWeeklyPayouts = await adminRepository.listWeeklyPayoutsForPeriod({
-          payoutPeriodEnd: dayEnd,
-          payoutPeriodStart: dayStart,
-        });
-        const dayWeeklyPayoutByUserId = new Map(
-          dayWeeklyPayouts.map((payout) => [String(payout.userId), payout as AdminPayoutRecord]),
-        );
+      // Get all active plan purchases for the eligible users that are eligible for this Friday
+      const activePurchases = await UserPlanPurchaseModel.find({
+        userId: { $in: eligibleUserIds },
+        status: "active",
+        purchasedAt: { $lte: eligibleUntil },
+      }).lean();
 
-        const payoutCandidates = eligibleWallets
-          .map((wallet) => {
-            const userId = String(wallet.userId);
-            const lifetimeDepositsUsdt = wallet.lifetimeDepositsUsdt ?? 0;
-            const existingPayout = dayWeeklyPayoutByUserId.get(userId);
+      // Group active purchases by userId
+      const purchasesByUserId = new Map<string, typeof activePurchases>();
+      for (const p of activePurchases) {
+        const uId = String(p.userId);
+        const list = purchasesByUserId.get(uId) ?? [];
+        list.push(p);
+        purchasesByUserId.set(uId, list);
+      }
 
-            const existingAmount = existingPayout?.amountUsdt ?? 0;
-            const remainingEarningUsdt = roundUsdt(
-              (remainingCapacityMap.get(userId) ?? 0) + existingAmount,
-            );
+      const payoutCandidates = [];
 
-            const tier =
-              activeTiers.find(
-                (candidate) =>
-                  lifetimeDepositsUsdt >= candidate.minUsdt &&
-                  lifetimeDepositsUsdt <= candidate.maxUsdt,
-              ) ?? (highestTier && lifetimeDepositsUsdt > highestTier.maxUsdt ? highestTier : null);
+      for (const wallet of eligibleWallets) {
+        const userId = String(wallet.userId);
+        const remainingCapacity = remainingCapacityMap.get(userId) ?? 0;
+        if (remainingCapacity <= 0) continue;
 
-            if (!tier) {
-              return null;
-            }
+        const userPurchases = purchasesByUserId.get(userId) ?? [];
+        if (userPurchases.length === 0) continue;
 
-            const payoutPercent = tier.weeklyReturnMaxPercent;
-            const payoutPrincipalUsdt = Math.min(lifetimeDepositsUsdt, tier.maxUsdt);
-            const dailyRoiPercent = payoutPercent / 7;
-            const uncappedAmountUsdt = roundUsdt((payoutPrincipalUsdt * dailyRoiPercent) / 100);
-            const amountUsdt = roundUsdt(Math.min(uncappedAmountUsdt, remainingEarningUsdt));
-
-            if (amountUsdt <= 0) {
-              return null;
-            }
-
-            remainingCapacityMap.set(userId, roundUsdt(remainingEarningUsdt - amountUsdt));
-
-            const capNote =
-              amountUsdt < uncappedAmountUsdt
-                ? ` Capped by ${TOTAL_REWARD_EARNING_MULTIPLIER}x total earning limit.`
-                : "";
-
-            return {
-              amountUsdt,
-              notes: `Daily ROI ${tier.tier} ${formatPeriodDate(dayStart)} (${dailyRoiPercent.toFixed(4)}%).${capNote}`,
-              payoutPercent: roundUsdt(dailyRoiPercent),
-              payoutPeriodEnd: dayEnd,
-              payoutPeriodStart: dayStart,
-              payoutPrincipalUsdt,
-              payoutTier: tier.tier,
-              userId,
-            };
-          })
-          .filter((payout): payout is NonNullable<typeof payout> => Boolean(payout));
-
-        const payoutsToCreate: typeof payoutCandidates = [];
-        const payoutsToUpdate: Array<
-          (typeof payoutCandidates)[number] & { transactionId: string }
-        > = [];
-
-        for (const payout of payoutCandidates) {
-          const existingPayout = dayWeeklyPayoutByUserId.get(payout.userId);
-
-          if (!existingPayout) {
-            payoutsToCreate.push(payout);
-            continue;
-          }
-
-          if (
-            existingPayout.status === "pending" &&
-            hasWeeklyPayoutChanged(existingPayout, payout)
-          ) {
-            payoutsToUpdate.push({
-              ...payout,
-              transactionId: String(existingPayout._id),
-            });
-          }
+        // Calculate total ROI entitled up to periodEnd
+        let totalRoiEntitled = 0;
+        for (const p of userPurchases) {
+          const totalFridays = countFridaysBetween(p.purchasedAt, periodEnd);
+          const planWeeklyRoi = roundUsdt((p.amountUsdt * p.weeklyReturnPercent) / 100);
+          totalRoiEntitled = roundUsdt(totalRoiEntitled + planWeeklyRoi * totalFridays);
         }
 
-        const [created, updatedResults] = await Promise.all([
-          payoutsToCreate.length ? adminRepository.createPayoutTransactions(payoutsToCreate) : [],
-          Promise.all(
-            payoutsToUpdate.map((payout) => adminRepository.updatePendingWeeklyPayout(payout)),
-          ),
-        ]);
+        const totalRoiReceived = totalRoiReceivedMap.get(userId) ?? 0;
+        const uncappedAmountUsdt = roundUsdt(Math.max(0, totalRoiEntitled - totalRoiReceived));
+        const amountUsdt = roundUsdt(Math.min(uncappedAmountUsdt, remainingCapacity));
 
-        createdPayouts.push(...created);
-        updatedPayouts.push(...updatedResults.filter(Boolean));
+        if (amountUsdt <= 0) continue;
+
+        remainingCapacityMap.set(userId, roundUsdt(remainingCapacity - amountUsdt));
+
+        // Use the highest tier of their active eligible plans for display
+        const userTiers = userPurchases
+          .map((p) => {
+            return activeTiers.find((t) => p.weeklyReturnPercent === t.weeklyReturnMaxPercent);
+          })
+          .filter(Boolean);
+        const displayTier = userTiers.length > 0 ? userTiers[0]?.tier : "INITIAL";
+
+        const notes = `Weekly ROI ${displayTier} for period ending ${formatPeriodDate(periodEnd)}.`;
+
+        payoutCandidates.push({
+          amountUsdt,
+          notes,
+          payoutPercent: userPurchases[0]?.weeklyReturnPercent ?? 2,
+          payoutPeriodEnd: periodEnd,
+          payoutPeriodStart: new Date(periodEnd.getTime() - 6 * 24 * 60 * 60 * 1000),
+          payoutPrincipalUsdt: userPurchases.reduce((sum, p) => sum + p.amountUsdt, 0),
+          payoutTier: displayTier ?? "INITIAL",
+          userId,
+        });
       }
+
+      const payoutsToCreate = [];
+      const payoutsToUpdate = [];
+
+      // Check existing payouts for this period and userId
+      for (const payout of payoutCandidates) {
+        const existingPayout = await TransactionModel.findOne({
+          userId: payout.userId,
+          type: "reward",
+          payoutKind: "weekly",
+          payoutPeriodEnd: periodEnd,
+        });
+
+        if (!existingPayout) {
+          payoutsToCreate.push(payout);
+          continue;
+        }
+
+        if (
+          existingPayout.status === "pending" &&
+          (roundUsdt(existingPayout.amountUsdt ?? 0) !== payout.amountUsdt ||
+            existingPayout.notes !== payout.notes)
+        ) {
+          payoutsToUpdate.push({
+            ...payout,
+            transactionId: String(existingPayout._id),
+          });
+        }
+      }
+
+      // Save payouts
+      const [created, updatedResults] = await Promise.all([
+        payoutsToCreate.length ? adminRepository.createPayoutTransactions(payoutsToCreate) : [],
+        Promise.all(
+          payoutsToUpdate.map((payout) => adminRepository.updatePendingWeeklyPayout(payout)),
+        ),
+      ]);
+
+      createdPayouts.push(...created);
+      updatedPayouts.push(...updatedResults.filter(Boolean));
       allRoiPayouts = [...createdPayouts, ...updatedPayouts];
     }
 
