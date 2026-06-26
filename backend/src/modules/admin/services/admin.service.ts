@@ -1147,7 +1147,8 @@ export class AdminService {
         }
       }
 
-      await ensurePlatformReserveForDebit(pendingPayout.amountUsdt ?? 0, "payout");
+      // For internal system reward payouts, we do not require platform reserve check because they are internal credits.
+      // Platform reserve is checked at withdrawal time.
 
       reviewedPayout = await adminRepository.approvePendingPayout(input);
     } else {
