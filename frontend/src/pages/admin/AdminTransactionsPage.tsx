@@ -7,16 +7,13 @@ import {
   X,
   Loader2,
   Copy,
-  CheckCircle2,
-  CalendarDays,
-  FileSpreadsheet,
-  AlertCircle
+  CheckCircle2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateRangeFilter } from "@/components/ui/date-range-filter";
 import { Input } from "@/components/ui/input";
 import { useAdminTransactions } from "@/hooks/useAdminQueries";
-import { adminService, type AdminTransaction } from "@/services/admin.service";
+import { type AdminTransaction } from "@/services/admin.service";
 import { cn } from "@/lib/utils";
 import { AdminCard, AdminPageHeader } from "./admin.components";
 import { ToastMessage, type ToastMessageValue } from "@/components/ui/toast-message";
@@ -384,11 +381,6 @@ export function AdminTransactionsPage() {
                           <p className="text-[11px] leading-relaxed text-slate-600 font-medium break-words">
                             {txn.notes || "—"}
                           </p>
-                          {txn.payoutKind && (
-                            <span className="inline-block mt-1 text-[8px] font-black uppercase tracking-wider text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded-md border border-indigo-150">
-                              {txn.payoutKind.replace("_", " ")}
-                            </span>
-                          )}
                         </td>
 
                       </tr>

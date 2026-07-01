@@ -1,10 +1,8 @@
 import { createBrowserRouter, Navigate } from "react-router-dom";
 import {
   Activity,
-  ArrowUpRight,
   Bell,
   ClipboardList,
-  CreditCard,
   HandCoins,
   LifeBuoy,
   Settings,
@@ -28,7 +26,6 @@ import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { UserDashboardPage } from "@/pages/dashboard/UserDashboardPage";
 import { TeamPage } from "@/pages/dashboard/TeamPage";
-import { UserModulePage } from "@/pages/dashboard/UserModulePage";
 import { UserProfilePage } from "@/pages/dashboard/UserProfilePage";
 import { WalletPage } from "@/pages/dashboard/WalletPage";
 import { DepositPage } from "@/pages/dashboard/DepositPage";

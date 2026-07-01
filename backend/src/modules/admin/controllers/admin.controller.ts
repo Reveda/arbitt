@@ -287,7 +287,18 @@ export const listAdminTransactions = catchAsync(async (req: Request, res: Respon
   >[0];
   const result = await superAdminService.listTransactions(query);
 
+  // Remap 'records' → 'transactions' so the frontend AdminTransactionsResponse type matches
+  const mapped = {
+    transactions: (result.records ?? []).map((r: Record<string, unknown>) => ({
+      ...r,
+      chargeUsdt: r.chargeUsdt ?? 0,
+      grossAmountUsdt: r.grossAmountUsdt ?? r.amountUsdt ?? 0,
+    })),
+    pagination: result.pagination,
+    summary: result.summary,
+  };
+
   res
     .status(HTTP_STATUS.OK)
-    .json(apiResponse(HTTP_STATUS.OK, "Admin transactions loaded.", result));
+    .json(apiResponse(HTTP_STATUS.OK, "Admin transactions loaded.", mapped));
 });

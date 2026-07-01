@@ -212,7 +212,6 @@ export function useAdminWithdrawals(params: AdminWithdrawalsParams) {
     error: null,
     isLoading: true
   });
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const refetch = useCallback(async () => {
     setState((current) => ({ ...current, error: null, isLoading: true }));
