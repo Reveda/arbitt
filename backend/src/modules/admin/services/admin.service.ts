@@ -304,8 +304,33 @@ function formatPeriodDate(value: Date) {
 }
 
 function countFridaysBetween(startDate: Date, endDate: Date): number {
-  let count = 0;
-  const current = new Date(startDate.getTime());
+  const purchaseDate = new Date(startDate.getTime());
+  // Find the Friday of the purchase week
+  const day = purchaseDate.getUTCDay();
+  const daysUntilFriday = (5 - day + 7) % 7;
+  
+  const fridayOfWeek = new Date(purchaseDate.getTime());
+  fridayOfWeek.setUTCDate(purchaseDate.getUTCDate() + daysUntilFriday);
+  fridayOfWeek.setUTCHours(0, 0, 0, 0); // Friday midnight
+
+  let firstEligibleFriday: Date;
+  // If purchasedAt is on/after Friday midnight of that week, then the cutoff is missed.
+  // It must start earning from the Friday of the week after next.
+  if (purchaseDate.getTime() >= fridayOfWeek.getTime()) {
+    firstEligibleFriday = new Date(fridayOfWeek.getTime() + 14 * 24 * 60 * 60 * 1000);
+  } else {
+    // Met the cutoff, so first eligible Friday is next week's Friday
+    firstEligibleFriday = new Date(fridayOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000);
+  }
+  firstEligibleFriday.setUTCHours(23, 59, 59, 999);
+
+  if (endDate.getTime() < firstEligibleFriday.getTime()) {
+    return 0;
+  }
+
+  // Count Fridays from firstEligibleFriday to endDate (inclusive)
+  let count = 1;
+  const current = new Date(firstEligibleFriday.getTime());
   current.setUTCHours(0, 0, 0, 0);
   current.setUTCDate(current.getUTCDate() + 1);
 
