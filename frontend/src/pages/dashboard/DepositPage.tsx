@@ -151,7 +151,7 @@ export function DepositPage() {
     () => (ruleSet?.investmentTiers ?? []).filter((tier) => tier.status !== "Inactive"),
     [ruleSet?.investmentTiers]
   );
-  const availableWalletBalance = wallet?.availableUsdt ?? 0;
+  const availableWalletBalance = wallet?.topUpBalance ?? wallet?.availableUsdt ?? 0;
   const currentPurchaseAmount = Number(purchaseAmountUsdt);
   const hasValidPurchaseAmount = selectedPlan
     ? Number.isFinite(currentPurchaseAmount) &&

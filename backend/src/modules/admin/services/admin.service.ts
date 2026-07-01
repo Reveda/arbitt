@@ -1041,7 +1041,6 @@ export class AdminService {
       const tier = [...(await planRepository.ensureDefaultRuleSet()).investmentTiers].find(
         (candidate) => candidate.tier === reviewedPurchase.payoutTier,
       );
-
       await Promise.all([
         UserPlanPurchaseModel.findOneAndUpdate(
           { sourceTransactionId: reviewedPurchase._id },
@@ -1063,6 +1062,10 @@ export class AdminService {
           { new: true, upsert: true },
         ),
         walletRepository.creditAdminPlanPurchase(reviewedPurchase.amountUsdt),
+        walletRepository.completePlanAmount(
+          String(reviewedPurchase.userId),
+          reviewedPurchase.amountUsdt,
+        ),
       ]);
 
       await rewardService.createLevelIncomeRewardsForPlanPurchase({

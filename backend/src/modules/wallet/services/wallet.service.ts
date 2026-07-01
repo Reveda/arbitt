@@ -1,3 +1,4 @@
+import { Types } from "mongoose";
 import { HTTP_STATUS } from "../../../constants/http";
 import { ApiError } from "../../../utils/ApiError";
 import { comparePassword } from "../../../utils/password";
@@ -44,9 +45,24 @@ export async function calculateTopUpBalance(
 
 export class WalletService {
   async getWalletSummary(userId: string): Promise<WalletSummaryResponseDto> {
-    const [wallet, platformDepositWallet] = await Promise.all([
+    const [wallet, platformDepositWallet, pendingWithdrawals] = await Promise.all([
       walletRepository.findByUserId(userId),
       getPlatformPaymentWallet(),
+      TransactionModel.aggregate([
+        {
+          $match: {
+            userId: new Types.ObjectId(userId),
+            type: "withdrawal",
+            status: "pending",
+          },
+        },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: "$payoutPrincipalUsdt" },
+          },
+        },
+      ]),
     ]);
 
     const topUpBalance = await calculateTopUpBalance(
@@ -55,9 +71,12 @@ export class WalletService {
       wallet?.lifetimeDepositsUsdt ?? 0,
     );
 
+    const lockedUsdt = pendingWithdrawals[0]?.total ?? 0;
+
     return {
-      availableUsdt: topUpBalance,
-      lockedUsdt: wallet?.lockedUsdt ?? 0,
+      availableUsdt: wallet?.availableUsdt ?? 0,
+      topUpBalance,
+      lockedUsdt,
       lifetimeDepositsUsdt: wallet?.lifetimeDepositsUsdt ?? 0,
       lifetimeWithdrawalsUsdt: wallet?.lifetimeWithdrawalsUsdt ?? 0,
       lifetimeRewardsUsdt: wallet?.lifetimeRewardsUsdt ?? 0,
@@ -168,7 +187,8 @@ export class WalletService {
         grossAmountUsdt,
         netAmountUsdt,
         wallet: {
-          availableUsdt: await calculateTopUpBalance(
+          availableUsdt: wallet.availableUsdt ?? 0,
+          topUpBalance: await calculateTopUpBalance(
             userId,
             wallet.availableUsdt ?? 0,
             wallet.lifetimeDepositsUsdt ?? 0,
