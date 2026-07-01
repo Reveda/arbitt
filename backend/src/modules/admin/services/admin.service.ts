@@ -13,6 +13,7 @@ import { ReferralModel } from "../../referrals/models/referral.model";
 import { getTeamBusinessMap, getSelfBusinessMap } from "../../referrals/services/referral.service";
 import { UserModel } from "../../users/models/user.model";
 import { TransactionModel } from "../../transactions/models/transaction.model";
+import { WalletModel } from "../../wallet/models/wallet.model";
 import { Types } from "mongoose";
 import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
 import { authRepository } from "../../auth/repositories/auth.repository";
@@ -727,10 +728,19 @@ export class AdminService {
 
     // 1. Generate Weekly ROI in one single payout
     if (payoutType === "roi") {
+      const eligibleUserIds = eligibleWallets.map((w) => w.userId);
+
+      // Fetch the true wallet records for all eligible users to get their actual lifetimeDepositsUsdt
+      const userWallets = await WalletModel.find({ userId: { $in: eligibleUserIds } }).lean();
+      const trueLifetimeDepositsMap = new Map<string, number>();
+      for (const w of userWallets) {
+        trueLifetimeDepositsMap.set(String(w.userId), w.lifetimeDepositsUsdt ?? 0);
+      }
+
       const remainingCapacityMap = new Map<string, number>();
       for (const wallet of eligibleWallets) {
         const userId = String(wallet.userId);
-        const lifetimeDepositsUsdt = wallet.lifetimeDepositsUsdt ?? 0;
+        const lifetimeDepositsUsdt = trueLifetimeDepositsMap.get(userId) ?? wallet.lifetimeDepositsUsdt ?? 0;
         const maxEarningUsdt = roundUsdt(lifetimeDepositsUsdt * TOTAL_REWARD_EARNING_MULTIPLIER);
         const earnedOrQueuedUsdt = rewardPayoutTotalsByUserId.get(userId) ?? 0;
         const remainingEarningUsdt = Math.max(0, roundUsdt(maxEarningUsdt - earnedOrQueuedUsdt));
@@ -738,7 +748,6 @@ export class AdminService {
       }
 
       // Fetch all past approved/completed weekly ROI payouts for each user to get the total ROI received so far
-      const eligibleUserIds = eligibleWallets.map((w) => w.userId);
       const pastWeeklyPayouts = await TransactionModel.find({
         userId: { $in: eligibleUserIds },
         type: "reward",
@@ -809,7 +818,7 @@ export class AdminService {
           notes,
           payoutPercent: userPurchases[0]?.weeklyReturnPercent ?? 2,
           payoutPeriodEnd: periodEnd,
-          payoutPeriodStart: new Date(periodEnd.getTime() - 6 * 24 * 60 * 60 * 1000),
+          payoutPeriodStart: new Date(periodStart.getTime() - 6 * 24 * 60 * 60 * 1000),
           payoutPrincipalUsdt: userPurchases.reduce((sum, p) => sum + p.amountUsdt, 0),
           payoutTier: displayTier ?? "INITIAL",
           userId,
@@ -1183,7 +1192,7 @@ export class AdminService {
 
         const payoutCap = await adminRepository.getRewardPayoutCap({
           earningMultiplier: TOTAL_REWARD_EARNING_MULTIPLIER,
-          eligibleUntil: periodStart ?? undefined,
+          eligibleUntil: undefined,
           excludeTransactionId: input.transactionId,
           payoutKinds: TOTAL_REWARD_PAYOUT_KINDS,
           statuses: TOTAL_REWARD_APPROVAL_STATUSES,

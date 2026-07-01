@@ -280,6 +280,7 @@ async function assertWeeklyPayoutStopsAtThreeTimesPrincipal(userId: string, admi
   await Promise.all([
     TransactionModel.deleteMany({ type: "reward", userId }),
     UserPlanPurchaseModel.deleteMany({ userId }),
+    WalletModel.updateOne({ userId }, { $set: { lifetimeDepositsUsdt: 700, lockedUsdt: 700 } }),
   ]);
   const sourceTransaction = await TransactionModel.create({
     amountUsdt: 700,
@@ -304,8 +305,8 @@ async function assertWeeklyPayoutStopsAtThreeTimesPrincipal(userId: string, admi
   await TransactionModel.create({
     amountUsdt: 2099,
     network: "SYSTEM",
-    notes: "Logic test already approved weekly earnings",
-    payoutKind: "weekly",
+    notes: "Logic test already approved level earnings",
+    payoutKind: "level",
     payoutPercent: 2,
     payoutPeriodEnd: new Date("2026-05-16T00:00:00.000Z"),
     payoutPeriodStart: new Date("2026-05-11T00:00:00.000Z"),
@@ -327,7 +328,6 @@ async function assertWeeklyPayoutStopsAtThreeTimesPrincipal(userId: string, admi
     payoutPeriodStart: new Date("2026-05-16T00:00:00.000Z"),
     userId,
   }).lean();
-
   assert.ok(cappedPayout, "Capped weekly payout should be generated.");
   assert.equal(
     cappedPayout.amountUsdt,

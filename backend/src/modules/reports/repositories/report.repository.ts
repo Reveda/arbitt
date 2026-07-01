@@ -364,30 +364,10 @@ export class ReportRepository {
   async getEarnings(input: EarningsListInput): Promise<EarningsResponseDto> {
     const userObjectId = new Types.ObjectId(input.userId);
     const skip = (input.page - 1) * input.limit;
-    const now = new Date();
-    const visibleRewardMatch = {
-      $and: [
-        {
-          $or: [
-            { payoutPeriodEnd: { $exists: false } },
-            { payoutPeriodEnd: null },
-            { payoutPeriodEnd: { $lte: now } },
-            { payoutKind: "salary_royalty" },
-          ],
-        },
-        {
-          $or: [
-            { payoutKind: { $ne: "weekly" } },
-            { $expr: { $gte: ["$createdAt", "$payoutPeriodEnd"] } },
-          ],
-        },
-      ],
-    };
     const baseMatch = {
       userId: userObjectId,
       type: "reward",
       payoutKind: { $in: ["weekly", "level", "salary_royalty"] },
-      ...visibleRewardMatch,
     };
     const listMatch = {
       ...baseMatch,
