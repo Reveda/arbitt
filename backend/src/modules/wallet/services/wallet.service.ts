@@ -1,5 +1,7 @@
 import { HTTP_STATUS } from "../../../constants/http";
 import { ApiError } from "../../../utils/ApiError";
+import { comparePassword } from "../../../utils/password";
+import { userRepository } from "../../users/repositories/user.repository";
 import { buildPaginationDto } from "../../../utils/ApiResponse";
 import { buildDateRangeFilter } from "../../../utils/dateRange";
 import type { z } from "zod";
@@ -112,6 +114,22 @@ export class WalletService {
     userId: string,
     input: CreateWithdrawalRequestInput,
   ): Promise<CreateWithdrawalResponseDto> {
+    // Verify transaction password first
+    const user = await userRepository.findByIdWithTransactionPassword(userId);
+    if (!user) {
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
+    }
+    if (!user.transactionPasswordHash) {
+      throw new ApiError(
+        HTTP_STATUS.BAD_REQUEST,
+        "Transaction password is not set. Please set it in your profile first.",
+      );
+    }
+    const isMatched = await comparePassword(input.transactionPassword, user.transactionPasswordHash);
+    if (!isMatched) {
+      throw new ApiError(HTTP_STATUS.UNAUTHORIZED, "Incorrect transaction password.");
+    }
+
     const grossAmountUsdt = roundUsdt(input.amountUsdt);
     const chargeUsdt = roundUsdt((grossAmountUsdt * WITHDRAWAL_CHARGE_PERCENT) / 100);
     const netAmountUsdt = roundUsdt(grossAmountUsdt - chargeUsdt);
@@ -130,6 +148,7 @@ export class WalletService {
       const transaction = await TransactionModel.create({
         amountUsdt: netAmountUsdt,
         network: input.network,
+        walletAddress: input.walletAddress,
         notes: [
           `Withdrawal request: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`,
           input.notes,

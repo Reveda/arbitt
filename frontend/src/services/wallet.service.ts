@@ -28,6 +28,7 @@ export type CreateDepositInput = {
 export type CreateWithdrawalInput = {
   amountUsdt: number;
   network?: "BEP20";
+  walletAddress: string;
   notes?: string;
 };
 
@@ -57,6 +58,7 @@ export type WithdrawalRequest = DepositRequest & {
   grossAmountUsdt: number;
   netAmountUsdt: number;
   withdrawalChargePercent: number;
+  walletAddress: string | null;
 };
 
 export type UserDeposit = Omit<DepositRequest, "platformDepositWallet">;

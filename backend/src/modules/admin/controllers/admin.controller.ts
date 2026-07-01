@@ -277,3 +277,17 @@ export const deleteAdminUser = catchAsync(async (req: Request, res: Response) =>
     .status(HTTP_STATUS.OK)
     .json(apiResponse(HTTP_STATUS.OK, "User deleted successfully.", result));
 });
+
+import { superAdminService } from "../../super-admin/services/super-admin.service";
+import { listSuperAdminTransactionsQuerySchema } from "../../super-admin/validations/super-admin.validation";
+
+export const listAdminTransactions = catchAsync(async (req: Request, res: Response) => {
+  const query = listSuperAdminTransactionsQuerySchema.parse(req.query) as Parameters<
+    typeof superAdminService.listTransactions
+  >[0];
+  const result = await superAdminService.listTransactions(query);
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(apiResponse(HTTP_STATUS.OK, "Admin transactions loaded.", result));
+});

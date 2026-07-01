@@ -493,9 +493,11 @@ async function assertTotalRewardCapIncludesLevelAndRoyalty(input: {
 }
 
 async function assertWithdrawalChargeFlow(input: { adminUserId: string; userId: string }) {
+  const hashedPassword = await hashPassword("123456");
   await Promise.all([
     TransactionModel.deleteMany({ type: "withdrawal", userId: input.userId }),
     UserPlanPurchaseModel.deleteMany({ userId: input.userId }),
+    UserModel.updateOne({ _id: input.userId }, { $set: { transactionPasswordHash: hashedPassword } }),
     WalletModel.updateOne(
       { userId: input.userId },
       {
@@ -512,6 +514,8 @@ async function assertWithdrawalChargeFlow(input: { adminUserId: string; userId: 
   const withdrawal = await walletService.createWithdrawalRequest(input.userId, {
     amountUsdt: 100,
     network: "BEP20",
+    walletAddress: "0x0000000000000000000000000000000000000000",
+    transactionPassword: "123456",
   });
 
   assert.equal(withdrawal.grossAmountUsdt, 100, "Withdrawal gross amount should be locked.");
@@ -561,6 +565,8 @@ async function assertWithdrawalChargeFlow(input: { adminUserId: string; userId: 
   const rejectedWithdrawal = await walletService.createWithdrawalRequest(input.userId, {
     amountUsdt: 50,
     network: "BEP20",
+    walletAddress: "0x0000000000000000000000000000000000000000",
+    transactionPassword: "123456",
   });
 
   await adminService.reviewWithdrawal({

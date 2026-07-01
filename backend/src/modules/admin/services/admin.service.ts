@@ -63,6 +63,7 @@ type AdminDepositRecord = {
   reviewedBy?: unknown;
   reviewedAt?: Date | string | null;
   createdAt?: Date | string | null;
+  walletAddress?: string | null;
 };
 
 type AdminPayoutRecord = AdminDepositRecord & {
@@ -120,7 +121,7 @@ function toUserSummary(value: unknown, userRoyaltyRankMap?: Map<string, number>)
 
   return {
     id: userIdStr,
-    email: null,
+    email: user.email ?? null,
     username: user.username ?? null,
     role: user.role ?? "user",
     status: user.status ?? "unknown",
@@ -232,6 +233,7 @@ function toWithdrawalRequestNode(record: AdminWithdrawalRecord) {
     withdrawalChargePercent,
     status: record.status ?? "pending",
     network: record.network ?? "BEP20",
+    walletAddress: record.walletAddress ?? null,
     notes: cleanTransactionNotes(record.notes),
     reviewedBy: record.reviewedBy ? String(record.reviewedBy) : null,
     reviewedAt: record.reviewedAt ?? null,
@@ -308,7 +310,7 @@ function countFridaysBetween(startDate: Date, endDate: Date): number {
   // Find the Friday of the purchase week
   const day = purchaseDate.getUTCDay();
   const daysUntilFriday = (5 - day + 7) % 7;
-  
+
   const fridayOfWeek = new Date(purchaseDate.getTime());
   fridayOfWeek.setUTCDate(purchaseDate.getUTCDate() + daysUntilFriday);
   fridayOfWeek.setUTCHours(0, 0, 0, 0); // Friday midnight
@@ -546,9 +548,9 @@ export class AdminService {
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
           ? {
-              end: payoutPeriodEnd,
-              start: payoutPeriodStart,
-            }
+            end: payoutPeriodEnd,
+            start: payoutPeriodStart,
+          }
           : undefined,
       skip,
       limit,
@@ -594,9 +596,9 @@ export class AdminService {
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
           ? {
-              end: payoutPeriodEnd,
-              start: payoutPeriodStart,
-            }
+            end: payoutPeriodEnd,
+            start: payoutPeriodStart,
+          }
           : undefined,
       skip: 0,
       limit: 100000,
@@ -675,7 +677,7 @@ export class AdminService {
     if (payoutType === "roi" && !input.weekStart) {
       const day = payoutDate.getUTCDay();
       // Sunday is 0, Monday is 1, ..., Friday is 5, Saturday is 6
-      const diffToFriday = day >= 5 ? day - 5 : day + 2; 
+      const diffToFriday = day >= 5 ? day - 5 : day + 2;
       payoutDate.setUTCDate(payoutDate.getUTCDate() - diffToFriday);
     }
 
@@ -694,7 +696,7 @@ export class AdminService {
       ),
     );
     const periodCutoff = periodEnd;
-    
+
     // For ROI, only plans purchased BEFORE the weekly cycle started are eligible.
     // The cycle starts 7 days before the Friday (excluding Friday-Thursday cycle purchases).
     const eligibleUntil = payoutType === "roi"

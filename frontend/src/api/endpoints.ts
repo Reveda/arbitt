@@ -25,6 +25,7 @@ export const API_ENDPOINTS = {
     withdrawals: "/admin/withdrawals",
     wallets: "/admin/wallets",
     paymentWallet: "/admin/payment-wallet",
+    transactions: "/admin/transactions",
     supportTickets: "/admin/support/tickets",
     resolveSupportTicket: (ticketId: string) => `/admin/support/tickets/${ticketId}/resolve`
   },

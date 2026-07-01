@@ -35,6 +35,7 @@ import { DepositPage } from "@/pages/dashboard/DepositPage";
 import { EarningsPage } from "@/pages/dashboard/EarningsPage";
 import { TransactionsPage } from "@/pages/dashboard/TransactionsPage";
 import { SupportPage } from "@/pages/dashboard/SupportPage";
+import { WithdrawPage } from "@/pages/dashboard/WithdrawPage";
 import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
 import { AdminModulePage } from "@/pages/admin/AdminModulePage";
 import { AdminSupportPage } from "@/pages/admin/AdminSupportPage";
@@ -45,7 +46,9 @@ import { AdminPlansPage } from "@/pages/admin/AdminPlansPage";
 import { AdminReferralNetworkPage } from "@/pages/admin/AdminReferralNetworkPage";
 import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
 import { AdminWalletsPage } from "@/pages/admin/AdminWalletsPage";
+import { AdminWithdrawalsPage } from "@/pages/admin/AdminWithdrawalsPage";
 import { AdminRevenueAnalyticsPage } from "@/pages/admin/AdminRevenueAnalyticsPage";
+import { AdminTransactionsPage } from "@/pages/admin/AdminTransactionsPage";
 import { SuperAdminDashboardPage } from "@/pages/super-admin/SuperAdminDashboardPage";
 import { SuperAdminModulePage } from "@/pages/super-admin/SuperAdminModulePage";
 import { NotFoundPage } from "@/pages/shared/NotFoundPage";
@@ -121,7 +124,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "withdraw",
-        element: <UserModulePage description="Request secure withdrawals and monitor approval status." icon={ArrowUpRight} title="Withdraw" />
+        element: <WithdrawPage />
       },
       {
         path: "transactions",
@@ -150,7 +153,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "withdrawals",
-        element: <AdminModulePage description="Approve, reject, and track user withdrawal requests securely." icon={CreditCard} title="Withdrawal Approval" />
+        element: <AdminWithdrawalsPage />
       },
       {
         path: "payouts",
@@ -166,7 +169,7 @@ export const router = createBrowserRouter([
       },
       {
         path: "transactions",
-        element: <AdminModulePage description="Browse all deposits, withdrawals, referral bonuses, and system ledger events." icon={Activity} title="Transactions" />
+        element: <AdminTransactionsPage />
       },
       {
         path: "plans",

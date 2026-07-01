@@ -34,6 +34,14 @@ export const createWithdrawalRequestSchema = z.object({
     .min(10, "Minimum withdrawal amount is 10 USDT.")
     .max(50000, "Maximum withdrawal amount is 50000 USDT."),
   network: z.enum(["BEP20"]).default("BEP20"),
+  walletAddress: z
+    .string()
+    .trim()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Enter a valid BEP20 wallet address."),
+  transactionPassword: z
+    .string({ required_error: "Transaction password is required." })
+    .trim()
+    .min(6, "Transaction password must be at least 6 characters."),
   notes: optionalText(500),
 });
 

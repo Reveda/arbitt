@@ -683,6 +683,7 @@ export class AdminRepository {
                 createdAt: 1,
                 network: 1,
                 notes: 1,
+                walletAddress: 1,
                 payoutPercent: 1,
                 payoutPrincipalUsdt: 1,
                 reviewedAt: 1,
@@ -692,6 +693,7 @@ export class AdminRepository {
                 userId: {
                   _id: "$user._id",
                   createdAt: "$user.createdAt",
+                  email: "$user.email",
                   emailVerifiedAt: "$user.emailVerifiedAt",
                   referralCode: "$user.referralCode",
                   role: "$user.role",

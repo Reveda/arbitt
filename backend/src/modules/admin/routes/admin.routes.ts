@@ -21,7 +21,9 @@ import {
   exportAdminPayouts,
   editAdminUser,
   deleteAdminUser,
+  listAdminTransactions,
 } from "../controllers/admin.controller";
+import { listSuperAdminTransactionsQuerySchema } from "../../super-admin/validations/super-admin.validation";
 import {
   listAdminSupportTickets,
   resolveSupportTicket,
@@ -175,6 +177,13 @@ adminRoutes.get(
   requirePermissions("referrals:read"),
   validateRequest({ query: listAdminReferralsQuerySchema }),
   listAdminReferrals,
+);
+
+adminRoutes.get(
+  "/transactions",
+  requirePermissions("transactions:read"),
+  validateRequest({ query: listSuperAdminTransactionsQuerySchema }),
+  listAdminTransactions,
 );
 
 adminRoutes.get(

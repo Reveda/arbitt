@@ -4,7 +4,7 @@ import type { UserRepositoryRecord } from "../types/user.repository.types";
 export class UserRepository {
   async findById(userId: string): Promise<UserRepositoryRecord | null> {
     return UserModel.findOne({ _id: userId, isDeleted: { $ne: true } })
-      .select("-passwordHash")
+      .select("-passwordHash +transactionPasswordHash")
       .lean();
   }
 

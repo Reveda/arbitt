@@ -54,6 +54,11 @@ const transactionSchema = new Schema(
       default: "BEP20",
       trim: true,
     },
+    walletAddress: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     notes: {
       type: String,
       trim: true,

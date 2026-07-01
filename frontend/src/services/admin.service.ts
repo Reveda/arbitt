@@ -96,6 +96,16 @@ export type AdminPlanPurchasesParams = {
 
 export type AdminWithdrawalsParams = AdminPlanPurchasesParams;
 
+export type AdminTransactionsParams = {
+  page: number;
+  limit: number;
+  search?: string;
+  status?: string;
+  type?: string;
+  fromDate?: string;
+  toDate?: string;
+};
+
 export type AdminWalletsParams = {
   page: number;
   limit: number;
@@ -226,6 +236,7 @@ export type AdminWithdrawalRequest = {
   withdrawalChargePercent: number;
   status: string;
   network: string;
+  walletAddress: string | null;
   notes: string;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -372,6 +383,41 @@ export type AdminReferralNetwork = {
   };
 };
 
+export type AdminTransaction = {
+  id: string;
+  userId: string;
+  type: "deposit" | "withdrawal" | "reward" | "adjustment" | "plan_purchase";
+  status: "pending" | "approved" | "rejected" | "completed" | "failed";
+  amountUsdt: number;
+  chargeUsdt: number;
+  grossAmountUsdt: number;
+  network: string;
+  txnHash: string | null;
+  notes: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  user: {
+    id: string;
+    username: string | null;
+    email: string | null;
+    role: string;
+  } | null;
+};
+
+export type AdminTransactionsResponse = {
+  transactions: AdminTransaction[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+};
+
 const ADMIN_OVERVIEW_CACHE_TTL_MS = 15_000;
 
 let overviewCache: { data: ApiSuccessResponse<AdminOverview>; cachedAt: number } | null = null;
@@ -383,6 +429,7 @@ const planPurchaseRequests = new Map<string, Promise<ApiSuccessResponse<AdminPla
 const payoutRequests = new Map<string, Promise<ApiSuccessResponse<AdminPayoutsResponse>>>();
 const withdrawalRequests = new Map<string, Promise<ApiSuccessResponse<AdminWithdrawalsResponse>>>();
 const walletRequests = new Map<string, Promise<ApiSuccessResponse<AdminWalletsResponse>>>();
+const transactionRequests = new Map<string, Promise<ApiSuccessResponse<AdminTransactionsResponse>>>();
 
 function buildAdminUsersPath(params: AdminUsersParams) {
   const query = new URLSearchParams({
@@ -534,6 +581,35 @@ function buildAdminWithdrawalsPath(params: AdminWithdrawalsParams) {
   return `${API_ENDPOINTS.admin.withdrawals}?${query.toString()}`;
 }
 
+function buildAdminTransactionsPath(params: AdminTransactionsParams) {
+  const query = new URLSearchParams({
+    page: String(params.page),
+    limit: String(params.limit)
+  });
+
+  if (params.search?.trim()) {
+    query.set("search", params.search.trim());
+  }
+
+  if (params.status?.trim()) {
+    query.set("status", params.status.trim());
+  }
+
+  if (params.type?.trim()) {
+    query.set("type", params.type.trim());
+  }
+
+  if (params.fromDate?.trim()) {
+    query.set("fromDate", params.fromDate.trim());
+  }
+
+  if (params.toDate?.trim()) {
+    query.set("toDate", params.toDate.trim());
+  }
+
+  return `${API_ENDPOINTS.admin.transactions}?${query.toString()}`;
+}
+
 function buildAdminWalletsPath(params: AdminWalletsParams) {
   const query = new URLSearchParams({
     page: String(params.page),
@@ -680,6 +756,22 @@ export const adminService = {
     return request;
   },
 
+  listTransactions(params: AdminTransactionsParams) {
+    const path = buildAdminTransactionsPath(params);
+    const existingRequest = transactionRequests.get(path);
+
+    if (existingRequest) {
+      return existingRequest;
+    }
+
+    const request = apiRequest<AdminTransactionsResponse>(path).finally(() => {
+      transactionRequests.delete(path);
+    });
+
+    transactionRequests.set(path, request);
+    return request;
+  },
+
   listWallets(params: AdminWalletsParams) {
     const path = buildAdminWalletsPath(params);
     const existingRequest = walletRequests.get(path);
@@ -699,6 +791,7 @@ export const adminService = {
   generatePayouts(input: { weekStart?: string }) {
     overviewCache = null;
     payoutRequests.clear();
+    transactionRequests.clear();
 
     return apiRequest<AdminPayoutGenerateResponse>(`${API_ENDPOINTS.admin.payouts}/generate`, {
       method: "POST",
@@ -709,6 +802,7 @@ export const adminService = {
   reviewPayout(transactionId: string, action: "approve" | "reject", notes?: string) {
     overviewCache = null;
     payoutRequests.clear();
+    transactionRequests.clear();
 
     return apiRequest<AdminPayoutReviewResponse>(
       `${API_ENDPOINTS.admin.payouts}/${transactionId}/review`,
@@ -723,6 +817,7 @@ export const adminService = {
     overviewCache = null;
     planPurchaseRequests.clear();
     walletRequests.clear();
+    transactionRequests.clear();
 
     return apiRequest<AdminPlanPurchaseReviewResponse>(
       `${API_ENDPOINTS.admin.planPurchases}/${transactionId}/review`,
@@ -737,6 +832,7 @@ export const adminService = {
     overviewCache = null;
     withdrawalRequests.clear();
     walletRequests.clear();
+    transactionRequests.clear();
 
     return apiRequest<AdminWithdrawalReviewResponse>(
       `${API_ENDPOINTS.admin.withdrawals}/${transactionId}/review`,

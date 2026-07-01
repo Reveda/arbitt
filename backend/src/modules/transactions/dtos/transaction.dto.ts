@@ -19,6 +19,7 @@ type TransactionRecord = {
   status?: string;
   txnHash?: string | null;
   type?: string;
+  walletAddress?: string | null;
   updatedAt?: Date | string | null;
 };
 
@@ -29,6 +30,7 @@ export type TransactionDto = {
   amountUsdt: number;
   txnHash: string | null;
   network: string;
+  walletAddress: string | null;
   notes: string;
   payoutKind: string | null;
   payoutLevel: number | null;
@@ -62,6 +64,7 @@ export function toTransactionNode(record: TransactionRecord): TransactionDto {
     amountUsdt: record.amountUsdt ?? 0,
     txnHash: record.txnHash ?? null,
     network: record.network ?? "BEP20",
+    walletAddress: record.walletAddress ?? null,
     notes: cleanTransactionNotes(record.notes),
     payoutKind: record.payoutKind ?? null,
     payoutLevel: record.payoutLevel ?? null,

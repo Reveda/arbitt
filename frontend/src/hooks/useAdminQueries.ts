@@ -9,7 +9,11 @@ import {
   type AdminUsersParams,
   type AdminUsersResponse,
   type AdminWalletsParams,
-  type AdminWalletsResponse
+  type AdminWalletsResponse,
+  type AdminWithdrawalsParams,
+  type AdminWithdrawalsResponse,
+  type AdminTransactionsParams,
+  type AdminTransactionsResponse
 } from "@/services/admin.service";
 import {
   useAdminDepositsQuery as useAdminDepositsRtkQuery,
@@ -191,6 +195,77 @@ export function useAdminWallets(params: AdminWalletsParams) {
       throw caughtError;
     }
   }, [params.limit, params.page, params.search]);
+
+  useEffect(() => {
+    void refetch().catch(() => undefined);
+  }, [refetch]);
+
+  return {
+    ...state,
+    refetch
+  };
+}
+
+export function useAdminWithdrawals(params: AdminWithdrawalsParams) {
+  const [state, setState] = useState<QueryState<ApiSuccessResponse<AdminWithdrawalsResponse>>>({
+    data: null,
+    error: null,
+    isLoading: true
+  });
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refetch = useCallback(async () => {
+    setState((current) => ({ ...current, error: null, isLoading: true }));
+
+    try {
+      const response = await adminService.listWithdrawals(params);
+      setState({ data: response, error: null, isLoading: false });
+      return response;
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : "Unable to load withdrawal requests.";
+      setState({ data: null, error: message, isLoading: false });
+      throw caughtError;
+    }
+  }, [params.limit, params.page, params.search, params.status, params.fromDate, params.toDate]);
+
+  useEffect(() => {
+    void refetch().catch(() => undefined);
+  }, [refetch]);
+
+  return {
+    ...state,
+    refetch
+  };
+}
+
+export function useAdminTransactions(params: AdminTransactionsParams) {
+  const [state, setState] = useState<QueryState<ApiSuccessResponse<AdminTransactionsResponse>>>({
+    data: null,
+    error: null,
+    isLoading: true
+  });
+
+  const refetch = useCallback(async () => {
+    setState((current) => ({ ...current, error: null, isLoading: true }));
+
+    try {
+      const response = await adminService.listTransactions(params);
+      setState({ data: response, error: null, isLoading: false });
+      return response;
+    } catch (caughtError) {
+      const message = caughtError instanceof Error ? caughtError.message : "Unable to load transactions.";
+      setState({ data: null, error: message, isLoading: false });
+      throw caughtError;
+    }
+  }, [
+    params.limit,
+    params.page,
+    params.search,
+    params.status,
+    params.type,
+    params.fromDate,
+    params.toDate
+  ]);
 
   useEffect(() => {
     void refetch().catch(() => undefined);
