@@ -21,11 +21,17 @@ export class PayoutSchedulerService {
       logger.error(`Error in startup daily level check: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    // 2. Check and generate daily royalty payouts
+    // 2. Check and generate daily royalty payouts (Runs for yesterday to avoid premature generation on incomplete today)
     try {
-      logger.info(`Startup check: Auto-generating daily royalty payouts for date: ${dateString}`);
+      const yesterday = new Date(dateString);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayDateString = yesterday.toLocaleDateString("en-CA", {
+        timeZone: "Asia/Kuala_Lumpur",
+      });
+
+      logger.info(`Startup check: Auto-generating daily royalty payouts for date: ${yesterdayDateString}`);
       const resultRoyalty = await adminService.generateWeeklyPayouts({
-        weekStart: dateString,
+        weekStart: yesterdayDateString,
         payoutType: "royalty",
       });
       logger.info(`Startup check: Daily royalty payouts completed. Created: ${resultRoyalty.salaryRoyaltyCreatedCount}`);

@@ -782,10 +782,17 @@ export class AdminService {
         status: { $in: ["approved", "completed"] },
       }).lean();
 
-      const totalRoiReceivedMap = new Map<string, number>();
+      const totalPlanRoiReceivedMap = new Map<string, number>();
+      const totalLegacyRoiReceivedMap = new Map<string, number>();
+
       for (const p of pastWeeklyPayouts) {
-        const uId = String(p.userId);
-        totalRoiReceivedMap.set(uId, roundUsdt((totalRoiReceivedMap.get(uId) ?? 0) + (p.amountUsdt ?? 0)));
+        if (p.payoutSourceTransactionId) {
+          const key = String(p.payoutSourceTransactionId);
+          totalPlanRoiReceivedMap.set(key, roundUsdt((totalPlanRoiReceivedMap.get(key) ?? 0) + (p.amountUsdt ?? 0)));
+        } else {
+          const key = String(p.userId);
+          totalLegacyRoiReceivedMap.set(key, roundUsdt((totalLegacyRoiReceivedMap.get(key) ?? 0) + (p.amountUsdt ?? 0)));
+        }
       }
 
       // Get all active plan purchases for the eligible users that are eligible for this Friday
@@ -808,60 +815,69 @@ export class AdminService {
 
       for (const wallet of eligibleWallets) {
         const userId = String(wallet.userId);
-        const remainingCapacity = remainingCapacityMap.get(userId) ?? 0;
+        let remainingCapacity = remainingCapacityMap.get(userId) ?? 0;
         if (remainingCapacity <= 0) continue;
 
         const userPurchases = purchasesByUserId.get(userId) ?? [];
         if (userPurchases.length === 0) continue;
 
-        // Calculate total ROI entitled up to periodEnd
-        let totalRoiEntitled = 0;
+        let userLegacyRoiReceived = totalLegacyRoiReceivedMap.get(userId) ?? 0;
+
         for (const p of userPurchases) {
+          if (remainingCapacity <= 0) break;
+
           const totalFridays = countFridaysBetween(p.purchasedAt, periodEnd);
           const planWeeklyRoi = roundUsdt((p.amountUsdt * p.weeklyReturnPercent) / 100);
-          totalRoiEntitled = roundUsdt(totalRoiEntitled + planWeeklyRoi * totalFridays);
+          const totalPlanRoiEntitled = roundUsdt(planWeeklyRoi * totalFridays);
+
+          const planRoiReceived = totalPlanRoiReceivedMap.get(String(p.sourceTransactionId)) ?? 0;
+
+          // Deduct legacy ROI first if there is any remaining
+          const planDeduction = planRoiReceived + userLegacyRoiReceived;
+          const uncappedPlanAmountUsdt = roundUsdt(Math.max(0, totalPlanRoiEntitled - planDeduction));
+
+          // Consume from legacy pool if applicable
+          const consumedFromLegacy = Math.max(0, Math.min(userLegacyRoiReceived, totalPlanRoiEntitled - planRoiReceived));
+          userLegacyRoiReceived = roundUsdt(userLegacyRoiReceived - consumedFromLegacy);
+
+          const amountUsdt = roundUsdt(Math.min(uncappedPlanAmountUsdt, remainingCapacity));
+
+          if (amountUsdt <= 0) continue;
+
+          remainingCapacity = roundUsdt(remainingCapacity - amountUsdt);
+          remainingCapacityMap.set(userId, remainingCapacity);
+
+          // Find display tier matching p.weeklyReturnPercent
+          const displayTierObj = activeTiers.find((t) => p.weeklyReturnPercent === t.weeklyReturnMaxPercent);
+          const displayTier = displayTierObj?.tier ?? p.tier ?? "INITIAL";
+
+          const notes = `Weekly ROI for ${p.name || displayTier} (${p.weeklyReturnPercent}% weekly) for period ending ${formatPeriodDate(periodEnd)}.`;
+
+          payoutCandidates.push({
+            amountUsdt,
+            notes,
+            payoutPercent: p.weeklyReturnPercent,
+            payoutPeriodEnd: periodEnd,
+            payoutPeriodStart: new Date(periodStart.getTime() - 6 * 24 * 60 * 60 * 1000),
+            payoutPrincipalUsdt: p.amountUsdt,
+            payoutTier: displayTier,
+            payoutSourceTransactionId: p.sourceTransactionId,
+            userId,
+          });
         }
-
-        const totalRoiReceived = totalRoiReceivedMap.get(userId) ?? 0;
-        const uncappedAmountUsdt = roundUsdt(Math.max(0, totalRoiEntitled - totalRoiReceived));
-        const amountUsdt = roundUsdt(Math.min(uncappedAmountUsdt, remainingCapacity));
-
-        if (amountUsdt <= 0) continue;
-
-        remainingCapacityMap.set(userId, roundUsdt(remainingCapacity - amountUsdt));
-
-        // Use the highest tier of their active eligible plans for display
-        const userTiers = userPurchases
-          .map((p) => {
-            return activeTiers.find((t) => p.weeklyReturnPercent === t.weeklyReturnMaxPercent);
-          })
-          .filter(Boolean);
-        const displayTier = userTiers.length > 0 ? userTiers[0]?.tier : "INITIAL";
-
-        const notes = `Weekly ROI ${displayTier} for period ending ${formatPeriodDate(periodEnd)}.`;
-
-        payoutCandidates.push({
-          amountUsdt,
-          notes,
-          payoutPercent: userPurchases[0]?.weeklyReturnPercent ?? 2,
-          payoutPeriodEnd: periodEnd,
-          payoutPeriodStart: new Date(periodStart.getTime() - 6 * 24 * 60 * 60 * 1000),
-          payoutPrincipalUsdt: userPurchases.reduce((sum, p) => sum + p.amountUsdt, 0),
-          payoutTier: displayTier ?? "INITIAL",
-          userId,
-        });
       }
 
       const payoutsToCreate = [];
       const payoutsToUpdate = [];
 
-      // Check existing payouts for this period and userId
+      // Check existing payouts for this period, userId and payoutSourceTransactionId
       for (const payout of payoutCandidates) {
         const existingPayout = await TransactionModel.findOne({
           userId: payout.userId,
           type: "reward",
           payoutKind: "weekly",
           payoutPeriodEnd: periodEnd,
+          payoutSourceTransactionId: payout.payoutSourceTransactionId,
         });
 
         if (!existingPayout) {
@@ -880,6 +896,7 @@ export class AdminService {
           });
         }
       }
+
 
       // Save payouts
       const [created, updatedResults] = await Promise.all([
@@ -1062,10 +1079,6 @@ export class AdminService {
           { new: true, upsert: true },
         ),
         walletRepository.creditAdminPlanPurchase(reviewedPurchase.amountUsdt),
-        walletRepository.completePlanAmount(
-          String(reviewedPurchase.userId),
-          reviewedPurchase.amountUsdt,
-        ),
       ]);
 
       await rewardService.createLevelIncomeRewardsForPlanPurchase({

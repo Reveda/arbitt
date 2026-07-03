@@ -73,24 +73,6 @@ export class WalletRepository {
     ).lean();
   }
 
-  completePlanAmount(
-    userId: string,
-    amountUsdt: number,
-  ): Promise<WalletRepositoryRecord | null> {
-    return WalletModel.findOneAndUpdate(
-      {
-        lockedUsdt: { $gte: amountUsdt },
-        userId,
-      },
-      {
-        $inc: {
-          lockedUsdt: -amountUsdt,
-        },
-      },
-      { new: true },
-    ).lean();
-  }
-
   unlockPlanAmount(userId: string, amountUsdt: number): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       { userId },

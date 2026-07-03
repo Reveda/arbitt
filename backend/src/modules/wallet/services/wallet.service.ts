@@ -42,12 +42,9 @@ export async function calculateTopUpBalance(
   const activePlanSum = activePlans.reduce((sum, plan) => sum + (plan.amountUsdt ?? 0), 0);
   return Math.min(rawWalletAvailable, Math.max(0, rawWalletLifetimeDeposits - activePlanSum));
 }
-
 export class WalletService {
-  async getWalletSummary(userId: string): Promise<WalletSummaryResponseDto> {
-    const [wallet, platformDepositWallet, pendingWithdrawals] = await Promise.all([
-      walletRepository.findByUserId(userId),
-      getPlatformPaymentWallet(),
+  private async getSummaryBalanceFields(userId: string, wallet: any) {
+    const [pendingWithdrawals, activePlans] = await Promise.all([
       TransactionModel.aggregate([
         {
           $match: {
@@ -63,23 +60,40 @@ export class WalletService {
           },
         },
       ]),
+      UserPlanPurchaseModel.find({ userId, status: "active" }).lean(),
     ]);
 
-    const topUpBalance = await calculateTopUpBalance(
-      userId,
-      wallet?.availableUsdt ?? 0,
-      wallet?.lifetimeDepositsUsdt ?? 0,
+    const activePlanSum = activePlans.reduce((sum, plan) => sum + (plan.amountUsdt ?? 0), 0);
+    const rawWalletAvailable = wallet?.availableUsdt ?? 0;
+    const rawWalletLifetimeDeposits = wallet?.lifetimeDepositsUsdt ?? 0;
+    const topUpBalance = Math.min(
+      rawWalletAvailable,
+      Math.max(0, rawWalletLifetimeDeposits - activePlanSum),
     );
 
     const lockedUsdt = pendingWithdrawals[0]?.total ?? 0;
 
     return {
-      availableUsdt: wallet?.availableUsdt ?? 0,
+      availableUsdt: rawWalletAvailable,
       topUpBalance,
       lockedUsdt,
-      lifetimeDepositsUsdt: wallet?.lifetimeDepositsUsdt ?? 0,
+      lockedPlanUsdt: activePlanSum,
+      lifetimeDepositsUsdt: rawWalletLifetimeDeposits,
       lifetimeWithdrawalsUsdt: wallet?.lifetimeWithdrawalsUsdt ?? 0,
       lifetimeRewardsUsdt: wallet?.lifetimeRewardsUsdt ?? 0,
+    };
+  }
+
+  async getWalletSummary(userId: string): Promise<WalletSummaryResponseDto> {
+    const [wallet, platformDepositWallet] = await Promise.all([
+      walletRepository.findByUserId(userId),
+      getPlatformPaymentWallet(),
+    ]);
+
+    const balanceFields = await this.getSummaryBalanceFields(userId, wallet);
+
+    return {
+      ...balanceFields,
       platformDepositWallet,
     };
   }
@@ -186,18 +200,7 @@ export class WalletService {
         chargeUsdt,
         grossAmountUsdt,
         netAmountUsdt,
-        wallet: {
-          availableUsdt: wallet.availableUsdt ?? 0,
-          topUpBalance: await calculateTopUpBalance(
-            userId,
-            wallet.availableUsdt ?? 0,
-            wallet.lifetimeDepositsUsdt ?? 0,
-          ),
-          lockedUsdt: wallet.lockedUsdt ?? 0,
-          lifetimeDepositsUsdt: wallet.lifetimeDepositsUsdt ?? 0,
-          lifetimeRewardsUsdt: wallet.lifetimeRewardsUsdt ?? 0,
-          lifetimeWithdrawalsUsdt: wallet.lifetimeWithdrawalsUsdt ?? 0,
-        },
+        wallet: await this.getSummaryBalanceFields(userId, wallet),
         withdrawalChargePercent: WITHDRAWAL_CHARGE_PERCENT,
       };
     } catch (caughtError) {

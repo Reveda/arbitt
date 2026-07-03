@@ -599,7 +599,7 @@ export function DepositPage() {
             <div>
               <p className="text-xs font-bold text-slate-500">Locked Plan Balance</p>
               <p className="mt-1 text-lg font-black text-slate-950">
-                {isLoading ? "Loading..." : formatUsdt(wallet?.lockedUsdt ?? 0)}
+                {isLoading ? "Loading..." : formatUsdt(wallet?.lockedPlanUsdt ?? 0)}
               </p>
             </div>
             <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-blue-700">

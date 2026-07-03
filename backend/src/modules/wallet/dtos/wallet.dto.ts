@@ -9,6 +9,7 @@ export type WalletBalanceDto = {
   lifetimeWithdrawalsUsdt: number;
   lifetimeRewardsUsdt: number;
   topUpBalance?: number;
+  lockedPlanUsdt?: number;
 };
 
 export type WalletSummaryResponseDto = WalletBalanceDto & {

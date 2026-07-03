@@ -132,7 +132,14 @@ transactionSchema.index({ status: 1, type: 1, createdAt: -1 });
 transactionSchema.index({ type: 1, createdAt: -1 });
 transactionSchema.index({ status: 1, createdAt: -1 });
 transactionSchema.index(
-  { userId: 1, type: 1, payoutKind: 1, payoutPeriodStart: 1, payoutPeriodEnd: 1 },
+  {
+    userId: 1,
+    type: 1,
+    payoutKind: 1,
+    payoutPeriodStart: 1,
+    payoutPeriodEnd: 1,
+    payoutSourceTransactionId: 1,
+  },
   {
     partialFilterExpression: { payoutKind: "weekly", type: "reward" },
     unique: true,

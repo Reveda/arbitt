@@ -17,6 +17,7 @@ export type WalletSummary = {
   lifetimeRewardsUsdt: number;
   platformDepositWallet: PlatformDepositWallet;
   topUpBalance?: number;
+  lockedPlanUsdt?: number;
 };
 
 export type CreateDepositInput = {
@@ -52,6 +53,7 @@ export type DepositRequest = {
     lifetimeWithdrawalsUsdt: number;
     lifetimeRewardsUsdt: number;
     topUpBalance?: number;
+    lockedPlanUsdt?: number;
   };
 };
 
