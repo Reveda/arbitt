@@ -231,11 +231,11 @@ export function AdminWalletsPage() {
       <AdminCard>
         <form className="grid gap-3 p-4 lg:grid-cols-[1fr_170px_auto]" onSubmit={savePaymentWallet}>
           <div>
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <p className="text-sm font-black text-slate-950">Admin USDT Wallet</p>
+            <div className="mb-2 flex h-5 items-center gap-2">
+              <span className="text-xs font-black text-slate-500">Admin USDT Wallet</span>
               <span
                 className={cn(
-                  "rounded-full px-3 py-1 text-[11px] font-black",
+                  "rounded-full px-2 py-0.5 text-[10px] font-black",
                   paymentWallet?.configured
                     ? "bg-emerald-50 text-emerald-700"
                     : "bg-amber-50 text-amber-700"
@@ -254,8 +254,10 @@ export function AdminWalletsPage() {
             />
           </div>
 
-          <label className="block">
-            <span className="mb-2 block text-xs font-black text-slate-500">Network</span>
+          <div>
+            <div className="mb-2 flex h-5 items-center">
+              <span className="text-xs font-black text-slate-500">Network</span>
+            </div>
             <select
               className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-700 shadow-sm outline-none transition-colors focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
               disabled={isWalletLoading || isSavingWallet}
@@ -268,7 +270,7 @@ export function AdminWalletsPage() {
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
           <div className="flex items-end">
             <Button

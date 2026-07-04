@@ -44,10 +44,10 @@ function getEncryptionKey() {
   return createHash("sha256").update(getEncryptionSecret()).digest();
 }
 
-function encryptAddress(address: string): StoredPaymentWallet["addressEncrypted"] {
+export function encryptValue(plainText: string): NonNullable<StoredPaymentWallet["addressEncrypted"]> {
   const iv = randomBytes(12);
   const cipher = createCipheriv(ENCRYPTION_ALGORITHM, getEncryptionKey(), iv);
-  const ciphertext = Buffer.concat([cipher.update(address, "utf8"), cipher.final()]);
+  const ciphertext = Buffer.concat([cipher.update(plainText, "utf8"), cipher.final()]);
 
   return {
     algorithm: ENCRYPTION_ALGORITHM,
@@ -58,7 +58,7 @@ function encryptAddress(address: string): StoredPaymentWallet["addressEncrypted"
   };
 }
 
-function decryptAddress(value: StoredPaymentWallet["addressEncrypted"]) {
+export function decryptValue(value: NonNullable<StoredPaymentWallet["addressEncrypted"]>): string {
   if (!value) {
     return "";
   }
@@ -78,9 +78,17 @@ function decryptAddress(value: StoredPaymentWallet["addressEncrypted"]) {
   } catch {
     throw new ApiError(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "Admin payment wallet could not be decrypted. Check encryption key.",
+      "Encrypted setting value could not be decrypted. Check encryption key.",
     );
   }
+}
+
+function encryptAddress(address: string): StoredPaymentWallet["addressEncrypted"] {
+  return encryptValue(address);
+}
+
+function decryptAddress(value: StoredPaymentWallet["addressEncrypted"]) {
+  return decryptValue(value!);
 }
 
 function fingerprintAddress(address: string) {

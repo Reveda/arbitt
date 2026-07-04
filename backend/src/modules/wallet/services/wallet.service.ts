@@ -1,4 +1,6 @@
 import { Types } from "mongoose";
+import { logger } from "../../../config/logger";
+import { blockchainService } from "./blockchain.service";
 import { HTTP_STATUS } from "../../../constants/http";
 import { ApiError } from "../../../utils/ApiError";
 import { comparePassword } from "../../../utils/password";
@@ -178,29 +180,62 @@ export class WalletService {
     }
 
     try {
+      let status = "pending";
+      let txnHash: string | undefined = undefined;
+      let reviewedAt: Date | undefined = undefined;
+
+      // Automatically process on-chain withdrawals up to 200 USDT
+      if (grossAmountUsdt <= 200) {
+        logger.info(
+          `[Auto-Withdrawal] Attempting automatic on-chain transfer for user: ${userId}, gross amount: ${grossAmountUsdt} USDT (net: ${netAmountUsdt} USDT)`,
+        );
+        const autoTxHash = await blockchainService.sendBscUsdt(input.walletAddress, netAmountUsdt);
+        if (autoTxHash) {
+          logger.info(`[Auto-Withdrawal] Automatic withdrawal succeeded. TxHash: ${autoTxHash}`);
+          status = "completed";
+          txnHash = autoTxHash;
+          reviewedAt = new Date();
+
+          // Settle the balances
+          await walletRepository.completeWithdrawalAmount(userId, grossAmountUsdt);
+          await walletRepository.debitAdminWithdrawal(netAmountUsdt);
+        } else {
+          logger.warn(
+            `[Auto-Withdrawal] Automatic on-chain transfer failed/skipped for user: ${userId}. Sending to manual approval queue.`,
+          );
+        }
+      }
+
       const transaction = await TransactionModel.create({
         amountUsdt: netAmountUsdt,
         network: input.network,
         walletAddress: input.walletAddress,
         notes: [
-          `Withdrawal request: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`,
+          status === "completed"
+            ? `Auto-approved withdrawal: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`
+            : `Withdrawal request: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`,
           input.notes,
         ]
           .filter(Boolean)
           .join(" "),
         payoutPercent: WITHDRAWAL_CHARGE_PERCENT,
         payoutPrincipalUsdt: grossAmountUsdt,
-        status: "pending",
+        status,
+        txnHash,
+        reviewedAt,
         type: "withdrawal",
         userId,
       });
+
+      // Get latest wallet state after potential automatic settlements
+      const latestWallet = await walletRepository.findByUserId(userId);
 
       return {
         ...toTransactionNode(transaction),
         chargeUsdt,
         grossAmountUsdt,
         netAmountUsdt,
-        wallet: await this.getSummaryBalanceFields(userId, wallet),
+        wallet: await this.getSummaryBalanceFields(userId, latestWallet || wallet),
         withdrawalChargePercent: WITHDRAWAL_CHARGE_PERCENT,
       };
     } catch (caughtError) {

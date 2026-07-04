@@ -40,6 +40,7 @@ const envSchema = z
     BSC_BACKUP_RPC_URL: z.string().url().default("https://bsc.publicnode.com"),
     PAYMENT_INTENT_EXPIRES_MINUTES: z.coerce.number().int().positive().default(60),
     PAYMENT_WALLET_ENCRYPTION_KEY: z.string().min(32).optional(),
+    WITHDRAWAL_ADMIN_PRIVATE_KEY: z.string().optional(),
     JWT_ACCESS_EXPIRES_IN: z.string().regex(durationPattern).default("15m"),
     JWT_REFRESH_EXPIRES_IN: z.string().regex(durationPattern).default("7d"),
     ACCESS_TOKEN_COOKIE_NAME: z.string().min(1).default("arbitrum_access_token"),
