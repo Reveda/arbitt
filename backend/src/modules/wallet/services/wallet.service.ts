@@ -1,6 +1,8 @@
 import { Types } from "mongoose";
 import { logger } from "../../../config/logger";
+import { env } from "../../../config/env";
 import { blockchainService } from "./blockchain.service";
+import { addWithdrawalJob } from "../queues/withdrawal.queue";
 import { HTTP_STATUS } from "../../../constants/http";
 import { ApiError } from "../../../utils/ApiError";
 import { comparePassword } from "../../../utils/password";
@@ -183,26 +185,34 @@ export class WalletService {
       let status = "pending";
       let txnHash: string | undefined = undefined;
       let reviewedAt: Date | undefined = undefined;
+      let initialNotes = `Withdrawal request: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`;
+
+      const isQueueEnabled = env.REDIS_ENABLED;
 
       // Automatically process on-chain withdrawals up to 200 USDT
       if (grossAmountUsdt <= 200) {
-        logger.info(
-          `[Auto-Withdrawal] Attempting automatic on-chain transfer for user: ${userId}, gross amount: ${grossAmountUsdt} USDT (net: ${netAmountUsdt} USDT)`,
-        );
-        const autoTxHash = await blockchainService.sendBscUsdt(input.walletAddress, netAmountUsdt);
-        if (autoTxHash) {
-          logger.info(`[Auto-Withdrawal] Automatic withdrawal succeeded. TxHash: ${autoTxHash}`);
-          status = "completed";
-          txnHash = autoTxHash;
-          reviewedAt = new Date();
-
-          // Settle the balances
-          await walletRepository.completeWithdrawalAmount(userId, grossAmountUsdt);
-          await walletRepository.debitAdminWithdrawal(netAmountUsdt);
+        if (isQueueEnabled) {
+          initialNotes += ` [Queued for background processing]`;
         } else {
-          logger.warn(
-            `[Auto-Withdrawal] Automatic on-chain transfer failed/skipped for user: ${userId}. Sending to manual approval queue.`,
+          logger.info(
+            `[Auto-Withdrawal] Queue disabled. Attempting synchronous transfer for user: ${userId}, gross amount: ${grossAmountUsdt} USDT (net: ${netAmountUsdt} USDT)`,
           );
+          const autoTxHash = await blockchainService.sendBscUsdt(input.walletAddress, netAmountUsdt);
+          if (autoTxHash) {
+            logger.info(`[Auto-Withdrawal] Synchronous withdrawal succeeded. TxHash: ${autoTxHash}`);
+            status = "completed";
+            txnHash = autoTxHash;
+            reviewedAt = new Date();
+            initialNotes = `Auto-approved withdrawal: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`;
+
+            // Settle the balances
+            await walletRepository.completeWithdrawalAmount(userId, grossAmountUsdt);
+            await walletRepository.debitAdminWithdrawal(netAmountUsdt);
+          } else {
+            logger.warn(
+              `[Auto-Withdrawal] Synchronous transfer failed/skipped for user: ${userId}. Reverting to manual approval.`,
+            );
+          }
         }
       }
 
@@ -210,14 +220,7 @@ export class WalletService {
         amountUsdt: netAmountUsdt,
         network: input.network,
         walletAddress: input.walletAddress,
-        notes: [
-          status === "completed"
-            ? `Auto-approved withdrawal: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`
-            : `Withdrawal request: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`,
-          input.notes,
-        ]
-          .filter(Boolean)
-          .join(" "),
+        notes: [initialNotes, input.notes].filter(Boolean).join(" "),
         payoutPercent: WITHDRAWAL_CHARGE_PERCENT,
         payoutPrincipalUsdt: grossAmountUsdt,
         status,
@@ -226,6 +229,16 @@ export class WalletService {
         type: "withdrawal",
         userId,
       });
+
+      // Queue the background job if eligible and queue is enabled
+      if (grossAmountUsdt <= 200 && isQueueEnabled) {
+        await addWithdrawalJob(
+          transaction._id.toString(),
+          input.walletAddress,
+          netAmountUsdt,
+          grossAmountUsdt,
+        );
+      }
 
       // Get latest wallet state after potential automatic settlements
       const latestWallet = await walletRepository.findByUserId(userId);

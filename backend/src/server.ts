@@ -6,6 +6,7 @@ import { connectRedis, disconnectRedis } from "./config/redis";
 import { createApp } from "./app";
 import { roleService } from "./modules/roles/services/role.service";
 import { payoutSchedulerService } from "./modules/admin/services/payout-scheduler.service";
+import { withdrawalWorker } from "./modules/wallet/workers/withdrawal.worker";
 
 async function bootstrap() {
   await connectDatabase();
@@ -23,6 +24,9 @@ async function bootstrap() {
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "Shutting down API server");
     server.close(async () => {
+      if (withdrawalWorker) {
+        await withdrawalWorker.close();
+      }
       await disconnectRedis();
       await disconnectDatabase();
       process.exit(0);

@@ -86,3 +86,22 @@ export function getRedisClient() {
 export function getRedisCacheStatus() {
   return redisStatus;
 }
+
+export function getBullMqConnectionOptions() {
+  try {
+    const parsed = new URL(env.REDIS_URL);
+    return {
+      host: parsed.hostname,
+      port: Number(parsed.port) || 6379,
+      username: parsed.username || undefined,
+      password: parsed.password || undefined,
+      maxRetriesPerRequest: null,
+    };
+  } catch {
+    return {
+      host: "127.0.0.1",
+      port: 6379,
+      maxRetriesPerRequest: null,
+    };
+  }
+}

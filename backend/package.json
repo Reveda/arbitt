@@ -36,9 +36,11 @@
   "license": "UNLICENSED",
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "bullmq": "^5.79.2",
     "compression": "^1.7.5",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
+    "docx": "^9.7.1",
     "dotenv": "^16.4.7",
     "ethereum-cryptography": "^3.2.0",
     "ethers": "^6.17.0",
