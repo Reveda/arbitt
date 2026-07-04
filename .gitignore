@@ -8,5 +8,7 @@ dist/
 coverage/
 *.tsbuildinfo
 *.md
+*.docx
+~$*.docx
 arbitt/
 backend/src/scripts/queryProdDb.ts

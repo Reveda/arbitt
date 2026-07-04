@@ -870,15 +870,24 @@ export class AdminService {
       const payoutsToCreate = [];
       const payoutsToUpdate = [];
 
-      // Check existing payouts for this period, userId and payoutSourceTransactionId
+      // Optimize: Fetch all existing weekly ROI payouts for the target period in one query
+      const existingPayouts = await TransactionModel.find({
+        userId: { $in: eligibleUserIds },
+        type: "reward",
+        payoutKind: "weekly",
+        payoutPeriodEnd: periodEnd,
+      }).lean();
+
+      const existingPayoutsMap = new Map<string, typeof existingPayouts[0]>();
+      for (const ep of existingPayouts) {
+        const key = `${ep.userId}_${ep.payoutSourceTransactionId ? String(ep.payoutSourceTransactionId) : ""}`;
+        existingPayoutsMap.set(key, ep);
+      }
+
+      // Check existing payouts using the lookup map
       for (const payout of payoutCandidates) {
-        const existingPayout = await TransactionModel.findOne({
-          userId: payout.userId,
-          type: "reward",
-          payoutKind: "weekly",
-          payoutPeriodEnd: periodEnd,
-          payoutSourceTransactionId: payout.payoutSourceTransactionId,
-        });
+        const key = `${payout.userId}_${payout.payoutSourceTransactionId ? String(payout.payoutSourceTransactionId) : ""}`;
+        const existingPayout = existingPayoutsMap.get(key);
 
         if (!existingPayout) {
           payoutsToCreate.push(payout);
