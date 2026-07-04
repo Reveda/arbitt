@@ -7,6 +7,7 @@ module.exports = {
       exec_mode: "cluster",
       env: {
         NODE_ENV: "production",
+        PROCESS_ROLE: "api",
         PORT: 5000,
       },
     },
@@ -17,8 +18,8 @@ module.exports = {
       exec_mode: "fork",
       env: {
         NODE_ENV: "production",
+        PROCESS_ROLE: "worker",
         PORT: 5001,
-        IS_WORKER_ONLY: "true",
       },
     },
   ],

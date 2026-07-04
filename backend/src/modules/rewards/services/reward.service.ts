@@ -534,9 +534,7 @@ export class RewardService {
       .select("userId")
       .lean<ExistingSalaryRewardRecord[]>();
 
-    const existingUserIds = new Set(
-      existingSalaryRewards.map((reward) => String(reward.userId)),
-    );
+    const existingUserIds = new Set(existingSalaryRewards.map((reward) => String(reward.userId)));
 
     const qualifiedCandidates = [...candidateUserIds].filter((userId) => {
       const rank = userRoyaltyRankMap.get(userId) ?? 0;

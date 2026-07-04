@@ -16,9 +16,13 @@ export class PayoutSchedulerService {
         weekStart: dateString,
         payoutType: "level",
       });
-      logger.info(`Startup check: Daily level payouts completed. Created: ${resultLevel.levelCreatedCount}`);
+      logger.info(
+        `Startup check: Daily level payouts completed. Created: ${resultLevel.levelCreatedCount}`,
+      );
     } catch (err) {
-      logger.error(`Error in startup daily level check: ${err instanceof Error ? err.message : String(err)}`);
+      logger.error(
+        `Error in startup daily level check: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // 2. Check and generate daily royalty payouts (Runs for yesterday to avoid premature generation on incomplete today)
@@ -29,18 +33,27 @@ export class PayoutSchedulerService {
         timeZone: "Asia/Kuala_Lumpur",
       });
 
-      logger.info(`Startup check: Auto-generating daily royalty payouts for date: ${yesterdayDateString}`);
+      logger.info(
+        `Startup check: Auto-generating daily royalty payouts for date: ${yesterdayDateString}`,
+      );
       const resultRoyalty = await adminService.generateWeeklyPayouts({
         weekStart: yesterdayDateString,
         payoutType: "royalty",
       });
-      logger.info(`Startup check: Daily royalty payouts completed. Created: ${resultRoyalty.salaryRoyaltyCreatedCount}`);
+      logger.info(
+        `Startup check: Daily royalty payouts completed. Created: ${resultRoyalty.salaryRoyaltyCreatedCount}`,
+      );
     } catch (err) {
-      logger.error(`Error in startup daily royalty check: ${err instanceof Error ? err.message : String(err)}`);
+      logger.error(
+        `Error in startup daily royalty check: ${err instanceof Error ? err.message : String(err)}`,
+      );
     }
 
     // 3. Check and generate weekly ROI payouts (if Friday, Saturday, or Sunday)
-    const day = new Date().toLocaleDateString("en-US", { timeZone: "Asia/Kuala_Lumpur", weekday: "long" });
+    const day = new Date().toLocaleDateString("en-US", {
+      timeZone: "Asia/Kuala_Lumpur",
+      weekday: "long",
+    });
     const isFriday = day === "Friday";
     const isSaturday = day === "Saturday";
     const isSunday = day === "Sunday";
@@ -51,21 +64,31 @@ export class PayoutSchedulerService {
         if (isSaturday) {
           const prevDay = new Date();
           prevDay.setDate(prevDay.getDate() - 1);
-          targetFridayString = prevDay.toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" });
+          targetFridayString = prevDay.toLocaleDateString("en-CA", {
+            timeZone: "Asia/Kuala_Lumpur",
+          });
         } else if (isSunday) {
           const prevDay = new Date();
           prevDay.setDate(prevDay.getDate() - 2);
-          targetFridayString = prevDay.toLocaleDateString("en-CA", { timeZone: "Asia/Kuala_Lumpur" });
+          targetFridayString = prevDay.toLocaleDateString("en-CA", {
+            timeZone: "Asia/Kuala_Lumpur",
+          });
         }
 
-        logger.info(`Startup check: Auto-generating weekly ROI payouts for target Friday: ${targetFridayString}`);
+        logger.info(
+          `Startup check: Auto-generating weekly ROI payouts for target Friday: ${targetFridayString}`,
+        );
         const resultRoi = await adminService.generateWeeklyPayouts({
           weekStart: targetFridayString,
           payoutType: "roi",
         });
-        logger.info(`Startup check: Weekly ROI payouts completed. Created: ${resultRoi.weeklyCreatedCount}`);
+        logger.info(
+          `Startup check: Weekly ROI payouts completed. Created: ${resultRoi.weeklyCreatedCount}`,
+        );
       } catch (err) {
-        logger.error(`Error in startup weekly ROI check: ${err instanceof Error ? err.message : String(err)}`);
+        logger.error(
+          `Error in startup weekly ROI check: ${err instanceof Error ? err.message : String(err)}`,
+        );
       }
     }
   }

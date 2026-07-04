@@ -6,7 +6,6 @@ import {
   createDepositPaymentIntent,
   createPlanPaymentIntent,
   getPaymentIntent,
-  handleMoralisWebhook,
   submitPaymentIntentTxHash,
 } from "../controllers/payment.controller";
 import {
@@ -16,8 +15,6 @@ import {
 } from "../validations/payment.validation";
 
 export const paymentRoutes = Router();
-
-paymentRoutes.post("/webhooks/moralis", handleMoralisWebhook);
 
 paymentRoutes.use(requireAuth, requireRoles("user"));
 paymentRoutes.post(

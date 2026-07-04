@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import winston from "winston";
 import { env } from "./env";
 
@@ -34,10 +36,38 @@ const productionFormat = winston.format.combine(
   winston.format.json(),
 );
 
+function createTransports() {
+  const transports: winston.transport[] = [new winston.transports.Console()];
+
+  if (!env.LOG_TO_FILE) {
+    return transports;
+  }
+
+  const logDir = path.resolve(process.cwd(), env.LOG_DIR);
+  fs.mkdirSync(logDir, { recursive: true });
+
+  transports.push(
+    new winston.transports.File({
+      filename: path.join(logDir, "app.log"),
+      level: "info",
+      maxFiles: env.LOG_MAX_FILES,
+      maxsize: env.LOG_MAX_SIZE_BYTES,
+    }),
+    new winston.transports.File({
+      filename: path.join(logDir, "error.log"),
+      level: "error",
+      maxFiles: env.LOG_MAX_FILES,
+      maxsize: env.LOG_MAX_SIZE_BYTES,
+    }),
+  );
+
+  return transports;
+}
+
 const winstonLogger = winston.createLogger({
   level: env.NODE_ENV === "production" ? "info" : "debug",
   format: env.NODE_ENV === "production" ? productionFormat : developmentFormat,
-  transports: [new winston.transports.Console()],
+  transports: createTransports(),
 });
 
 function writeLog(

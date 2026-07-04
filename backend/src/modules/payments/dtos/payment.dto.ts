@@ -68,16 +68,6 @@ export type SubmitPaymentIntentTxHashResponseDto = {
   intent: PaymentIntentDto;
 };
 
-export type MoralisWebhookResponseDto = {
-  ambiguousCount: number;
-  completedCount: number;
-  detectedCount: number;
-  duplicateCount: number;
-  ignoredCount: number;
-  receivedTransferCount: number;
-  status: string;
-};
-
 export function toPaymentIntentDto(record: PaymentIntentRecord): PaymentIntentDto {
   return {
     id: String(record._id),

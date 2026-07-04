@@ -449,7 +449,7 @@ export function DepositPage() {
       return;
     }
 
-    if (amount > (wallet?.availableUsdt ?? 0)) {
+    if (amount > availableWalletBalance) {
       showToast("Available wallet balance is not enough for this plan.", "error");
       return;
     }
@@ -467,11 +467,7 @@ export function DepositPage() {
         current
           ? {
               ...current,
-              availableUsdt: response.data.wallet.availableUsdt,
-              lockedUsdt: response.data.wallet.lockedUsdt,
-              lifetimeDepositsUsdt: response.data.wallet.lifetimeDepositsUsdt,
-              lifetimeRewardsUsdt: response.data.wallet.lifetimeRewardsUsdt,
-              lifetimeWithdrawalsUsdt: response.data.wallet.lifetimeWithdrawalsUsdt
+              ...response.data.wallet
             }
           : current
       );
@@ -585,7 +581,7 @@ export function DepositPage() {
             <div>
               <p className="text-xs font-bold text-slate-500">Top Up Wallet</p>
               <p className="mt-1 text-lg font-black text-slate-950">
-                {isLoading ? "Loading..." : formatUsdt(wallet?.availableUsdt ?? 0)}
+                {isLoading ? "Loading..." : formatUsdt(wallet?.topUpBalance ?? 0)}
               </p>
             </div>
             <span className="grid size-10 place-items-center rounded-xl bg-cyan-50 text-cyan-700">

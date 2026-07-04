@@ -548,9 +548,9 @@ export class AdminService {
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
           ? {
-            end: payoutPeriodEnd,
-            start: payoutPeriodStart,
-          }
+              end: payoutPeriodEnd,
+              start: payoutPeriodStart,
+            }
           : undefined,
       skip,
       limit,
@@ -596,9 +596,9 @@ export class AdminService {
       payoutPeriod:
         payoutPeriodStart && payoutPeriodEnd
           ? {
-            end: payoutPeriodEnd,
-            start: payoutPeriodStart,
-          }
+              end: payoutPeriodEnd,
+              start: payoutPeriodStart,
+            }
           : undefined,
       skip: 0,
       limit: 100000,
@@ -671,7 +671,7 @@ export class AdminService {
 
     const payoutType = input.payoutType ?? "roi";
 
-    let payoutDate = input.weekStart ? new Date(`${input.weekStart}T00:00:00.000Z`) : new Date();
+    const payoutDate = input.weekStart ? new Date(`${input.weekStart}T00:00:00.000Z`) : new Date();
 
     // Automatically default to the most recent Friday if it's ROI and no weekStart was passed
     if (payoutType === "roi" && !input.weekStart) {
@@ -699,9 +699,10 @@ export class AdminService {
 
     // For ROI, only plans purchased BEFORE the weekly cycle started are eligible.
     // The cycle starts 7 days before the Friday (excluding Friday-Thursday cycle purchases).
-    const eligibleUntil = payoutType === "roi"
-      ? new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000)
-      : periodStart;
+    const eligibleUntil =
+      payoutType === "roi"
+        ? new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000)
+        : periodStart;
 
     // Get current date in Malaysia Time (Kuala Lumpur)
     const currentMalaysiaDateString = new Date().toLocaleDateString("en-CA", {
@@ -767,7 +768,8 @@ export class AdminService {
       const remainingCapacityMap = new Map<string, number>();
       for (const wallet of eligibleWallets) {
         const userId = String(wallet.userId);
-        const lifetimeDepositsUsdt = trueLifetimeDepositsMap.get(userId) ?? wallet.lifetimeDepositsUsdt ?? 0;
+        const lifetimeDepositsUsdt =
+          trueLifetimeDepositsMap.get(userId) ?? wallet.lifetimeDepositsUsdt ?? 0;
         const maxEarningUsdt = roundUsdt(lifetimeDepositsUsdt * TOTAL_REWARD_EARNING_MULTIPLIER);
         const earnedOrQueuedUsdt = rewardPayoutTotalsByUserId.get(userId) ?? 0;
         const remainingEarningUsdt = Math.max(0, roundUsdt(maxEarningUsdt - earnedOrQueuedUsdt));
@@ -788,10 +790,16 @@ export class AdminService {
       for (const p of pastWeeklyPayouts) {
         if (p.payoutSourceTransactionId) {
           const key = String(p.payoutSourceTransactionId);
-          totalPlanRoiReceivedMap.set(key, roundUsdt((totalPlanRoiReceivedMap.get(key) ?? 0) + (p.amountUsdt ?? 0)));
+          totalPlanRoiReceivedMap.set(
+            key,
+            roundUsdt((totalPlanRoiReceivedMap.get(key) ?? 0) + (p.amountUsdt ?? 0)),
+          );
         } else {
           const key = String(p.userId);
-          totalLegacyRoiReceivedMap.set(key, roundUsdt((totalLegacyRoiReceivedMap.get(key) ?? 0) + (p.amountUsdt ?? 0)));
+          totalLegacyRoiReceivedMap.set(
+            key,
+            roundUsdt((totalLegacyRoiReceivedMap.get(key) ?? 0) + (p.amountUsdt ?? 0)),
+          );
         }
       }
 
@@ -834,10 +842,15 @@ export class AdminService {
 
           // Deduct legacy ROI first if there is any remaining
           const planDeduction = planRoiReceived + userLegacyRoiReceived;
-          const uncappedPlanAmountUsdt = roundUsdt(Math.max(0, totalPlanRoiEntitled - planDeduction));
+          const uncappedPlanAmountUsdt = roundUsdt(
+            Math.max(0, totalPlanRoiEntitled - planDeduction),
+          );
 
           // Consume from legacy pool if applicable
-          const consumedFromLegacy = Math.max(0, Math.min(userLegacyRoiReceived, totalPlanRoiEntitled - planRoiReceived));
+          const consumedFromLegacy = Math.max(
+            0,
+            Math.min(userLegacyRoiReceived, totalPlanRoiEntitled - planRoiReceived),
+          );
           userLegacyRoiReceived = roundUsdt(userLegacyRoiReceived - consumedFromLegacy);
 
           const amountUsdt = roundUsdt(Math.min(uncappedPlanAmountUsdt, remainingCapacity));
@@ -848,7 +861,9 @@ export class AdminService {
           remainingCapacityMap.set(userId, remainingCapacity);
 
           // Find display tier matching p.weeklyReturnPercent
-          const displayTierObj = activeTiers.find((t) => p.weeklyReturnPercent === t.weeklyReturnMaxPercent);
+          const displayTierObj = activeTiers.find(
+            (t) => p.weeklyReturnPercent === t.weeklyReturnMaxPercent,
+          );
           const displayTier = displayTierObj?.tier ?? p.tier ?? "INITIAL";
 
           const notes = `Weekly ROI for ${p.name || displayTier} (${p.weeklyReturnPercent}% weekly) for period ending ${formatPeriodDate(periodEnd)}.`;
@@ -878,7 +893,7 @@ export class AdminService {
         payoutPeriodEnd: periodEnd,
       }).lean();
 
-      const existingPayoutsMap = new Map<string, typeof existingPayouts[0]>();
+      const existingPayoutsMap = new Map<string, (typeof existingPayouts)[0]>();
       for (const ep of existingPayouts) {
         const key = `${ep.userId}_${ep.payoutSourceTransactionId ? String(ep.payoutSourceTransactionId) : ""}`;
         existingPayoutsMap.set(key, ep);
@@ -905,7 +920,6 @@ export class AdminService {
           });
         }
       }
-
 
       // Save payouts
       const [created, updatedResults] = await Promise.all([
@@ -1344,7 +1358,12 @@ export class AdminService {
       calculateUserRoyaltyRanks(),
     ]);
     const nodes = referrals.map((record) =>
-      toReferralNode(record as AdminReferralRecord, teamBusinessMap, selfBusinessMap, userRoyaltyRankMap),
+      toReferralNode(
+        record as AdminReferralRecord,
+        teamBusinessMap,
+        selfBusinessMap,
+        userRoyaltyRankMap,
+      ),
     );
     const levels = nodes.reduce<Record<string, typeof nodes>>((levelMap, node) => {
       const key = `L${node.level}`;
@@ -1446,10 +1465,7 @@ export class AdminService {
     };
   }
 
-  async editUser(
-    userId: string,
-    update: { username?: string; role?: string; status?: string },
-  ) {
+  async editUser(userId: string, update: { username?: string; role?: string; status?: string }) {
     const user = await UserModel.findOne({ _id: userId, isDeleted: { $ne: true } });
     if (!user) {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");

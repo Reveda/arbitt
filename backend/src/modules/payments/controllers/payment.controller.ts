@@ -6,7 +6,6 @@ import {
   type CreateDepositPaymentIntentResponseDto,
   type CreatePlanPaymentIntentResponseDto,
   type GetPaymentIntentResponseDto,
-  type MoralisWebhookResponseDto,
   type SubmitPaymentIntentTxHashResponseDto,
 } from "../dtos/payment.dto";
 import { paymentService } from "../services/payment.service";
@@ -75,18 +74,5 @@ export const submitPaymentIntentTxHash = catchAsync(async (req: Request, res: Re
         "Transaction hash linked.",
         result,
       ),
-    );
-});
-
-export const handleMoralisWebhook = catchAsync(async (req: Request, res: Response) => {
-  const result = await paymentService.processMoralisWebhook({
-    body: req.body,
-    signature: req.headers["x-signature"],
-  });
-
-  res
-    .status(HTTP_STATUS.OK)
-    .json(
-      apiResponse<MoralisWebhookResponseDto>(HTTP_STATUS.OK, "Moralis webhook processed.", result),
     );
 });

@@ -497,7 +497,10 @@ async function assertWithdrawalChargeFlow(input: { adminUserId: string; userId: 
   await Promise.all([
     TransactionModel.deleteMany({ type: "withdrawal", userId: input.userId }),
     UserPlanPurchaseModel.deleteMany({ userId: input.userId }),
-    UserModel.updateOne({ _id: input.userId }, { $set: { transactionPasswordHash: hashedPassword } }),
+    UserModel.updateOne(
+      { _id: input.userId },
+      { $set: { transactionPasswordHash: hashedPassword } },
+    ),
     WalletModel.updateOne(
       { userId: input.userId },
       {

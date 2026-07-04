@@ -8,25 +8,34 @@ import { env } from "../../../config/env";
 
 const QUEUE_NAME = "withdrawal-queue";
 
-let withdrawalWorker: Worker | null = null;
+export function createWithdrawalWorker(): Worker | null {
+  if (!env.REDIS_ENABLED) {
+    logger.info("[BullMQ Worker] Redis disabled. Withdrawal worker not started.");
+    return null;
+  }
 
-if (env.REDIS_ENABLED) {
   try {
-    withdrawalWorker = new Worker(
+    const withdrawalWorker = new Worker(
       QUEUE_NAME,
       async (job: Job) => {
         const { withdrawalId, toAddress, netAmountUsdt, grossAmountUsdt } = job.data;
-        logger.info(`[BullMQ Worker] Processing withdrawal job. JobID: ${job.id}, WithdrawalID: ${withdrawalId}`);
+        logger.info(
+          `[BullMQ Worker] Processing withdrawal job. JobID: ${job.id}, WithdrawalID: ${withdrawalId}`,
+        );
 
         // Fetch transaction
         const tx = await TransactionModel.findById(withdrawalId);
         if (!tx) {
-          logger.error(`[BullMQ Worker] Withdrawal transaction not found in database: ${withdrawalId}`);
+          logger.error(
+            `[BullMQ Worker] Withdrawal transaction not found in database: ${withdrawalId}`,
+          );
           return;
         }
 
         if (tx.status !== "pending") {
-          logger.warn(`[BullMQ Worker] Withdrawal transaction already processed: status is ${tx.status}. Skipping.`);
+          logger.warn(
+            `[BullMQ Worker] Withdrawal transaction already processed: status is ${tx.status}. Skipping.`,
+          );
           return;
         }
 
@@ -63,7 +72,9 @@ if (env.REDIS_ENABLED) {
 
       // Revert to manual pending review queue if attempts are exhausted
       if (job.attemptsMade >= (job.opts.attempts ?? 3)) {
-        logger.warn(`[BullMQ Worker] Max retries exhausted for withdrawal ${withdrawalId}. Reverting to manual queue.`);
+        logger.warn(
+          `[BullMQ Worker] Max retries exhausted for withdrawal ${withdrawalId}. Reverting to manual queue.`,
+        );
         try {
           const tx = await TransactionModel.findById(withdrawalId);
           if (tx && tx.status === "pending") {
@@ -77,9 +88,9 @@ if (env.REDIS_ENABLED) {
     });
 
     logger.info(`[BullMQ Worker] Worker initialized successfully.`);
+    return withdrawalWorker;
   } catch (err) {
     logger.error(`[BullMQ Worker] Failed to initialize worker: ${err}`);
+    return null;
   }
 }
-
-export { withdrawalWorker };

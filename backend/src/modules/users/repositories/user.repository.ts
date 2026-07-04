@@ -15,7 +15,10 @@ export class UserRepository {
   }
 
   async findByEmail(email: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ email: email.toLowerCase().trim(), isDeleted: { $ne: true } }).lean();
+    return UserModel.findOne({
+      email: email.toLowerCase().trim(),
+      isDeleted: { $ne: true },
+    }).lean();
   }
 
   async findByEmailWithPassword(email: string): Promise<UserRepositoryRecord | null> {
@@ -29,7 +32,10 @@ export class UserRepository {
   }
 
   async findByUsername(username: string): Promise<UserRepositoryRecord | null> {
-    return UserModel.findOne({ username: username.toLowerCase().trim(), isDeleted: { $ne: true } }).lean();
+    return UserModel.findOne({
+      username: username.toLowerCase().trim(),
+      isDeleted: { $ne: true },
+    }).lean();
   }
 
   countUsers(): Promise<number> {

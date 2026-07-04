@@ -32,6 +32,17 @@ function createRedisClient() {
   return client;
 }
 
+function getSafeRedisUrl() {
+  try {
+    const parsedUrl = new URL(env.REDIS_URL);
+    parsedUrl.username = "";
+    parsedUrl.password = "";
+    return parsedUrl.toString();
+  } catch {
+    return "invalid-redis-url";
+  }
+}
+
 export async function connectRedis() {
   if (!env.REDIS_ENABLED) {
     redisStatus = "disabled";
@@ -49,7 +60,7 @@ export async function connectRedis() {
   try {
     await redisClient.connect();
     redisStatus = redisClient.isReady ? "ready" : "unavailable";
-    logger.info({ url: env.REDIS_URL }, "Redis cache connected");
+    logger.info({ url: getSafeRedisUrl() }, "Redis cache connected");
   } catch (error) {
     redisStatus = "unavailable";
     logger.warn({ error }, "Redis cache unavailable; continuing without cache");

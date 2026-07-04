@@ -45,7 +45,7 @@ const transactionSchema = new Schema(
       unique: true,
       sparse: true,
       trim: true,
-      default: function (this: any) {
+      default: function (this: { _id: { toString(): string } }) {
         return `SYS-${this._id.toString().toUpperCase()}`;
       },
     },

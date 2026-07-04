@@ -44,7 +44,9 @@ function getEncryptionKey() {
   return createHash("sha256").update(getEncryptionSecret()).digest();
 }
 
-export function encryptValue(plainText: string): NonNullable<StoredPaymentWallet["addressEncrypted"]> {
+export function encryptValue(
+  plainText: string,
+): NonNullable<StoredPaymentWallet["addressEncrypted"]> {
   const iv = randomBytes(12);
   const cipher = createCipheriv(ENCRYPTION_ALGORITHM, getEncryptionKey(), iv);
   const ciphertext = Buffer.concat([cipher.update(plainText, "utf8"), cipher.final()]);

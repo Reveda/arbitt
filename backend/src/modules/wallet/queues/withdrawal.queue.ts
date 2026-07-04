@@ -44,7 +44,9 @@ export async function addWithdrawalJob(
       { withdrawalId, toAddress, netAmountUsdt, grossAmountUsdt },
       { jobId: withdrawalId }, // Prevent duplicate processing of the same withdrawal
     );
-    logger.info(`[BullMQ] Withdrawal job added to queue. JobID: ${job.id}, WithdrawalID: ${withdrawalId}`);
+    logger.info(
+      `[BullMQ] Withdrawal job added to queue. JobID: ${job.id}, WithdrawalID: ${withdrawalId}`,
+    );
     return true;
   } catch (err) {
     logger.error(`[BullMQ] Failed to add withdrawal job: ${err}`);

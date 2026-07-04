@@ -430,7 +430,7 @@ export class AdminRepository {
 
   async listUsers(input: AdminListUsersInput): Promise<AdminListUsersRepositoryResult> {
     const search = input.search?.trim();
-    const filter: Record<string, any> = {
+    const filter: Record<string, unknown> = {
       isDeleted: { $ne: true },
     };
 

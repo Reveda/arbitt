@@ -11,7 +11,7 @@ async function main() {
 
   const username = "nitesh1234";
   let user = await UserModel.findOne({ username }).lean();
-  
+
   if (!user) {
     user = await UserModel.findOne({ role: "user" }).lean();
   }
@@ -26,19 +26,21 @@ async function main() {
   console.log(`- ID: ${user._id}`);
   console.log(`- Username: ${user.username}`);
   console.log(`- Email: ${user.email}`);
-  console.log(`- Has Wallet Address: ${user.walletAddress ? "Yes (" + user.walletAddress + ")" : "No"}`);
+  console.log(
+    `- Has Wallet Address: ${user.walletAddress ? "Yes (" + user.walletAddress + ")" : "No"}`,
+  );
   console.log(`- Has Transaction Password: ${user.transactionPasswordHash ? "Yes" : "No"}`);
 
   const hashedPassword = await hashPassword("123456");
-  
+
   await UserModel.updateOne(
     { _id: user._id },
-    { 
-      $set: { 
+    {
+      $set: {
         transactionPasswordHash: hashedPassword,
-        walletAddress: user.walletAddress || "0x9621da5d61ffc6104f62b2bb746a8d8e578c7bf9"
-      } 
-    }
+        walletAddress: user.walletAddress || "0x9621da5d61ffc6104f62b2bb746a8d8e578c7bf9",
+      },
+    },
   );
 
   const wallet = await WalletModel.findOneAndUpdate(
@@ -46,21 +48,23 @@ async function main() {
     {
       $set: {
         availableUsdt: 5000,
-        lifetimeDepositsUsdt: 5000
-      }
+        lifetimeDepositsUsdt: 5000,
+      },
     },
-    { new: true, upsert: true }
+    { new: true, upsert: true },
   ).lean();
 
   console.log(`\nUpdated User Wallet:`);
   console.log(`- Available Balance: ${wallet?.availableUsdt} USDT`);
   console.log(`- Transaction Password set to: "123456"`);
-  console.log(`- BEP20 Address set to: "${user.walletAddress || "0x9621da5d61ffc6104f62b2bb746a8d8e578c7bf9"}"`);
+  console.log(
+    `- BEP20 Address set to: "${user.walletAddress || "0x9621da5d61ffc6104f62b2bb746a8d8e578c7bf9"}"`,
+  );
 
   let pendingWithdrawal = await TransactionModel.findOne({
     userId: user._id,
     type: "withdrawal",
-    status: "pending"
+    status: "pending",
   }).lean();
 
   if (!pendingWithdrawal) {
@@ -69,7 +73,7 @@ async function main() {
       amountUsdt: 500,
       network: "BEP20",
       walletAddress: user.walletAddress || "0x9621da5d61ffc6104f62b2bb746a8d8e578c7bf9",
-      transactionPassword: "123456"
+      transactionPassword: "123456",
     });
     pendingWithdrawal = await TransactionModel.findById(result.id).lean();
     console.log("Created Mock Pending Withdrawal.");

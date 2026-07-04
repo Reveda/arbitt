@@ -172,7 +172,7 @@ export class PlanService {
 
   async getPlanRuleSet(): Promise<PlanRuleSetResponseDto> {
     const ruleSet = await planRepository.ensureDefaultRuleSet();
-    
+
     const activeCounts = await UserPlanPurchaseModel.aggregate<{ _id: string; count: number }>([
       { $match: { status: "active" } },
       { $group: { _id: "$tier", count: { $sum: 1 } } },
@@ -308,11 +308,13 @@ export class PlanService {
           : toPlanPurchaseTransactionDto(transaction),
         transaction: toTransactionNode(transaction),
         wallet: {
-          availableUsdt: Math.min(
+          availableUsdt: wallet.availableUsdt ?? 0,
+          topUpBalance: Math.min(
             wallet.availableUsdt ?? 0,
             Math.max(0, (wallet.lifetimeDepositsUsdt ?? 0) - (activePlanSum + amountUsdt)),
           ),
           lockedUsdt: wallet.lockedUsdt ?? 0,
+          lockedPlanUsdt: activePlanSum + amountUsdt,
           lifetimeDepositsUsdt: wallet.lifetimeDepositsUsdt ?? 0,
           lifetimeRewardsUsdt: wallet.lifetimeRewardsUsdt ?? 0,
           lifetimeWithdrawalsUsdt: wallet.lifetimeWithdrawalsUsdt ?? 0,

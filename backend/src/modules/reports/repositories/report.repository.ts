@@ -5,7 +5,6 @@ import { WalletModel } from "../../wallet/models/wallet.model";
 import { ReferralModel } from "../../referrals/models/referral.model";
 import { getTeamBusinessMap } from "../../referrals/services/referral.service";
 import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
-import { rewardService } from "../../rewards/services/reward.service";
 import { buildPaginationDto } from "../../../utils/ApiResponse";
 import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
 import type {

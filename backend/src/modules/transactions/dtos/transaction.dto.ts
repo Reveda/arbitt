@@ -52,8 +52,7 @@ export type ListTransactionsResponseDto = {
 };
 
 export function cleanTransactionNotes(notes?: string | null): string {
-  if (!notes) return "";
-  return notes.replace(/Moralis verified/gi, "Tx verified");
+  return notes ?? "";
 }
 
 export function toTransactionNode(record: TransactionRecord): TransactionDto {

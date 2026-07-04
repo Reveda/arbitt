@@ -6,30 +6,51 @@ import { connectRedis, disconnectRedis } from "./config/redis";
 import { createApp } from "./app";
 import { roleService } from "./modules/roles/services/role.service";
 import { payoutSchedulerService } from "./modules/admin/services/payout-scheduler.service";
-import { withdrawalWorker } from "./modules/wallet/workers/withdrawal.worker";
+import { createWithdrawalWorker } from "./modules/wallet/workers/withdrawal.worker";
 
 async function bootstrap() {
   await connectDatabase();
   await connectRedis();
   await roleService.seedDefaultRoles();
-  payoutSchedulerService.init();
 
-  const app = createApp();
-  const server = createServer(app);
+  const shouldRunApi = env.PROCESS_ROLE === "api" || env.PROCESS_ROLE === "all";
+  const shouldRunWorkers = env.PROCESS_ROLE === "worker" || env.PROCESS_ROLE === "all";
+  const withdrawalWorker = shouldRunWorkers ? createWithdrawalWorker() : null;
+  let server: ReturnType<typeof createServer> | null = null;
 
-  server.listen(env.PORT, () => {
-    logger.info(`API server listening on port ${env.PORT}`);
-  });
+  if (shouldRunWorkers) {
+    void payoutSchedulerService.init();
+    logger.info("Background worker services started");
+  }
+
+  if (shouldRunApi) {
+    const app = createApp();
+    server = createServer(app);
+
+    server.listen(env.PORT, () => {
+      logger.info(`API server listening on port ${env.PORT}`);
+    });
+  }
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, "Shutting down API server");
-    server.close(async () => {
+
+    const closeResources = async () => {
       if (withdrawalWorker) {
         await withdrawalWorker.close();
       }
       await disconnectRedis();
       await disconnectDatabase();
       process.exit(0);
+    };
+
+    if (!server) {
+      await closeResources();
+      return;
+    }
+
+    server.close(() => {
+      void closeResources();
     });
   };
 

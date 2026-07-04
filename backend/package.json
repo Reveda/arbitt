@@ -22,7 +22,7 @@
     "auth:set-test-otp": "tsx src/scripts/setLocalTestOtp.ts",
     "seed:payout-test": "tsx src/scripts/seedPayoutTestData.ts",
     "test:payout-logic": "tsx src/scripts/testPayoutLogic.ts",
-    "test:moralis-webhook": "tsx src/scripts/sendMoralisWebhookTest.ts",
+    "db:indexes": "node dist/scripts/setupDatabaseIndexes.js",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.ts\""
@@ -42,7 +42,6 @@
     "cors": "^2.8.5",
     "docx": "^9.7.1",
     "dotenv": "^16.4.7",
-    "ethereum-cryptography": "^3.2.0",
     "ethers": "^6.17.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",

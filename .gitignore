@@ -2,12 +2,16 @@ node_modules/
 dist/
 .DS_Store
 *.log
+logs/*
+!logs/.gitkeep
 .env
 .env.local
 .env.production
 coverage/
 *.tsbuildinfo
 *.md
+!FUTURE_SSL_SETUP.md
+!Go live.md
 *.docx
 ~$*.docx
 arbitt/

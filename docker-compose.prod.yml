@@ -1,35 +1,70 @@
-version: '3.8'
-
 services:
   mongo:
     image: mongo:6.0
     container_name: arbitrum-mongo-prod
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME is required}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD is required}
+      MONGO_INITDB_DATABASE: arbitrum
     volumes:
       - mongo-prod-data:/data/db
+
+  mongo-backup:
+    image: mongo:6.0
+    container_name: arbitrum-mongo-backup-prod
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI is required}
+      MONGO_DATABASE: arbitrum
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-10}
+    volumes:
+      - mongo-prod-backups:/backups
+      - ./scripts/mongo-backup.sh:/usr/local/bin/mongo-backup.sh:ro
+    command: ["sh", "/usr/local/bin/mongo-backup.sh"]
+    depends_on:
+      - mongo
 
   redis:
     image: redis:7-alpine
     container_name: arbitrum-redis-prod
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
     volumes:
       - redis-prod-data:/data
 
   backend:
     build:
       context: ./backend
-    container_name: arbitrum-backend-prod
     restart: unless-stopped
     env_file:
       - ./backend/.env
+    volumes:
+      - ./logs/backend:/app/logs
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/arbitrum
-      - REDIS_URL=redis://redis:6379
-      - REDIS_ENABLED=true
       - NODE_ENV=production
+      - APP_ENV=production
+      - PROCESS_ROLE=api
+    depends_on:
+      - mongo
+      - redis
+
+  worker:
+    build:
+      context: ./backend
+    container_name: arbitrum-worker-prod
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./logs/backend:/app/logs
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=production
+      - PROCESS_ROLE=worker
     depends_on:
       - mongo
       - redis
@@ -48,4 +83,5 @@ services:
 
 volumes:
   mongo-prod-data:
+  mongo-prod-backups:
   redis-prod-data:

@@ -25,6 +25,7 @@ const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     APP_ENV: z.enum(["development", "test", "production"]).default("development"),
+    PROCESS_ROLE: z.enum(["api", "worker", "all"]).default("all"),
     PORT: z.coerce.number().int().positive().default(5000),
     API_PREFIX: z.string().startsWith("/").default("/api/v1"),
     FRONTEND_URL: z.string().default("http://localhost:5173"),
@@ -33,9 +34,16 @@ const envSchema = z
     REDIS_URL: z.string().min(1).default("redis://127.0.0.1:6379"),
     CACHE_KEY_PREFIX: z.string().min(1).default("arbitrum"),
     CACHE_PUBLIC_TTL_SECONDS: z.coerce.number().int().nonnegative().default(300),
+    LOG_TO_FILE: optionalBooleanString.default(false),
+    LOG_DIR: z.string().min(1).default("logs"),
+    LOG_MAX_SIZE_BYTES: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(10 * 1024 * 1024),
+    LOG_MAX_FILES: z.coerce.number().int().positive().default(10),
     JWT_ACCESS_SECRET: z.string().min(32).default("change-me-local-access-secret-32chars"),
     JWT_REFRESH_SECRET: z.string().min(32).default("change-me-local-refresh-secret-32chars"),
-    MORALIS_STREAM_WEBHOOK_SECRET: z.string().min(16).optional(),
     BSC_PRIMARY_RPC_URL: z.string().url().default("https://bsc-dataseed.binance.org/"),
     BSC_BACKUP_RPC_URL: z.string().url().default("https://bsc.publicnode.com"),
     PAYMENT_INTENT_EXPIRES_MINUTES: z.coerce.number().int().positive().default(60),
@@ -50,6 +58,8 @@ const envSchema = z
     COOKIE_SECURE: optionalBooleanString,
     API_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
     API_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+    API_ACTIVITY_TRACKING_ENABLED: optionalBooleanString.default(true),
+    API_ACTIVITY_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
     AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
     AUTH_IDENTIFIER_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),

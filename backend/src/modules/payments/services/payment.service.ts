@@ -1,6 +1,3 @@
-import { timingSafeEqual } from "node:crypto";
-import { keccak256 } from "ethereum-cryptography/keccak";
-import { bytesToHex, utf8ToBytes } from "ethereum-cryptography/utils";
 import { HTTP_STATUS } from "../../../constants/http";
 import { env } from "../../../config/env";
 import { ApiError } from "../../../utils/ApiError";
@@ -13,7 +10,6 @@ import { getPlatformPaymentWalletForNetwork } from "../../admin/services/payment
 import { adminService } from "../../admin/services/admin.service";
 import { walletRepository } from "../../wallet/repositories/wallet.repository";
 import {
-  getPaymentNetworkByChainId,
   isEvmAddress,
   normalizeEvmAddress,
   PAYMENT_NETWORK_CONFIGS,
@@ -25,7 +21,6 @@ import {
   type CreateDepositPaymentIntentResponseDto,
   type CreatePlanPaymentIntentResponseDto,
   type GetPaymentIntentResponseDto,
-  type MoralisWebhookResponseDto,
   type SubmitPaymentIntentTxHashResponseDto,
 } from "../dtos/payment.dto";
 import type {
@@ -43,32 +38,21 @@ type PaymentIntentRecord = PaymentIntentDocument & {
   updatedAt?: Date | string | null;
 };
 
-type MoralisErc20Transfer = {
-  transactionHash?: string;
-  logIndex?: string;
-  contract?: string;
-  from?: string;
-  to?: string;
-  value?: string;
-  tokenDecimals?: string | number;
-  possibleSpam?: boolean;
-  valueWithDecimals?: string;
+type PaymentCompletionResult = "completed" | "duplicate";
+type RpcResponse = {
+  error?: unknown;
+  result?: unknown;
 };
-
-type MoralisWebhookBody = {
-  confirmed?: boolean;
-  chainId?: string;
-  streamId?: string;
-  tag?: string;
-  block?: {
-    hash?: string;
-    number?: string;
-    timestamp?: string;
-  };
-  erc20Transfers?: MoralisErc20Transfer[];
+type EvmLog = {
+  address?: string;
+  data?: string;
+  logIndex?: unknown;
+  topics?: unknown;
 };
-
-type WebhookTransferResult = "ambiguous" | "completed" | "detected" | "duplicate" | "ignored";
+type EvmReceipt = {
+  logs?: unknown;
+  status?: unknown;
+};
 
 const PLAN_PAYMENT_INTENT_TYPE = "plan_purchase";
 const WALLET_DEPOSIT_INTENT_TYPE = "wallet_deposit";
@@ -99,62 +83,6 @@ function decimalToTokenUnits(value: string | number, decimals: number) {
 
 function normalizeHash(value?: string | null) {
   return value?.trim().toLowerCase() ?? "";
-}
-
-function normalizeLogIndex(value?: string | null) {
-  return value?.trim() || "0";
-}
-
-function getTransferTokenUnits(transfer: MoralisErc20Transfer, decimals: number) {
-  if (transfer.value && /^\d+$/.test(transfer.value)) {
-    return transfer.value;
-  }
-
-  if (transfer.valueWithDecimals) {
-    return decimalToTokenUnits(transfer.valueWithDecimals, decimals);
-  }
-
-  return "";
-}
-
-function getSignatureValue(signature: string | string[] | undefined) {
-  return Array.isArray(signature) ? signature[0] : signature;
-}
-
-function safeCompareHex(left: string, right: string) {
-  const leftBuffer = Buffer.from(left.toLowerCase());
-  const rightBuffer = Buffer.from(right.toLowerCase());
-
-  if (leftBuffer.length !== rightBuffer.length) {
-    return false;
-  }
-
-  return timingSafeEqual(leftBuffer, rightBuffer);
-}
-
-function verifyMoralisSignature(body: unknown, signatureHeader: string | string[] | undefined) {
-  const secret = env.MORALIS_STREAM_WEBHOOK_SECRET?.trim();
-
-  if (!secret) {
-    throw new ApiError(
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "Moralis webhook secret is not configured.",
-    );
-  }
-
-  const providedSignature = getSignatureValue(signatureHeader)?.trim();
-
-  if (!providedSignature) {
-    throw new ApiError(HTTP_STATUS.UNAUTHORIZED, "Moralis webhook signature is missing.");
-  }
-
-  const expectedSignature = `0x${bytesToHex(
-    keccak256(utf8ToBytes(`${JSON.stringify(body)}${secret}`)),
-  )}`;
-
-  if (!safeCompareHex(expectedSignature, providedSignature)) {
-    throw new ApiError(HTTP_STATUS.UNAUTHORIZED, "Moralis webhook signature is invalid.");
-  }
 }
 
 async function getActiveTier(tierKey: string, amountUsdt: number) {
@@ -205,7 +133,7 @@ const NETWORK_RPC_ENDPOINTS: Record<PaymentNetwork, string[]> = {
   BEP20: [env.BSC_PRIMARY_RPC_URL, env.BSC_BACKUP_RPC_URL],
 };
 
-async function fetchRpc(url: string, method: string, params: any[]): Promise<any> {
+async function fetchRpc(url: string, method: string, params: unknown[]): Promise<unknown> {
   const response = await fetch(url, {
     method: "POST",
     headers: {
@@ -223,7 +151,7 @@ async function fetchRpc(url: string, method: string, params: any[]): Promise<any
     throw new Error(`RPC request failed with status: ${response.status}`);
   }
 
-  const json = (await response.json()) as any;
+  const json = (await response.json()) as RpcResponse;
   if (json.error) {
     throw new Error(`RPC returned error: ${JSON.stringify(json.error)}`);
   }
@@ -234,10 +162,10 @@ async function fetchRpc(url: string, method: string, params: any[]): Promise<any
 async function callRpcWithFallback(
   network: PaymentNetwork,
   method: string,
-  params: any[],
-): Promise<any> {
+  params: unknown[],
+): Promise<unknown> {
   const endpoints = NETWORK_RPC_ENDPOINTS[network];
-  let lastError: any = null;
+  let lastError: unknown = null;
 
   for (const url of endpoints) {
     try {
@@ -263,9 +191,9 @@ async function verifyUSDTTransfer(input: {
   expectedAmountUnits: string;
 }): Promise<VerificationResult> {
   try {
-    const receipt = await callRpcWithFallback(input.network, "eth_getTransactionReceipt", [
+    const receipt = (await callRpcWithFallback(input.network, "eth_getTransactionReceipt", [
       input.txnHash,
-    ]);
+    ])) as EvmReceipt | null;
 
     if (!receipt) {
       return {
@@ -290,12 +218,15 @@ async function verifyUSDTTransfer(input: {
     const expectedAmountUnits = input.expectedAmountUnits;
     const transferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
-    for (const log of logs) {
+    for (const rawLog of logs) {
+      const log = rawLog as EvmLog;
       if (log.address?.toLowerCase() !== expectedContractNormalized) {
         continue;
       }
 
-      const topics = Array.isArray(log.topics) ? log.topics : [];
+      const topics = Array.isArray(log.topics)
+        ? log.topics.filter((topic): topic is string => typeof topic === "string")
+        : [];
       if (topics[0]?.toLowerCase() !== transferTopic) {
         continue;
       }
@@ -348,10 +279,10 @@ async function verifyUSDTTransfer(input: {
       status: "failed",
       reason: "No matching USDT transfer found in transaction logs.",
     };
-  } catch (error: any) {
+  } catch (error) {
     return {
       status: "pending_node",
-      reason: `RPC node error: ${error?.message || "Unknown error"}`,
+      reason: `RPC node error: ${error instanceof Error ? error.message : "Unknown error"}`,
     };
   }
 }
@@ -590,195 +521,6 @@ export class PaymentService {
     return { intent: toPaymentIntentDto(updatedIntent ?? intent) };
   }
 
-  async processMoralisWebhook(input: {
-    body: MoralisWebhookBody;
-    signature: string | string[] | undefined;
-  }): Promise<MoralisWebhookResponseDto> {
-    verifyMoralisSignature(input.body, input.signature);
-
-    const transfers = Array.isArray(input.body.erc20Transfers) ? input.body.erc20Transfers : [];
-    const response: MoralisWebhookResponseDto = {
-      ambiguousCount: 0,
-      completedCount: 0,
-      detectedCount: 0,
-      duplicateCount: 0,
-      ignoredCount: 0,
-      receivedTransferCount: transfers.length,
-      status: input.body.confirmed ? "processed" : "detected_unconfirmed",
-    };
-
-    if (!transfers.length) {
-      response.status = "no_transfers";
-      return response;
-    }
-
-    const networkConfig = getPaymentNetworkByChainId(input.body.chainId);
-
-    if (!networkConfig) {
-      response.ignoredCount = transfers.length;
-      response.status = "unsupported_chain";
-      return response;
-    }
-
-    for (const transfer of transfers) {
-      const result = await this.processMoralisTransfer({
-        confirmed: input.body.confirmed === true,
-        network: networkConfig.network,
-        streamId: input.body.streamId ?? null,
-        tag: input.body.tag ?? null,
-        transfer,
-      });
-
-      if (result === "ambiguous") {
-        response.ambiguousCount += 1;
-      } else if (result === "completed") {
-        response.completedCount += 1;
-      } else if (result === "detected") {
-        response.detectedCount += 1;
-      } else if (result === "duplicate") {
-        response.duplicateCount += 1;
-      } else {
-        response.ignoredCount += 1;
-      }
-    }
-
-    return response;
-  }
-
-  private async processMoralisTransfer(input: {
-    confirmed: boolean;
-    network: PaymentNetwork;
-    streamId: string | null;
-    tag: string | null;
-    transfer: MoralisErc20Transfer;
-  }): Promise<WebhookTransferResult> {
-    const networkConfig = PAYMENT_NETWORK_CONFIGS[input.network];
-    const txnHash = input.transfer.transactionHash?.trim();
-    const txnHashNormalized = normalizeHash(txnHash);
-    const logIndex = normalizeLogIndex(input.transfer.logIndex);
-    const tokenContract = normalizeEvmAddress(input.transfer.contract);
-    const receiverAddress = normalizeEvmAddress(input.transfer.to);
-    const senderAddress = input.transfer.from?.trim() ?? null;
-    const senderAddressNormalized = normalizeEvmAddress(senderAddress);
-    const amountTokenUnits = getTransferTokenUnits(input.transfer, networkConfig.tokenDecimals);
-
-    if (
-      !txnHash ||
-      !txnHashNormalized ||
-      !amountTokenUnits ||
-      input.transfer.possibleSpam === true ||
-      tokenContract !== normalizeEvmAddress(networkConfig.tokenContract)
-    ) {
-      return "ignored";
-    }
-
-    const intent = await this.findMatchingIntent({
-      amountTokenUnits,
-      chainId: networkConfig.chainId,
-      logIndex,
-      receiverAddress,
-      tokenContract,
-      txnHashNormalized,
-    });
-
-    if (!intent) {
-      return "ignored";
-    }
-
-    if (await expireOldIntent(intent)) {
-      return "ignored";
-    }
-
-    if (!input.confirmed) {
-      await PaymentIntentModel.updateOne(
-        { _id: intent._id, status: { $in: MATCHABLE_INTENT_STATUSES } },
-        {
-          $set: {
-            detectedAt: new Date(),
-            logIndex,
-            senderAddress,
-            senderAddressNormalized,
-            status: "detected",
-            txnHash,
-            txnHashNormalized,
-            webhookMetadata: {
-              streamId: input.streamId,
-              tag: input.tag,
-            },
-          },
-        },
-      );
-      return "detected";
-    }
-
-    return this.completePaymentIntent({
-      intent,
-      logIndex,
-      senderAddress,
-      senderAddressNormalized,
-      streamId: input.streamId,
-      tag: input.tag,
-      txnHash,
-      txnHashNormalized,
-    });
-  }
-
-  private async findMatchingIntent(input: {
-    amountTokenUnits: string;
-    chainId: string;
-    logIndex: string;
-    receiverAddress: string;
-    tokenContract: string;
-    txnHashNormalized: string;
-  }): Promise<PaymentIntentRecord | null> {
-    const byHash = (await PaymentIntentModel.findOne({
-      amountTokenUnits: input.amountTokenUnits,
-      chainId: input.chainId.toLowerCase(),
-      receiverAddressNormalized: input.receiverAddress,
-      status: { $in: MATCHABLE_INTENT_STATUSES },
-      tokenContract: input.tokenContract,
-      txnHashNormalized: input.txnHashNormalized,
-    })
-      .sort({ createdAt: 1 })
-      .lean()) as PaymentIntentRecord | null;
-
-    if (byHash) {
-      return byHash;
-    }
-
-    const candidates = (await PaymentIntentModel.find({
-      amountTokenUnits: input.amountTokenUnits,
-      chainId: input.chainId.toLowerCase(),
-      expiresAt: { $gte: new Date() },
-      receiverAddressNormalized: input.receiverAddress,
-      status: { $in: MATCHABLE_INTENT_STATUSES },
-      tokenContract: input.tokenContract,
-      txnHashNormalized: { $in: [null, ""] },
-    })
-      .sort({ createdAt: 1 })
-      .limit(2)
-      .lean()) as PaymentIntentRecord[];
-
-    if (candidates.length === 1) {
-      return candidates[0];
-    }
-
-    if (candidates.length > 1) {
-      await PaymentIntentModel.updateMany(
-        { _id: { $in: candidates.map((candidate) => candidate._id) } },
-        {
-          $set: {
-            failureReason:
-              "Multiple pending payment intents match this transfer. Ask user to submit tx hash.",
-            status: "ambiguous",
-          },
-        },
-      );
-    }
-
-    return null;
-  }
-
   private async completePaymentIntent(input: {
     intent: PaymentIntentRecord;
     logIndex: string;
@@ -788,7 +530,7 @@ export class PaymentService {
     tag: string | null;
     txnHash: string;
     txnHashNormalized: string;
-  }): Promise<WebhookTransferResult> {
+  }): Promise<PaymentCompletionResult> {
     const existingTransaction = await TransactionModel.findOne({
       txnHash: input.txnHash,
     }).lean();
@@ -939,7 +681,7 @@ export class PaymentService {
     tag: string | null;
     txnHash: string;
     txnHashNormalized: string;
-  }): Promise<WebhookTransferResult> {
+  }): Promise<PaymentCompletionResult> {
     try {
       const confirmedAt = new Date();
       const transaction = await TransactionModel.create({

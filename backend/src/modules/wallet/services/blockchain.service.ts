@@ -14,7 +14,9 @@ export class BlockchainService {
     const privateKey = env.WITHDRAWAL_ADMIN_PRIVATE_KEY?.trim() || null;
 
     if (!privateKey) {
-      logger.warn("WITHDRAWAL_ADMIN_PRIVATE_KEY is not set in environment. Skipping automatic on-chain withdrawal.");
+      logger.warn(
+        "WITHDRAWAL_ADMIN_PRIVATE_KEY is not set in environment. Skipping automatic on-chain withdrawal.",
+      );
       return null;
     }
 
@@ -27,24 +29,30 @@ export class BlockchainService {
       const tokenContractAddress = PAYMENT_NETWORK_CONFIGS.BEP20.tokenContract;
       const decimals = PAYMENT_NETWORK_CONFIGS.BEP20.tokenDecimals;
 
-      logger.info(`[Auto-Withdrawal] Initiating transfer of ${amountUsdt} USDT (BEP20) to destination: ${toAddress}...`);
+      logger.info(
+        `[Auto-Withdrawal] Initiating transfer of ${amountUsdt} USDT (BEP20) to destination: ${toAddress}...`,
+      );
 
       const usdtContract = new ethers.Contract(tokenContractAddress, USDT_ABI, wallet);
-      
+
       // Format number to maximum decimal places to avoid floating point issues during parseUnits
       const formattedAmount = Number(amountUsdt.toFixed(decimals));
       const amountWei = ethers.parseUnits(formattedAmount.toString(), decimals);
 
       // Execute on-chain transfer
       const tx = await usdtContract.transfer(toAddress, amountWei);
-      logger.info(`[Auto-Withdrawal] Transaction submitted to BSC. TxHash: ${tx.hash}. Waiting for confirmation...`);
+      logger.info(
+        `[Auto-Withdrawal] Transaction submitted to BSC. TxHash: ${tx.hash}. Waiting for confirmation...`,
+      );
 
       const receipt = await tx.wait(1);
       if (receipt && receipt.status === 1) {
         logger.info(`[Auto-Withdrawal] Transaction confirmed on-chain. TxHash: ${tx.hash}`);
         return tx.hash;
       } else {
-        logger.error(`[Auto-Withdrawal] Transaction failed on-chain (receipt status: 0). TxHash: ${tx.hash}`);
+        logger.error(
+          `[Auto-Withdrawal] Transaction failed on-chain (receipt status: 0). TxHash: ${tx.hash}`,
+        );
         return null;
       }
     } catch (err) {

@@ -3,6 +3,8 @@ import { logger } from "../config/logger";
 import { UserModel } from "../modules/users/models/user.model";
 import { TransactionModel } from "../modules/transactions/models/transaction.model";
 import { UserPlanPurchaseModel } from "../modules/plans/models/user-plan-purchase.model";
+import { ApiActivityModel } from "../modules/super-admin/models/api-activity.model";
+import { PaymentIntentModel } from "../modules/payments/models/payment-intent.model";
 
 async function run() {
   logger.info("Connecting to database to sync production indexes...");
@@ -17,6 +19,12 @@ async function run() {
 
     logger.info("Syncing indexes for UserPlanPurchase model...");
     await UserPlanPurchaseModel.syncIndexes();
+
+    logger.info("Syncing indexes for PaymentIntent model...");
+    await PaymentIntentModel.syncIndexes();
+
+    logger.info("Syncing indexes for ApiActivity model...");
+    await ApiActivityModel.syncIndexes();
 
     logger.info("Database indexes successfully synced for production scaling!");
   } catch (err) {

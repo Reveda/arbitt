@@ -30,6 +30,12 @@ import type {
 type CreateDepositRequestInput = z.infer<typeof createDepositRequestSchema>;
 type CreateWithdrawalRequestInput = z.infer<typeof createWithdrawalRequestSchema>;
 type ListDepositRequestsInput = z.infer<typeof listDepositRequestsQuerySchema>;
+type WalletBalanceRecord = {
+  availableUsdt?: number;
+  lifetimeDepositsUsdt?: number;
+  lifetimeRewardsUsdt?: number;
+  lifetimeWithdrawalsUsdt?: number;
+};
 
 const WITHDRAWAL_CHARGE_PERCENT = 10;
 
@@ -47,7 +53,7 @@ export async function calculateTopUpBalance(
   return Math.min(rawWalletAvailable, Math.max(0, rawWalletLifetimeDeposits - activePlanSum));
 }
 export class WalletService {
-  private async getSummaryBalanceFields(userId: string, wallet: any) {
+  private async getSummaryBalanceFields(userId: string, wallet: WalletBalanceRecord | null) {
     const [pendingWithdrawals, activePlans] = await Promise.all([
       TransactionModel.aggregate([
         {
@@ -111,7 +117,7 @@ export class WalletService {
 
     throw new ApiError(
       HTTP_STATUS.BAD_REQUEST,
-      "Wallet top-ups must be paid on-chain and verified by Moralis.",
+      "Wallet top-ups must be paid on-chain and verified by transaction hash.",
     );
   }
 
@@ -162,7 +168,10 @@ export class WalletService {
         "Transaction password is not set. Please set it in your profile first.",
       );
     }
-    const isMatched = await comparePassword(input.transactionPassword, user.transactionPasswordHash);
+    const isMatched = await comparePassword(
+      input.transactionPassword,
+      user.transactionPasswordHash,
+    );
     if (!isMatched) {
       throw new ApiError(HTTP_STATUS.UNAUTHORIZED, "Incorrect transaction password.");
     }
@@ -197,9 +206,14 @@ export class WalletService {
           logger.info(
             `[Auto-Withdrawal] Queue disabled. Attempting synchronous transfer for user: ${userId}, gross amount: ${grossAmountUsdt} USDT (net: ${netAmountUsdt} USDT)`,
           );
-          const autoTxHash = await blockchainService.sendBscUsdt(input.walletAddress, netAmountUsdt);
+          const autoTxHash = await blockchainService.sendBscUsdt(
+            input.walletAddress,
+            netAmountUsdt,
+          );
           if (autoTxHash) {
-            logger.info(`[Auto-Withdrawal] Synchronous withdrawal succeeded. TxHash: ${autoTxHash}`);
+            logger.info(
+              `[Auto-Withdrawal] Synchronous withdrawal succeeded. TxHash: ${autoTxHash}`,
+            );
             status = "completed";
             txnHash = autoTxHash;
             reviewedAt = new Date();

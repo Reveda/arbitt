@@ -1,4 +1,5 @@
 import { Schema, model, type InferSchemaType } from "mongoose";
+import { env } from "../../../config/env";
 import { USER_ROLES } from "../../../constants/roles";
 
 const apiActivitySchema = new Schema(
@@ -75,7 +76,10 @@ apiActivitySchema.index({ createdAt: -1 });
 apiActivitySchema.index({ routeGroup: 1, createdAt: -1 });
 apiActivitySchema.index({ statusCode: 1, createdAt: -1 });
 apiActivitySchema.index({ success: 1, createdAt: -1 });
-apiActivitySchema.index({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 30 });
+apiActivitySchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 * env.API_ACTIVITY_RETENTION_DAYS },
+);
 
 export type ApiActivityDocument = InferSchemaType<typeof apiActivitySchema>;
 export const ApiActivityModel = model("ApiActivity", apiActivitySchema);

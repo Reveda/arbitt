@@ -68,6 +68,11 @@ function shouldSkipActivity(path: string, method: string, statusCode: number) {
 }
 
 export function apiActivityTracker(req: Request, res: Response, next: NextFunction) {
+  if (!env.API_ACTIVITY_TRACKING_ENABLED) {
+    next();
+    return;
+  }
+
   const startedAt = process.hrtime.bigint();
 
   res.on("finish", () => {
