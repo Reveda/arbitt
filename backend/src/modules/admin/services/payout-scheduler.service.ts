@@ -49,32 +49,16 @@ export class PayoutSchedulerService {
       );
     }
 
-    // 3. Check and generate weekly ROI payouts (if Friday, Saturday, or Sunday)
+    // 3. Check and generate weekly ROI payouts (strictly on Fridays)
     const day = new Date().toLocaleDateString("en-US", {
       timeZone: "Asia/Kuala_Lumpur",
       weekday: "long",
     });
     const isFriday = day === "Friday";
-    const isSaturday = day === "Saturday";
-    const isSunday = day === "Sunday";
 
-    if (isFriday || isSaturday || isSunday) {
+    if (isFriday) {
       try {
         let targetFridayString = dateString;
-        if (isSaturday) {
-          const prevDay = new Date();
-          prevDay.setDate(prevDay.getDate() - 1);
-          targetFridayString = prevDay.toLocaleDateString("en-CA", {
-            timeZone: "Asia/Kuala_Lumpur",
-          });
-        } else if (isSunday) {
-          const prevDay = new Date();
-          prevDay.setDate(prevDay.getDate() - 2);
-          targetFridayString = prevDay.toLocaleDateString("en-CA", {
-            timeZone: "Asia/Kuala_Lumpur",
-          });
-        }
-
         logger.info(
           `Startup check: Auto-generating weekly ROI payouts for target Friday: ${targetFridayString}`,
         );
