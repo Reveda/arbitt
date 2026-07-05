@@ -47,6 +47,16 @@ export type AdminOverview = {
     userName: string;
   }>;
   recentAuditLogs: unknown[];
+  platformReserveHistory: Array<{
+    month: string;
+    reserve: number;
+  }>;
+  transactionActivity: Array<{
+    month: string;
+    deposits: number;
+    withdrawals: number;
+    payouts: number;
+  }>;
 };
 
 export type AdminUsersParams = {

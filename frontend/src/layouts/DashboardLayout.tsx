@@ -203,7 +203,7 @@ export function DashboardLayout({ role }: DashboardLayoutProps) {
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-black leading-none tracking-wide text-white drop-shadow">
-                ARBITRUM {controlPanelLabel}
+                ARBITRUM {controlPanelLabel.toUpperCase()}
               </p>
               <p className="mt-1 text-[11px] font-semibold text-cyan-100/80">{controlPanelSubtitle}</p>
             </div>
@@ -340,7 +340,7 @@ export function DashboardLayout({ role }: DashboardLayoutProps) {
               </span>
               <div className={cn("min-w-0", isAdminSidebarCollapsed && "lg:hidden")}>
                 <p className="truncate text-sm font-bold leading-none tracking-wide">
-                  ARBITRUM {controlPanelLabel}
+                  ARBITRUM {controlPanelLabel.toUpperCase()}
                 </p>
                 <p className="mt-1 text-[11px] font-medium text-cyan-100/65">{controlPanelSubtitle}</p>
               </div>

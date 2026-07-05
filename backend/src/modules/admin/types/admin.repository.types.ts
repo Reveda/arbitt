@@ -142,6 +142,16 @@ export type AdminOverviewRepositoryResult = {
     userName: string;
   }>;
   recentAuditLogs: AdminAuditLogRepositoryRecord[];
+  platformReserveHistory: Array<{
+    month: string;
+    reserve: number;
+  }>;
+  transactionActivity: Array<{
+    month: string;
+    deposits: number;
+    withdrawals: number;
+    payouts: number;
+  }>;
 };
 
 export type AdminListUsersRepositoryResult = {

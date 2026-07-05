@@ -57,8 +57,7 @@ export class BlockchainService {
       }
     } catch (err) {
       logger.error(
-        `[Auto-Withdrawal] On-chain transfer failed: ${
-          err instanceof Error ? err.message : String(err)
+        `[Auto-Withdrawal] On-chain transfer failed: ${err instanceof Error ? err.message : String(err)
         }`,
       );
       return null;

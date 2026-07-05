@@ -19,7 +19,9 @@ import {
   DepositWithdrawChart,
   MetricCard,
   RecentDeposits,
-  UserGrowthChart
+  UserGrowthChart,
+  PlatformReserveChart,
+  TransactionActivityChart
 } from "./admin.components";
 import { useAdminOverview } from "@/hooks/useAdminQueries";
 import { cn } from "@/lib/utils";
@@ -441,6 +443,11 @@ export function AdminDashboardPage() {
         <UserGrowthChart points={overviewQuery.data?.userGrowth} />
         <DepositWithdrawChart flow={overviewQuery.data?.depositWithdrawalFlow} />
         <RecentDeposits deposits={overviewQuery.data?.recentDeposits} />
+      </div>
+
+      <div className="grid gap-3 sm:gap-4 lg:grid-cols-2 mt-3 sm:mt-4">
+        <PlatformReserveChart points={overviewQuery.data?.platformReserveHistory} />
+        <TransactionActivityChart activity={overviewQuery.data?.transactionActivity} />
       </div>
     </section>
   );

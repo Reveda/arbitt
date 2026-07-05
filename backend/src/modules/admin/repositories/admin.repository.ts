@@ -378,6 +378,59 @@ export class AdminRepository {
     const depositsPercent = flowTotal > 0 ? Math.round((totalDepositsUsdt / flowTotal) * 100) : 0;
     const platformEarningsUsdt = totalDepositsUsdt - totalWithdrawalsUsdt - earningsPaidUsdt;
 
+    const platformReserveHistory = [];
+    const transactionActivity = [];
+
+    for (const bucket of monthBuckets) {
+      // 1. Calculate cumulative reserve up to bucket.end (Deposits - Withdrawals - Payouts)
+      const [depSum, witSum, rewSum] = await Promise.all([
+        sumTransactionAmount({
+          type: "deposit",
+          status: { $in: completedStatuses },
+          createdAt: { $lte: bucket.end }
+        }),
+        sumTransactionAmount({
+          type: "withdrawal",
+          status: { $in: completedStatuses },
+          createdAt: { $lte: bucket.end }
+        }),
+        sumTransactionAmount({
+          type: "reward",
+          status: { $in: completedStatuses },
+          createdAt: { $lte: bucket.end }
+        })
+      ]);
+      platformReserveHistory.push({
+        month: bucket.month,
+        reserve: Number((depSum - witSum - rewSum).toFixed(2))
+      });
+
+      // 2. Calculate monthly activity inside this bucket
+      const [depAct, witAct, rewAct] = await Promise.all([
+        sumTransactionAmount({
+          type: "deposit",
+          status: { $in: completedStatuses },
+          createdAt: { $gte: bucket.start, $lte: bucket.end }
+        }),
+        sumTransactionAmount({
+          type: "withdrawal",
+          status: { $in: completedStatuses },
+          createdAt: { $gte: bucket.start, $lte: bucket.end }
+        }),
+        sumTransactionAmount({
+          type: "reward",
+          status: { $in: completedStatuses },
+          createdAt: { $gte: bucket.start, $lte: bucket.end }
+        })
+      ]);
+      transactionActivity.push({
+        month: bucket.month,
+        deposits: Number(depAct.toFixed(2)),
+        withdrawals: Number(witAct.toFixed(2)),
+        payouts: Number(rewAct.toFixed(2))
+      });
+    }
+
     return {
       totalUsers,
       activeUsers,
@@ -425,6 +478,8 @@ export class AdminRepository {
         };
       }),
       recentAuditLogs: recentAuditLogs as AdminAuditLogRepositoryRecord[],
+      platformReserveHistory,
+      transactionActivity,
     };
   }
 
