@@ -1233,9 +1233,16 @@ export class SuperAdminService {
   }
 
   async getPayoutSummary() {
+    const latestReward = await TransactionModel.findOne({ type: "reward" })
+      .sort({ createdAt: -1 })
+      .select("createdAt")
+      .lean();
+
     const now = new Date();
-    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-    const endOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+    const filterDate = latestReward && latestReward.createdAt ? new Date(latestReward.createdAt) : now;
+
+    const startOfToday = new Date(Date.UTC(filterDate.getUTCFullYear(), filterDate.getUTCMonth(), filterDate.getUTCDate(), 0, 0, 0, 0));
+    const endOfToday = new Date(Date.UTC(filterDate.getUTCFullYear(), filterDate.getUTCMonth(), filterDate.getUTCDate(), 23, 59, 59, 999));
 
     const rewards = await TransactionModel.find({
       type: "reward",
@@ -1291,6 +1298,7 @@ export class SuperAdminService {
     });
 
     return {
+      runDate: filterDate.toISOString(),
       todayStats: {
         totalAmountGenerated: roundUsdt(totalAmountGenerated),
         totalAmountSent: roundUsdt(totalAmountSent),

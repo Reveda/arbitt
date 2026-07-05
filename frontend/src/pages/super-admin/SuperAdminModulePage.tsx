@@ -1813,23 +1813,39 @@ function PayoutSummaryPanel() {
     }).format(date);
   };
 
+  const isToday = (dateString: string) => {
+    const d = new Date(dateString);
+    const today = new Date();
+    return d.getUTCDate() === today.getUTCDate() &&
+           d.getUTCMonth() === today.getUTCMonth() &&
+           d.getUTCFullYear() === today.getUTCFullYear();
+  };
+
+  const formattedRunDate = new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(new Date(data.runDate));
+
   return (
     <SuperAdminCard className="rounded-2xl p-6">
       <div className="border-b border-slate-100 pb-4 mb-4">
-        <p className="text-base font-black text-slate-950">Today's Payout & Reward Summary</p>
+        <p className="text-base font-black text-slate-950">
+          {isToday(data.runDate) ? "Today's Payout & Reward Summary" : `Latest Payout Run Summary (${formattedRunDate})`}
+        </p>
         <p className="mt-1 text-xs font-semibold text-slate-500">
-          Aggregated metrics for weekly rewards, level commissions, and royalty cuts generated today.
+          Aggregated metrics for weekly rewards, level commissions, and royalty cuts generated on this run cycle.
         </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-bold text-slate-400">Total Generated Today</p>
+          <p className="text-xs font-bold text-slate-400">Total Generated</p>
           <p className="mt-2 text-xl font-black text-slate-900">{formatUsdt(data.todayStats.totalAmountGenerated)}</p>
           <p className="text-[10px] text-slate-500 mt-1">Sum of all generated rewards</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-bold text-slate-400">Total Sent / Credited Today</p>
+          <p className="text-xs font-bold text-slate-400">Total Sent / Credited</p>
           <p className="mt-2 text-xl font-black text-emerald-600">{formatUsdt(data.todayStats.totalAmountSent)}</p>
           <p className="text-[10px] text-slate-500 mt-1">Completed & approved status</p>
         </div>

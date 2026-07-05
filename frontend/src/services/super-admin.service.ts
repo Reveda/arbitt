@@ -368,6 +368,7 @@ export type SuperAdminSkippedPayout = {
 };
 
 export type SuperAdminPayoutSummary = {
+  runDate: string;
   todayStats: {
     totalAmountGenerated: number;
     totalAmountSent: number;
