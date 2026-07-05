@@ -84,6 +84,7 @@ const superAdminLinks: DashboardNavLink[] = [
   { to: APP_ROUTES.superAdmin.admins, label: "Admin Management", icon: UserCog },
   { to: APP_ROUTES.superAdmin.auditLogs, label: "Audit Logs", icon: ClipboardList },
   { to: APP_ROUTES.superAdmin.platformSettings, label: "Platform Settings", icon: Settings },
+  { to: APP_ROUTES.superAdmin.landingPage, label: "Landing Page Editor", icon: FileText },
   { to: APP_ROUTES.superAdmin.payoutCorrections, label: "Payout Corrections", icon: HandCoins },
   { to: APP_ROUTES.superAdmin.transactions, label: "Transaction Review", icon: Activity },
   { to: APP_ROUTES.superAdmin.security, label: "Security Control", icon: ShieldCheck },

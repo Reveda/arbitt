@@ -1,5 +1,5 @@
 import { env } from "../../../config/env";
-import type { PipelineStage } from "mongoose";
+import { Types, type PipelineStage } from "mongoose";
 import { AuditLogModel } from "../../admin/models/audit-log.model";
 import { PlatformSettingModel } from "../../admin/models/platform-setting.model";
 import { NotificationModel } from "../../notifications/models/notification.model";
@@ -9,6 +9,14 @@ import { UserModel } from "../../users/models/user.model";
 import { WalletModel } from "../../wallet/models/wallet.model";
 import { ApiActivityModel } from "../models/api-activity.model";
 import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
+import { walletRepository } from "../../wallet/repositories/wallet.repository";
+import { ApiError } from "../../../utils/ApiError";
+import { HTTP_STATUS } from "../../../constants/http";
+import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
+import { ReferralModel } from "../../referrals/models/referral.model";
+import { planRepository } from "../../plans/repositories/plan.repository";
+import { calculateUserRoyaltyRanks } from "../../rewards/services/reward.service";
+import { getSalaryRoyaltyPeriod } from "../../rewards/utils/salaryRoyalty";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -1179,6 +1187,399 @@ export class SuperAdminService {
       statusBreakdown: statusBreakdown.map(toStatusNode),
       typeBreakdown: typeBreakdown.map(toTypeNode),
     };
+  }
+
+  async fixTransactionStatus(transactionId: string, status: string, notes?: string, adminUserId?: string) {
+    const transaction = await TransactionModel.findById(transactionId);
+    if (!transaction) {
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, "Transaction not found.");
+    }
+
+    const previousStatus = transaction.status;
+    if (previousStatus === status) {
+      throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Transaction is already in the requested status.");
+    }
+
+    // Process status transition side-effects (wallet changes)
+    if (transaction.type === "deposit") {
+      if (status === "completed" && previousStatus !== "completed") {
+        await walletRepository.creditDeposit(String(transaction.userId), transaction.amountUsdt);
+      } else if (previousStatus === "completed" && status !== "completed") {
+        await walletRepository.creditDeposit(String(transaction.userId), -transaction.amountUsdt);
+      }
+    } else if (transaction.type === "withdrawal") {
+      if (status === "completed" && previousStatus === "pending") {
+        await walletRepository.completeWithdrawalAmount(String(transaction.userId), transaction.amountUsdt);
+      } else if ((status === "rejected" || status === "failed") && previousStatus === "pending") {
+        await walletRepository.unlockWithdrawalAmount(String(transaction.userId), transaction.amountUsdt);
+      } else if (status === "pending" && previousStatus === "completed") {
+        await walletRepository.lockWithdrawalAmount(String(transaction.userId), transaction.amountUsdt);
+      } else if ((status === "rejected" || status === "failed") && previousStatus === "completed") {
+        await walletRepository.creditDeposit(String(transaction.userId), transaction.amountUsdt);
+      }
+    }
+
+    transaction.status = status as any;
+    if (notes) {
+      transaction.notes = `${transaction.notes || ""}\n[SUPER_ADMIN Override]: ${notes}`.trim();
+    }
+    if (adminUserId) {
+      transaction.reviewedBy = adminUserId as any;
+      transaction.reviewedAt = new Date();
+    }
+
+    await transaction.save();
+    return transaction.toObject();
+  }
+
+  async getPayoutSummary() {
+    const now = new Date();
+    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const endOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+
+    const rewards = await TransactionModel.find({
+      type: "reward",
+      createdAt: { $gte: startOfToday, $lte: endOfToday }
+    }).lean();
+
+    let totalAmountGenerated = 0;
+    let totalAmountSent = 0;
+    const uniqueUsers = new Set<string>();
+
+    let levelCount = 0;
+    let levelAmount = 0;
+    let weeklyCount = 0;
+    let weeklyAmount = 0;
+    let royaltyCount = 0;
+    let royaltyAmount = 0;
+
+    let latestCreated: any = null;
+    let latestCredited: any = null;
+
+    rewards.forEach((r) => {
+      totalAmountGenerated += r.amountUsdt;
+      uniqueUsers.add(String(r.userId));
+
+      if (r.status === "completed" || r.status === "approved") {
+        totalAmountSent += r.amountUsdt;
+        if (r.updatedAt) {
+          const updatedDate = new Date(r.updatedAt);
+          if (!latestCredited || updatedDate > latestCredited) {
+            latestCredited = updatedDate;
+          }
+        }
+      }
+
+      if (r.createdAt) {
+        const createdDate = new Date(r.createdAt);
+        if (!latestCreated || createdDate > latestCreated) {
+          latestCreated = createdDate;
+        }
+      }
+
+      const kind = r.payoutKind;
+      if (kind === "level") {
+        levelCount++;
+        levelAmount += r.amountUsdt;
+      } else if (kind === "weekly") {
+        weeklyCount++;
+        weeklyAmount += r.amountUsdt;
+      } else if (kind === "salary_royalty") {
+        royaltyCount++;
+        royaltyAmount += r.amountUsdt;
+      }
+    });
+
+    return {
+      todayStats: {
+        totalAmountGenerated: roundUsdt(totalAmountGenerated),
+        totalAmountSent: roundUsdt(totalAmountSent),
+        usersCount: uniqueUsers.size,
+        totalCount: rewards.length,
+      },
+      breakdown: {
+        level: { count: levelCount, amount: roundUsdt(levelAmount) },
+        weekly: { count: weeklyCount, amount: roundUsdt(weeklyAmount) },
+        royalty: { count: royaltyCount, amount: roundUsdt(royaltyAmount) },
+      },
+      timing: {
+        createdTime: latestCreated ? latestCreated.toISOString() : null,
+        creditedTime: latestCredited ? latestCredited.toISOString() : null,
+      }
+    };
+  }
+
+  async detectSkippedPayouts() {
+    const TOTAL_REWARD_PAYOUT_KINDS = ["weekly", "level", "salary_royalty"];
+    const TOTAL_REWARD_CAP_STATUSES = ["pending", "approved", "completed"];
+    const TOTAL_REWARD_EARNING_MULTIPLIER = 3;
+    const toObjectId = (value: unknown) => new Types.ObjectId(String(value));
+
+    // Helper capacity calculation
+    const getRemainingRewardCapacityByUserId = async (userIds: string[]) => {
+      const uniqueUserIds = [...new Set(userIds)];
+      if (!uniqueUserIds.length) {
+        return new Map<string, number>();
+      }
+      const userObjectIds = uniqueUserIds.map(toObjectId);
+      const [principalTotals, rewardTotals] = await Promise.all([
+        UserPlanPurchaseModel.aggregate<any>([
+          {
+            $match: {
+              amountUsdt: { $gt: 0 },
+              status: "active",
+              userId: { $in: userObjectIds },
+            },
+          },
+          {
+            $group: {
+              _id: "$userId",
+              principalUsdt: { $sum: "$amountUsdt" },
+            },
+          },
+        ]),
+        TransactionModel.aggregate<any>([
+          {
+            $match: {
+              payoutKind: { $in: TOTAL_REWARD_PAYOUT_KINDS },
+              status: { $in: TOTAL_REWARD_CAP_STATUSES },
+              type: "reward",
+              userId: { $in: userObjectIds },
+            },
+          },
+          {
+            $group: {
+              _id: "$userId",
+              amountUsdt: { $sum: "$amountUsdt" },
+            },
+          },
+        ]),
+      ]);
+      const principalByUserId = new Map(
+        principalTotals.map((total: any) => [String(total._id), total.principalUsdt ?? 0]),
+      );
+      const rewardsByUserId = new Map(
+        rewardTotals.map((total: any) => [String(total._id), total.amountUsdt ?? 0]),
+      );
+
+      return new Map<string, number>(
+        uniqueUserIds.map((userId) => {
+          const capUsdt = (principalByUserId.get(userId) ?? 0) * TOTAL_REWARD_EARNING_MULTIPLIER;
+          const earnedOrQueuedUsdt = rewardsByUserId.get(userId) ?? 0;
+          return [userId, roundUsdt(Math.max(0, capUsdt - earnedOrQueuedUsdt))] as const;
+        }),
+      );
+    };
+
+    // 1. Get recent Friday for ROI
+    const now = new Date();
+    const payoutDate = new Date();
+    const day = payoutDate.getUTCDay();
+    const diffToFriday = day >= 5 ? day - 5 : day + 2;
+    payoutDate.setUTCDate(payoutDate.getUTCDate() - diffToFriday);
+
+    const periodStart = new Date(Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate()));
+    const periodEnd = new Date(Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate(), 23, 59, 59, 999));
+    const eligibleUntil = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const skippedList: any[] = [];
+
+    // --- A. Weekly ROI Skipped ---
+    const activePurchases = await UserPlanPurchaseModel.find({ status: "active", purchasedAt: { $lte: eligibleUntil } })
+      .populate("userId", "username email")
+      .lean();
+
+    const generatedRoiTxns = await TransactionModel.find({
+      type: "reward",
+      payoutKind: "weekly",
+      payoutPeriodEnd: periodEnd,
+    }).lean();
+    const generatedRoiSourceIds = new Set(generatedRoiTxns.map(t => String(t.payoutSourceTransactionId)));
+
+    const allUserIds = [...new Set(activePurchases.map(p => String(p.userId)))];
+    const userCaps = await getRemainingRewardCapacityByUserId(allUserIds);
+
+    for (const p of activePurchases) {
+      const uId = String(p.userId);
+      const user = p.userId as any;
+      if (!user) continue;
+
+      const remainingCap = userCaps.get(uId) ?? 0;
+      const alreadyHasRoi = generatedRoiSourceIds.has(String(p.sourceTransactionId));
+
+      if (!alreadyHasRoi && remainingCap > 0) {
+        skippedList.push({
+          userId: uId,
+          username: user.username || "Unknown",
+          email: user.email || "No email",
+          payoutKind: "weekly",
+          description: `Skipped Weekly ROI for plan "${p.name || p.tier}" ($${p.amountUsdt} USDT)`,
+          amountUsdt: roundUsdt(Math.min((p.amountUsdt * p.weeklyReturnPercent) / 100, remainingCap)),
+          sourceId: String(p.sourceTransactionId),
+          details: `Plan purchased: ${new Date(p.purchasedAt).toLocaleDateString()}, ROI %: ${p.weeklyReturnPercent}%, Remaining Cap: $${remainingCap} USDT`
+        });
+      }
+    }
+
+    // --- B. Level Income Skipped ---
+    const completedPurchases = await TransactionModel.find({ type: "plan_purchase", status: "completed" })
+      .populate("userId", "username")
+      .lean();
+
+    const recentPurchases = completedPurchases.slice(-100);
+
+    for (const pur of recentPurchases) {
+      const purchaseUser = pur.userId as any;
+      const ref = await ReferralModel.findOne({ userId: pur.userId }).lean();
+      if (!ref || !ref.path || !ref.path.length) continue;
+
+      const generatedLevelTxns = await TransactionModel.find({
+        type: "reward",
+        payoutKind: "level",
+        payoutSourceTransactionId: pur._id
+      }).lean();
+      const generatedSponsorIds = new Set(generatedLevelTxns.map(t => String(t.userId)));
+
+      const path = ref.path.map(id => String(id)).reverse();
+      const ruleSet = await planRepository.ensureDefaultRuleSet();
+      const levelRules = [...ruleSet.levelIncomeRules]
+        .filter((rule) => rule.isActive !== false)
+        .sort((ruleA, ruleB) => ruleA.level - ruleB.level);
+
+      const maxLevel = Math.max(0, ...levelRules.map((rule) => rule.level));
+      const activeSponsors = await UserModel.find({
+        _id: { $in: path.slice(0, maxLevel).map(toObjectId) },
+        role: "user",
+        status: "active"
+      }).lean();
+      const activeSponsorIds = new Set(activeSponsors.map(u => String(u._id)));
+      const sponsorCaps = await getRemainingRewardCapacityByUserId([...activeSponsorIds]);
+
+      for (let i = 0; i < Math.min(path.length, maxLevel); i++) {
+        const sponsorId = path[i];
+        const levelNum = i + 1;
+        const rule = levelRules.find(r => r.level === levelNum);
+        if (!rule) continue;
+
+        if (activeSponsorIds.has(sponsorId) && !generatedSponsorIds.has(sponsorId)) {
+          const sponsorUser = activeSponsors.find(u => String(u._id) === sponsorId);
+          const remainingCap = sponsorCaps.get(sponsorId) ?? 0;
+          const levelAmount = roundUsdt((pur.amountUsdt * rule.percent) / 100);
+          const claimableAmount = roundUsdt(Math.min(levelAmount, remainingCap));
+
+          if (claimableAmount > 0) {
+            skippedList.push({
+              userId: sponsorId,
+              username: sponsorUser?.username || "Unknown",
+              email: sponsorUser?.email || "No email",
+              payoutKind: "level",
+              description: `Skipped Level L${levelNum} Income from downline "${purchaseUser?.username || 'user'}" purchase ($${pur.amountUsdt} USDT)`,
+              amountUsdt: claimableAmount,
+              sourceId: String(pur._id),
+              details: `Level %: ${rule.percent}%, Downline Purchase Date: ${new Date(pur.createdAt).toLocaleDateString()}, Remaining Cap: $${remainingCap} USDT`
+            });
+          }
+        }
+      }
+    }
+
+    // --- C. Salary & Royalty Skipped ---
+    const royaltyPeriod = getSalaryRoyaltyPeriod();
+    const { userRoyaltyRankMap } = await calculateUserRoyaltyRanks();
+    const qualifiedUserIds = [...userRoyaltyRankMap.keys()].filter(id => (userRoyaltyRankMap.get(id) ?? 0) >= 1);
+
+    if (qualifiedUserIds.length > 0) {
+      const existingSalaryRewards = await TransactionModel.find({
+        payoutKind: "salary_royalty",
+        payoutPeriodStart: { $gte: royaltyPeriod.start, $lte: royaltyPeriod.end },
+        type: "reward",
+      }).lean();
+      const rewardedUserIds = new Set(existingSalaryRewards.map(t => String(t.userId)));
+
+      const ruleSet = await planRepository.ensureDefaultRuleSet();
+      const activeSalaryRules = [...ruleSet.salaryRoyaltyRules].filter(rule => rule.isActive !== false);
+
+      const daysInPeriod = Math.round((royaltyPeriod.end.getTime() - royaltyPeriod.start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const qualifiedUsers = await UserModel.find({ _id: { $in: qualifiedUserIds.map(toObjectId) }, role: "user", status: "active" }).lean();
+      const userCaps = await getRemainingRewardCapacityByUserId(qualifiedUsers.map(u => String(u._id)));
+
+      for (const u of qualifiedUsers) {
+        const uId = String(u._id);
+        const rank = userRoyaltyRankMap.get(uId) ?? 0;
+        const rule = activeSalaryRules.find((r) => r.royaltyPool === `M${rank}`);
+        if (!rule) continue;
+
+        const alreadyHasSalary = rewardedUserIds.has(uId);
+        const remainingCap = userCaps.get(uId) ?? 0;
+
+        if (!alreadyHasSalary && remainingCap > 0) {
+          const salaryAmount = roundUsdt(rule.bonusUsdt * daysInPeriod);
+          const claimableAmount = roundUsdt(Math.min(salaryAmount, remainingCap));
+
+          if (claimableAmount > 0) {
+            skippedList.push({
+              userId: uId,
+              username: u.username || "Unknown",
+              email: u.email || "No email",
+              payoutKind: "salary_royalty",
+              description: `Skipped Monthly Salary/Royalty for rank "M${rank}"`,
+              amountUsdt: claimableAmount,
+              sourceId: `SR-${royaltyPeriod.start.toISOString().slice(0, 7)}`,
+              details: `Monthly Rank: M${rank}, Qualified Days: ${daysInPeriod}, Remaining Cap: $${remainingCap} USDT`
+            });
+          }
+        }
+      }
+    }
+
+    return skippedList;
+  }
+
+  async processSkippedPayout(input: {
+    userId: string;
+    payoutKind: string;
+    amountUsdt: number;
+    sourceId: string;
+    notes?: string;
+    adminUserId?: string;
+  }) {
+    const user = await UserModel.findById(input.userId);
+    if (!user) {
+      throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
+    }
+
+    let notes = input.notes || `Manually processed missing payout (${input.payoutKind})`;
+    let payoutTier: string | null = null;
+
+    if (input.payoutKind === "level") {
+      payoutTier = "LEVEL";
+    }
+
+    const tx = new TransactionModel({
+      userId: input.userId,
+      type: "reward",
+      status: "completed",
+      amountUsdt: input.amountUsdt,
+      payoutKind: input.payoutKind,
+      payoutTier,
+      notes,
+      reviewedBy: input.adminUserId,
+      reviewedAt: new Date(),
+      txnHash: `SYS-MAN-${new Types.ObjectId().toString().toUpperCase()}`
+    });
+
+    if (input.payoutKind === "weekly" || input.payoutKind === "level") {
+      tx.payoutSourceTransactionId = input.sourceId as any;
+    }
+
+    await tx.save();
+
+    await Promise.all([
+      walletRepository.creditReward(input.userId, input.amountUsdt),
+      walletRepository.debitAdminPayout(input.amountUsdt),
+    ]);
+
+    return tx.toObject();
   }
 }
 

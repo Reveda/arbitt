@@ -322,4 +322,65 @@ export const superAdminService = {
       `${API_ENDPOINTS.superAdmin.transactions}?${buildQuery(params)}`
     );
   },
+
+  overrideTransactionStatus(transactionId: string, status: string, notes?: string) {
+    return apiRequest<any>(
+      `/super-admin/transactions/${transactionId}/status`,
+      {
+        body: { status, notes },
+        method: "PATCH",
+      }
+    );
+  },
+
+  getPayoutSummary() {
+    return apiRequest<SuperAdminPayoutSummary>(
+      `/super-admin/payout-summary`
+    );
+  },
+
+  getSkippedPayouts() {
+    return apiRequest<SuperAdminSkippedPayout[]>(
+      `/super-admin/skipped-payouts`
+    );
+  },
+
+  processSkippedPayout(payload: { userId: string; payoutKind: string; amountUsdt: number; sourceId: string; notes?: string }) {
+    return apiRequest<any>(
+      `/super-admin/skipped-payouts/process`,
+      {
+        body: payload,
+        method: "POST",
+      }
+    );
+  },
+};
+
+export type SuperAdminSkippedPayout = {
+  userId: string;
+  username: string;
+  email: string;
+  payoutKind: "weekly" | "level" | "salary_royalty";
+  description: string;
+  amountUsdt: number;
+  sourceId: string;
+  details: string;
+};
+
+export type SuperAdminPayoutSummary = {
+  todayStats: {
+    totalAmountGenerated: number;
+    totalAmountSent: number;
+    usersCount: number;
+    totalCount: number;
+  };
+  breakdown: {
+    level: { count: number; amount: number };
+    weekly: { count: number; amount: number };
+    royalty: { count: number; amount: number };
+  };
+  timing: {
+    createdTime: string | null;
+    creditedTime: string | null;
+  };
 };

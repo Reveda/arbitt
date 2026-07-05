@@ -136,3 +136,73 @@ export const listSuperAdminNotifications = catchAsync(async (req: Request, res: 
       ),
     );
 });
+
+export const fixTransactionStatus = catchAsync(async (req: Request, res: Response) => {
+  const { transactionId } = req.params;
+  const { status, notes } = req.body;
+  const adminUserId = req.user?.id;
+
+  const result = await superAdminService.fixTransactionStatus(transactionId, status, notes, adminUserId);
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      apiResponse(
+        HTTP_STATUS.OK,
+        "Transaction status overridden successfully.",
+        result,
+      ),
+    );
+});
+
+export const getSuperAdminPayoutSummary = catchAsync(async (_req: Request, res: Response) => {
+  const result = await superAdminService.getPayoutSummary();
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      apiResponse(
+        HTTP_STATUS.OK,
+        "Super Admin payout summary loaded.",
+        result,
+      ),
+    );
+});
+
+export const listSuperAdminSkippedPayouts = catchAsync(async (_req: Request, res: Response) => {
+  const result = await superAdminService.detectSkippedPayouts();
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      apiResponse(
+        HTTP_STATUS.OK,
+        "Skipped payout exceptions loaded.",
+        result,
+      ),
+    );
+});
+
+export const processSuperAdminSkippedPayout = catchAsync(async (req: Request, res: Response) => {
+  const { userId, payoutKind, amountUsdt, sourceId, notes } = req.body;
+  const adminUserId = req.user?.id;
+
+  const result = await superAdminService.processSkippedPayout({
+    userId,
+    payoutKind,
+    amountUsdt,
+    sourceId,
+    notes,
+    adminUserId,
+  });
+
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      apiResponse(
+        HTTP_STATUS.OK,
+        "Skipped payout successfully processed and credited.",
+        result,
+      ),
+    );
+});

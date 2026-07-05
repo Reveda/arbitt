@@ -64,7 +64,8 @@ export const API_ENDPOINTS = {
     members: "/referrals/members",
     summary: "/referrals/summary",
     tree: "/referrals/tree"
-  }
+  },
+  landing: "/landing"
 } as const;
 
 export const AUTH_REFRESH_EXCLUDED_ENDPOINTS = [
@@ -124,6 +125,7 @@ export const APP_ROUTES = {
     security: "/super-admin/security",
     notifications: "/super-admin/notifications",
     support: "/super-admin/support",
-    roles: "/super-admin/roles"
+    roles: "/super-admin/roles",
+    landingPage: "/super-admin/landing-page"
   }
 } as const;

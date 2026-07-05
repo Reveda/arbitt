@@ -3,6 +3,7 @@ import { apiRateLimiter } from "../middlewares/rateLimiter";
 import { adminRoutes } from "../modules/admin/routes/admin.routes";
 import { authRoutes } from "../modules/auth/routes/auth.routes";
 import { healthRoutes } from "../modules/health/routes/health.routes";
+import { landingRoutes } from "../modules/landing/routes/landing.routes";
 import { notificationRoutes } from "../modules/notifications/routes/notification.routes";
 import { paymentRoutes } from "../modules/payments/routes/payment.routes";
 import { planRoutes } from "../modules/plans/routes/plan.routes";
@@ -18,6 +19,7 @@ export const apiRoutes = Router();
 
 apiRoutes.use("/health", healthRoutes);
 apiRoutes.use(apiRateLimiter);
+apiRoutes.use("/landing", landingRoutes);
 apiRoutes.use("/auth", authRoutes);
 apiRoutes.use("/users", userRoutes);
 apiRoutes.use("/plans", planRoutes);

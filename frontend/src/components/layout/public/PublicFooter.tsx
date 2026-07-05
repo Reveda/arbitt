@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import arbitrumIcon from "@/assets/arbitrum-mark-hex.png";
+import { useGetLandingContentQuery } from "@/store/api/landingApi";
 import type { PublicNavItem } from "./PublicNavbar";
 
 type PublicFooterProps = {
@@ -8,6 +9,9 @@ type PublicFooterProps = {
 };
 
 export function PublicFooter({ navItems, onNavClick }: PublicFooterProps) {
+  const { data: landingData } = useGetLandingContentQuery();
+  const copyrightText = landingData?.data?.copyrightText || `Copyright ${new Date().getFullYear()} ARBITRUM. All rights reserved.`;
+
   return (
     <footer className="border-t border-slate-800 bg-[#020817]">
       <div className="container py-8">
@@ -65,7 +69,7 @@ export function PublicFooter({ navItems, onNavClick }: PublicFooterProps) {
       </div>
       <div className="border-t border-slate-800">
         <div className="container py-3 text-center text-xs text-slate-400">
-          Copyright {new Date().getFullYear()} ARBITRUM. All rights reserved.
+          {copyrightText}
         </div>
       </div>
     </footer>

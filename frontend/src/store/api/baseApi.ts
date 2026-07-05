@@ -56,5 +56,6 @@ export const baseApi = createApi({
     "AdminWallets",
     "CurrentUser",
     "SupportTickets",
+    "LandingContent",
   ],
 });

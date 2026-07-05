@@ -9,6 +9,10 @@ import {
   listSuperAdminNotifications,
   listSuperAdminSettings,
   listSuperAdminTransactions,
+  fixTransactionStatus,
+  getSuperAdminPayoutSummary,
+  listSuperAdminSkippedPayouts,
+  processSuperAdminSkippedPayout,
 } from "../controllers/super-admin.controller";
 import {
   listSuperAdminAdminsQuerySchema,
@@ -62,4 +66,28 @@ superAdminRoutes.get(
   requirePermissions("notifications:read"),
   validateRequest({ query: listSuperAdminNotificationsQuerySchema }),
   listSuperAdminNotifications,
+);
+
+superAdminRoutes.patch(
+  "/transactions/:transactionId/status",
+  requirePermissions("transactions:read"),
+  fixTransactionStatus,
+);
+
+superAdminRoutes.get(
+  "/payout-summary",
+  requirePermissions("transactions:read"),
+  getSuperAdminPayoutSummary,
+);
+
+superAdminRoutes.get(
+  "/skipped-payouts",
+  requirePermissions("transactions:read"),
+  listSuperAdminSkippedPayouts,
+);
+
+superAdminRoutes.post(
+  "/skipped-payouts/process",
+  requirePermissions("transactions:read"),
+  processSuperAdminSkippedPayout,
 );

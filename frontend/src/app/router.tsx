@@ -48,6 +48,7 @@ import { AdminRevenueAnalyticsPage } from "@/pages/admin/AdminRevenueAnalyticsPa
 import { AdminTransactionsPage } from "@/pages/admin/AdminTransactionsPage";
 import { SuperAdminDashboardPage } from "@/pages/super-admin/SuperAdminDashboardPage";
 import { SuperAdminModulePage } from "@/pages/super-admin/SuperAdminModulePage";
+import { LandingPageEditor } from "@/pages/super-admin/LandingPageEditor";
 import { NotFoundPage } from "@/pages/shared/NotFoundPage";
 
 export const router = createBrowserRouter([
@@ -210,6 +211,10 @@ export const router = createBrowserRouter([
       {
         path: "platform-settings",
         element: <SuperAdminModulePage description="Set platform-level policies, wallet rules, payout windows, limits, and security switches." icon={Settings} items={["Wallet policy", "Payout policy", "Rate-limit policy"]} moduleKey="platformSettings" title="Platform Settings" />
+      },
+      {
+        path: "landing-page",
+        element: <LandingPageEditor />
       },
       {
         path: "payout-corrections",

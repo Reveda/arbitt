@@ -27,6 +27,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "react-hot-toast";
 import {
   superAdminService,
   type SuperAdminAdminRecord,
@@ -41,6 +42,8 @@ import {
   type SuperAdminTransactionRecord,
   type SuperAdminTransactionException,
   type SuperAdminWorkflowStep,
+  type SuperAdminPayoutSummary,
+  type SuperAdminSkippedPayout,
 } from "@/services/super-admin.service";
 import {
   SuperAdminCard,
@@ -933,6 +936,7 @@ function PaginatedRecordsPanel({
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     const timerId = window.setTimeout(() => setDebouncedSearch(searchValue.trim()), 350);
@@ -974,7 +978,7 @@ function PaginatedRecordsPanel({
           ? {
               ...commonParams,
               method: type || undefined,
-              routeGroup: role || undefined,
+              role: role || undefined,
               success: status || undefined,
             }
         : mode === "admins"
@@ -999,13 +1003,13 @@ function PaginatedRecordsPanel({
         ? superAdminService.listAdmins(params)
         : mode === "apiActivity"
           ? superAdminService.listApiActivity(params)
-        : mode === "audit"
-          ? superAdminService.listAuditLogs(params)
-          : mode === "notifications"
-            ? superAdminService.listNotifications(params)
-          : mode === "settings"
-            ? superAdminService.listSettings(params)
-            : superAdminService.listTransactions(params);
+          : mode === "audit"
+            ? superAdminService.listAuditLogs(params)
+            : mode === "notifications"
+              ? superAdminService.listNotifications(params)
+            : mode === "settings"
+              ? superAdminService.listSettings(params)
+              : superAdminService.listTransactions(params);
 
     setIsLoading(true);
     setError(null);
@@ -1036,7 +1040,7 @@ function PaginatedRecordsPanel({
     return () => {
       active = false;
     };
-  }, [debouncedSearch, fromDate, mode, page, role, status, toDate, type, limit]);
+  }, [debouncedSearch, fromDate, mode, page, role, status, toDate, type, limit, refreshTrigger]);
 
   const pagination = state.pagination;
   const firstRow = pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
@@ -1258,6 +1262,7 @@ function PaginatedRecordsPanel({
               <th className="px-4 py-3 font-black">Status</th>
               <th className="px-4 py-3 font-black">Amount / Detail</th>
               <th className="px-4 py-3 font-black">Date</th>
+              {mode === "transactions" && <th className="px-4 py-3 font-black">Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -1360,6 +1365,30 @@ function PaginatedRecordsPanel({
                       </td>
                       <td className="px-4 py-3 text-sm font-black text-slate-950">{formatUsdt(record.amountUsdt)}</td>
                       <td className="px-4 py-3 text-xs font-semibold text-slate-500">{formatDate(record.createdAt)}</td>
+                      <td className="px-4 py-3">
+                        <select
+                          className="h-8 rounded-lg border border-slate-200 bg-white px-2 py-0.5 text-xs font-black text-slate-700 outline-none focus:border-cyan-300"
+                          value={record.status}
+                          onChange={async (e) => {
+                            const newStatus = e.target.value;
+                            if (window.confirm(`Are you sure you want to force override transaction status to "${newStatus}"?`)) {
+                              try {
+                                await superAdminService.overrideTransactionStatus(record.id, newStatus, "Status corrected via Super Admin Console");
+                                toast.success("Transaction status overridden successfully.");
+                                setRefreshTrigger(prev => prev + 1);
+                              } catch (err: any) {
+                                toast.error(err instanceof Error ? err.message : "Failed to override transaction status.");
+                              }
+                            }
+                          }}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="completed">Completed</option>
+                          <option value="rejected">Rejected</option>
+                          <option value="failed">Failed</option>
+                        </select>
+                      </td>
                     </tr>
                   );
                 }
@@ -1740,6 +1769,257 @@ function ModuleDetails({
   );
 }
 
+function PayoutSummaryPanel() {
+  const [data, setData] = useState<SuperAdminPayoutSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    superAdminService.getPayoutSummary()
+      .then((res) => {
+        if (active) {
+          setData(res.data);
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
+  }, []);
+
+  if (loading) {
+    return (
+      <SuperAdminCard className="p-6">
+        <div className="flex h-32 items-center justify-center">
+          <div className="size-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        </div>
+      </SuperAdminCard>
+    );
+  }
+
+  if (!data) return null;
+
+  const formatDateWithTime = (isoString: string | null) => {
+    if (!isoString) return "No payouts generated today";
+    const date = new Date(isoString);
+    return new Intl.DateTimeFormat("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    }).format(date);
+  };
+
+  return (
+    <SuperAdminCard className="rounded-2xl p-6">
+      <div className="border-b border-slate-100 pb-4 mb-4">
+        <p className="text-base font-black text-slate-950">Today's Payout & Reward Summary</p>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          Aggregated metrics for weekly rewards, level commissions, and royalty cuts generated today.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-bold text-slate-400">Total Generated Today</p>
+          <p className="mt-2 text-xl font-black text-slate-900">{formatUsdt(data.todayStats.totalAmountGenerated)}</p>
+          <p className="text-[10px] text-slate-500 mt-1">Sum of all generated rewards</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-bold text-slate-400">Total Sent / Credited Today</p>
+          <p className="mt-2 text-xl font-black text-emerald-600">{formatUsdt(data.todayStats.totalAmountSent)}</p>
+          <p className="text-[10px] text-slate-500 mt-1">Completed & approved status</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-bold text-slate-400">Recipient Users Count</p>
+          <p className="mt-2 text-xl font-black text-slate-900">{data.todayStats.usersCount} Users</p>
+          <p className="text-[10px] text-slate-500 mt-1">Unique user wallets credited</p>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-xs font-bold text-slate-400">Total Payout Transactions</p>
+          <p className="mt-2 text-xl font-black text-slate-900">{data.todayStats.totalCount} Rows</p>
+          <p className="text-[10px] text-slate-500 mt-1">Individual ledger records</p>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div>
+          <p className="text-sm font-black text-slate-900 mb-3 border-b pb-1">Payout Kind Breakdown</p>
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
+              <span className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-cyan-400" />
+                Weekly Performance ROI
+              </span>
+              <span>{data.breakdown.weekly.count} items ({formatUsdt(data.breakdown.weekly.amount)})</span>
+            </div>
+            <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
+              <span className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-purple-400" />
+                Level Commissions
+              </span>
+              <span>{data.breakdown.level.count} items ({formatUsdt(data.breakdown.level.amount)})</span>
+            </div>
+            <div className="flex items-center justify-between text-sm font-semibold text-slate-700">
+              <span className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-amber-400" />
+                Salary & Royalty Rewards
+              </span>
+              <span>{data.breakdown.royalty.count} items ({formatUsdt(data.breakdown.royalty.amount)})</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <p className="text-sm font-black text-slate-900 mb-3 border-b pb-1">Execution Timings</p>
+          <div className="space-y-3">
+            <div>
+              <p className="text-xs font-bold text-slate-400">Generated On (Creation Time)</p>
+              <p className="text-sm font-black text-slate-800 mt-0.5">{formatDateWithTime(data.timing.createdTime)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-400">Credited On (Settlement Time)</p>
+              <p className="text-sm font-black text-emerald-600 mt-0.5">{formatDateWithTime(data.timing.creditedTime)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </SuperAdminCard>
+  );
+}
+
+function SkippedPayoutsDetectorPanel() {
+  const [list, setList] = useState<SuperAdminSkippedPayout[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  const fetchSkipped = () => {
+    setLoading(true);
+    superAdminService.getSkippedPayouts()
+      .then((res) => {
+        setList(res.data);
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchSkipped();
+  }, []);
+
+  const handleForcePayout = async (item: SuperAdminSkippedPayout) => {
+    const confirmation = window.confirm(
+      `Force Payout Confirmation:\n\nUser: ${item.username}\nType: ${item.payoutKind.toUpperCase()}\nAmount: ${formatUsdt(item.amountUsdt)}\n\nAre you sure you want to generate and credit this payout transaction manually?`
+    );
+    if (!confirmation) return;
+
+    setProcessingId(`${item.userId}-${item.sourceId}`);
+    try {
+      await superAdminService.processSkippedPayout({
+        userId: item.userId,
+        payoutKind: item.payoutKind,
+        amountUsdt: item.amountUsdt,
+        sourceId: item.sourceId,
+        notes: `Manual force correction via Skipped Payout Detector: ${item.description}`
+      });
+      toast.success("Payout generated and credited successfully!");
+      fetchSkipped();
+    } catch (err: any) {
+      toast.error(err instanceof Error ? err.message : "Failed to force credit payout.");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  return (
+    <SuperAdminCard className="rounded-2xl p-6">
+      <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+        <div>
+          <p className="text-base font-black text-slate-950">Skipped / Missing Payout Exceptions Detector</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">
+            Automatically extracts users who met eligibility for level income, daily ROI, or rank salaries, but got skipped during run distributions.
+          </p>
+        </div>
+        <button
+          onClick={fetchSkipped}
+          className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-black text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          type="button"
+          disabled={loading}
+        >
+          {loading ? "Scanning..." : "Re-Scan"}
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex h-32 items-center justify-center">
+          <div className="size-6 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+        </div>
+      ) : list.length === 0 ? (
+        <p className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-700">
+          No skipped payouts detected! All eligible users have successfully received their payout transactions.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-slate-50 text-xs text-slate-500 border-b border-slate-200">
+              <tr>
+                <th className="px-4 py-3 font-black">User Details</th>
+                <th className="px-4 py-3 font-black">Type</th>
+                <th className="px-4 py-3 font-black">Description</th>
+                <th className="px-4 py-3 font-black">Estimated Payout</th>
+                <th className="px-4 py-3 font-black">Eligibility Rule Details</th>
+                <th className="px-4 py-3 font-black">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((item) => {
+                const uniqueKey = `${item.userId}-${item.sourceId}-${item.payoutKind}`;
+                const isProcessing = processingId === `${item.userId}-${item.sourceId}`;
+                return (
+                  <tr className="border-b border-slate-100 last:border-0 hover:bg-slate-50" key={uniqueKey}>
+                    <td className="px-4 py-3.5">
+                      <p className="text-sm font-black text-slate-900">{item.username}</p>
+                      <p className="text-xs text-slate-500 font-semibold">{item.email}</p>
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <span className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-black capitalize ring-1",
+                        item.payoutKind === "weekly" ? "bg-cyan-50 text-cyan-700 ring-cyan-100" :
+                        item.payoutKind === "level" ? "bg-purple-50 text-purple-700 ring-purple-100" :
+                        "bg-amber-50 text-amber-700 ring-amber-100"
+                      )}>
+                        {item.payoutKind}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-xs font-semibold text-slate-800">{item.description}</td>
+                    <td className="px-4 py-3.5 text-sm font-black text-slate-900">{formatUsdt(item.amountUsdt)}</td>
+                    <td className="px-4 py-3.5 text-[11px] font-semibold text-slate-500 max-w-xs">{item.details}</td>
+                    <td className="px-4 py-3.5">
+                      <button
+                        onClick={() => handleForcePayout(item)}
+                        disabled={isProcessing}
+                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-black text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+                        type="button"
+                      >
+                        {isProcessing ? "Processing..." : "Force Payout"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </SuperAdminCard>
+  );
+}
+
 export function SuperAdminModulePage({
   description,
   icon: Icon,
@@ -1841,6 +2121,13 @@ export function SuperAdminModulePage({
 
       {moduleKey === "auditLogs" ? (
         <PaginatedRecordsPanel modeOverride="apiActivity" moduleKey={moduleKey} />
+      ) : null}
+
+      {moduleKey === "payoutCorrections" ? (
+        <>
+          <PayoutSummaryPanel />
+          <SkippedPayoutsDetectorPanel />
+        </>
       ) : null}
 
       <PaginatedRecordsPanel moduleKey={moduleKey} />
