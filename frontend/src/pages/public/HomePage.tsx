@@ -1,10 +1,11 @@
-import { aboutHighlights, landingFeatures, onboardingSteps, whyChooseItems } from "@/features/landing/data";
+import { aboutHighlights, landingFeatures, landingStats, onboardingSteps, whyChooseItems } from "@/features/landing/data";
 import { AboutSection } from "@/features/landing/components/AboutSection";
 import { FeaturesSection } from "@/features/landing/components/FeaturesSection";
 import { HeroSection } from "@/features/landing/components/HeroSection";
 import { HowItWorksSection } from "@/features/landing/components/HowItWorksSection";
 import { WhyChooseSection } from "@/features/landing/components/WhyChooseSection";
 import { DashboardMarqueeSection } from "@/features/landing/components/DashboardMarqueeSection";
+import { StatsSection } from "@/features/landing/components/StatsSection";
 import { RevealOnScroll } from "@/components/common/RevealOnScroll";
 
 export function HomePage() {
@@ -16,6 +17,13 @@ export function HomePage() {
       <div className="premium-stage">
         <HeroSection />
       </div>
+      <div className="premium-divider" />
+
+      <RevealOnScroll delayMs={5}>
+        <div className="premium-stage">
+          <StatsSection stats={landingStats} />
+        </div>
+      </RevealOnScroll>
       <div className="premium-divider" />
 
       <RevealOnScroll delayMs={10}>

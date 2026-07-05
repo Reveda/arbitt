@@ -138,14 +138,7 @@ export function LoginPage() {
                 Forgot password?
               </Link>
             </div>
-            {loginMutation.error ? (
-              <p
-                className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
-                role="alert"
-              >
-                {loginMutation.error}
-              </p>
-            ) : null}
+
             {routeState?.passwordReset ? (
               <p
                 className="rounded-md border border-cyan-300/30 bg-cyan-300/10 px-3 py-2 text-sm text-cyan-100"

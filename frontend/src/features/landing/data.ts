@@ -1,4 +1,4 @@
-import { Bot, Coins, Globe2, Layers, LifeBuoy, Lock, Network, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { Activity, Coins, Globe2, Headphones, Layers, Network, ShieldCheck, Sparkles, Users } from "lucide-react";
 import type { AboutHighlight, FeatureItem, LandingStat, StepItem, WhyChooseItem } from "@/features/landing/types";
 
 export const landingStats: LandingStat[] = [
@@ -14,12 +14,12 @@ export const aboutHighlights: AboutHighlight[] = [
 ];
 
 export const landingFeatures: FeatureItem[] = [
-  { title: "Blockchain Security", icon: Lock },
+  { title: "Blockchain Security", icon: ShieldCheck },
   { title: "Low Operational Fees", icon: Coins },
   { title: "Instant Team Insights", icon: Users },
   { title: "Multi-Level Logic", icon: Network },
-  { title: "24/7 Support", icon: LifeBuoy },
-  { title: "Transparent Tracking", icon: Bot },
+  { title: "24/7 Support", icon: Headphones },
+  { title: "Transparent Tracking", icon: Activity },
   { title: "Global Availability", icon: Globe2 },
   { title: "Regular Upgrades", icon: Sparkles }
 ];

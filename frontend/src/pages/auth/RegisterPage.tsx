@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { APP_ROUTES } from "@/api/endpoints";
@@ -5,8 +6,13 @@ import { PasswordField } from "@/components/form/PasswordField";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  ToastMessage,
+  type ToastMessageValue,
+} from "@/components/ui/toast-message";
 import { useRegisterAccount } from "@/hooks/useAuthActions";
 import { EMAIL_PATTERN, PASSWORD_PATTERN } from "@/lib/validation";
+import { getQueryErrorMessage } from "@/store/api/queryError";
 
 type RegisterFormValues = {
   email: string;
@@ -22,6 +28,9 @@ export function RegisterPage() {
   const referralCodeFromUrl =
     searchParams.get("ref") ?? searchParams.get("referral") ?? "";
   const createAccountMutation = useRegisterAccount();
+  const [toastMessage, setToastMessage] = useState<ToastMessageValue | null>(
+    null,
+  );
   const {
     register,
     handleSubmit,
@@ -38,6 +47,9 @@ export function RegisterPage() {
   });
 
   const onSubmit = handleSubmit(async (values) => {
+    createAccountMutation.reset();
+    setToastMessage(null);
+
     try {
       const result = await createAccountMutation.mutate(values);
       navigate(APP_ROUTES.public.verifyEmail, {
@@ -48,14 +60,25 @@ export function RegisterPage() {
           testOtp: result.data.emailVerification?.testOtp ?? null,
         },
       });
-    } catch {
-      // Error state is handled by the shared API mutation hook.
+    } catch (caughtError) {
+      setToastMessage({
+        text:
+          getQueryErrorMessage(caughtError, "Registration failed.") ??
+          "Registration failed.",
+        tone: "error",
+      });
     }
   });
 
   return (
-    <Card className="form-motion-off mx-auto w-full max-w-xl">
-      <CardHeader className="text-center">
+    <>
+      <ToastMessage
+        message={toastMessage}
+        onClose={() => setToastMessage(null)}
+      />
+
+      <Card className="form-motion-off mx-auto w-full max-w-xl">
+        <CardHeader className="text-center">
         <CardTitle>Create Account</CardTitle>
       </CardHeader>
       <CardContent>
@@ -171,14 +194,6 @@ export function RegisterPage() {
               </span>
             ) : null}
           </label>
-          {createAccountMutation.error ? (
-            <p
-              className="rounded-md border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm text-red-200"
-              role="alert"
-            >
-              {createAccountMutation.error}
-            </p>
-          ) : null}
           <Button
             className="w-full"
             disabled={createAccountMutation.isLoading}
@@ -200,5 +215,6 @@ export function RegisterPage() {
         </p>
       </CardContent>
     </Card>
+    </>
   );
 }

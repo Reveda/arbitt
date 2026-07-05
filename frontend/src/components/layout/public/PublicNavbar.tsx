@@ -124,15 +124,13 @@ export function PublicNavbar({ authState, mobileOpen, navItems, onCloseMobile, o
       </header>
 
       <div
-        className={`fixed inset-0 z-50 bg-[#01030a]/90 transition-opacity duration-300 lg:hidden ${
-          mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className={`fixed inset-0 z-50 bg-[#01030a]/90 transition-opacity duration-300 lg:hidden ${mobileOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          }`}
         onClick={onCloseMobile}
       />
       <aside
-        className={`fixed right-0 top-0 z-[60] h-screen w-[86%] max-w-sm border-l border-cyan-300/30 bg-gradient-to-b from-[#031330] via-[#031024] to-[#020817] p-4 shadow-[0_0_0_1px_rgba(56,189,248,0.15),0_25px_70px_rgba(0,0,0,0.65)] transition-transform duration-300 lg:hidden ${
-          mobileOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed right-0 top-0 z-[60] h-screen w-[86%] max-w-sm border-l border-cyan-300/30 bg-gradient-to-b from-[#031330] via-[#031024] to-[#020817] p-4 shadow-[0_0_0_1px_rgba(56,189,248,0.15),0_25px_70px_rgba(0,0,0,0.65)] transition-transform duration-300 lg:hidden ${mobileOpen ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         <div className="flex items-center justify-between">
           <Link className="inline-flex items-center gap-2" onClick={onCloseMobile} to="/">

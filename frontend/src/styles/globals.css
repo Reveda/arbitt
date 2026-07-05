@@ -112,6 +112,7 @@
   }
 
   @media (hover: hover) and (pointer: fine) {
+
     .interactive-card:not(.form-motion-off):not(:has(form)):hover,
     .hover-lift:hover,
     .glass-card:hover,
@@ -129,7 +130,9 @@
     }
   }
 
-  @media (hover: none), (pointer: coarse) {
+  @media (hover: none),
+  (pointer: coarse) {
+
     .interactive-card:not(.form-motion-off):not(:has(form)):active,
     .hover-lift:active,
     .glass-card:active,
@@ -471,7 +474,8 @@
     }
   }
 
-  @media (hover: none), (pointer: coarse) {
+  @media (hover: none),
+  (pointer: coarse) {
     .dashboard-marquee-card:active {
       transform: translateY(-1px);
       box-shadow: 0 10px 26px -22px rgba(56, 189, 248, 0.48);
@@ -528,6 +532,7 @@
     opacity: 0;
     transform: translateY(18px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -539,6 +544,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -546,30 +552,36 @@
 }
 
 @keyframes floating {
+
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-8px);
   }
 }
 
 @keyframes pulse-soft {
+
   0%,
   100% {
     box-shadow: 0 0 0 rgba(56, 189, 248, 0);
   }
+
   50% {
     box-shadow: 0 0 24px rgba(56, 189, 248, 0.32);
   }
 }
 
 @keyframes accent-shift {
+
   0%,
   100% {
     background-position: 0% 50%;
   }
+
   50% {
     background-position: 100% 50%;
   }
@@ -580,6 +592,7 @@
     width: 0;
     opacity: 0.5;
   }
+
   to {
     width: 58%;
     opacity: 1;
@@ -587,20 +600,24 @@
 }
 
 @keyframes hero-title-breathe {
+
   0%,
   100% {
     text-shadow: 0 10px 28px rgba(15, 118, 255, 0.24);
   }
+
   50% {
     text-shadow: 0 12px 34px rgba(56, 189, 248, 0.34);
   }
 }
 
 @keyframes hero-copy-shift {
+
   0%,
   100% {
     opacity: 0.92;
   }
+
   50% {
     opacity: 1;
   }
@@ -610,6 +627,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -619,6 +637,7 @@
   from {
     -webkit-transform: rotate(0deg);
   }
+
   to {
     -webkit-transform: rotate(360deg);
   }
@@ -628,6 +647,7 @@
   from {
     transform: rotate(360deg);
   }
+
   to {
     transform: rotate(0deg);
   }
@@ -637,17 +657,20 @@
   from {
     -webkit-transform: rotate(360deg);
   }
+
   to {
     -webkit-transform: rotate(0deg);
   }
 }
 
 @keyframes portal-float {
+
   0%,
   100% {
     transform: translateY(0) scale(0.92);
     opacity: 0.65;
   }
+
   50% {
     transform: translateY(-8px) scale(1);
     opacity: 1;
@@ -655,11 +678,13 @@
 }
 
 @-webkit-keyframes portal-float {
+
   0%,
   100% {
     -webkit-transform: translateY(0) scale(0.92);
     opacity: 0.65;
   }
+
   50% {
     -webkit-transform: translateY(-8px) scale(1);
     opacity: 1;
@@ -667,30 +692,36 @@
 }
 
 @keyframes portal-scene-drift {
+
   0%,
   100% {
     transform: perspective(1100px) rotateY(0.8deg) rotateX(0.2deg);
   }
+
   50% {
     transform: perspective(1100px) rotateY(-1.4deg) rotateX(0.7deg);
   }
 }
 
 @-webkit-keyframes portal-scene-drift {
+
   0%,
   100% {
     -webkit-transform: perspective(1100px) rotateY(0.8deg) rotateX(0.2deg);
   }
+
   50% {
     -webkit-transform: perspective(1100px) rotateY(-1.4deg) rotateX(0.7deg);
   }
 }
 
 @keyframes portal-image-breathe {
+
   0%,
   100% {
     transform: scale(1) translateY(0);
   }
+
   50% {
     transform: scale(1.018) translateY(-2px);
   }
@@ -701,9 +732,11 @@
     opacity: 0.34;
     transform: scale(0.88) translateZ(0);
   }
+
   65% {
     opacity: 0.14;
   }
+
   100% {
     opacity: 0;
     transform: scale(1.18) translateZ(0);
@@ -715,9 +748,11 @@
     opacity: 0.34;
     -webkit-transform: scale(0.88) translateZ(0);
   }
+
   65% {
     opacity: 0.14;
   }
+
   100% {
     opacity: 0;
     -webkit-transform: scale(1.18) translateZ(0);
@@ -725,10 +760,12 @@
 }
 
 @-webkit-keyframes portal-image-breathe {
+
   0%,
   100% {
     -webkit-transform: scale(1) translateY(0);
   }
+
   50% {
     -webkit-transform: scale(1.018) translateY(-2px);
   }
@@ -752,6 +789,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+
   .animate-fade-up,
   .animate-fade-up-soft,
   .animate-float,

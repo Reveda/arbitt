@@ -248,7 +248,7 @@ export function PublicLayout() {
       <main
         className={`container ${
           isAuthPage
-            ? "flex min-h-[calc(100dvh-8.5rem)] items-start justify-center overflow-y-auto py-4 pb-24 sm:items-center sm:py-6 sm:pb-10 md:py-8 lg:pb-8"
+            ? "flex min-h-[calc(100dvh-8.5rem)] items-center justify-center overflow-y-auto py-4 pb-24 sm:py-6 sm:pb-10 md:py-8 lg:pb-8"
             : isHomePage
               ? "pt-0 pb-6 sm:pt-0 sm:pb-8 md:pt-1 md:pb-8"
               : "py-5 sm:py-6 md:py-8"

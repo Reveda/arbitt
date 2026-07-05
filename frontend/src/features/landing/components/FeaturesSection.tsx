@@ -16,7 +16,9 @@ export function FeaturesSection({ features }: FeaturesSectionProps) {
           return (
             <RevealOnScroll className="h-full" delayMs={idx * 40} key={item.title}>
               <article className="glass-card hover-lift h-full rounded-lg p-4">
-                <Icon className="size-5 text-cyan-300" />
+                <span className="inline-flex size-9 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-400/8">
+                  <Icon className="size-[1.1rem] text-cyan-300" />
+                </span>
                 <p className="mt-3 text-sm font-semibold">{item.title}</p>
               </article>
             </RevealOnScroll>
@@ -26,4 +28,3 @@ export function FeaturesSection({ features }: FeaturesSectionProps) {
     </section>
   );
 }
-

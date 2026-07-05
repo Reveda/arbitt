@@ -16,7 +16,9 @@ export function WhyChooseSection({ items }: WhyChooseSectionProps) {
             return (
               <RevealOnScroll className="h-full" delayMs={idx * 45} key={item.title}>
                 <div className="glass-card hover-lift h-full rounded-lg p-4">
-                  <Icon className="size-5 text-cyan-300" />
+                  <span className="inline-flex size-9 items-center justify-center rounded-lg border border-cyan-300/20 bg-cyan-400/8">
+                    <Icon className="size-[1.1rem] text-cyan-300" />
+                  </span>
                   <p className="mt-3 text-sm font-semibold">{item.title}</p>
                   <p className="mt-2 text-xs leading-relaxed text-slate-400">{item.description}</p>
                 </div>
@@ -28,4 +30,3 @@ export function WhyChooseSection({ items }: WhyChooseSectionProps) {
     </section>
   );
 }
-

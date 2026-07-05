@@ -1,6 +1,9 @@
-import { useEffect } from "react";
-import { CheckCircle2, Percent, XCircle } from "lucide-react";
-import { cn } from "@/lib/utils";
+/**
+ * Bridge wrapper: delegates all toast rendering to react-hot-toast.
+ * Keeps the existing ToastMessageValue type so all pages compile without changes.
+ */
+import { useEffect, useRef } from "react";
+import toast from "react-hot-toast";
 
 export type ToastMessageValue = {
   text: string;
@@ -13,59 +16,37 @@ type ToastMessageProps = {
   durationMs?: number;
 };
 
-export function ToastMessage({
-  durationMs = 4500,
-  message,
-  onClose,
-}: ToastMessageProps) {
+export function ToastMessage({ message, onClose }: ToastMessageProps) {
+  const lastFired = useRef<string | null>(null);
+
   useEffect(() => {
     if (!message) {
-      return undefined;
+      lastFired.current = null;
+      return;
     }
 
-    const timerId = window.setTimeout(onClose, durationMs);
+    // Prevent duplicate fire for the same message
+    const key = `${message.tone}:${message.text}`;
+    if (lastFired.current === key) return;
+    lastFired.current = key;
+
+    switch (message.tone) {
+      case "success":
+        toast.success(message.text);
+        break;
+      case "error":
+        toast.error(message.text);
+        break;
+      default:
+        toast(message.text);
+        break;
+    }
+
+    // Defer onClose to next tick to avoid React state update during render
+    const timerId = window.setTimeout(onClose, 50);
     return () => window.clearTimeout(timerId);
-  }, [durationMs, message, onClose]);
+  }, [message, onClose]);
 
-  if (!message) {
-    return null;
-  }
-
-  return (
-    <div
-      className={cn(
-        "fixed right-4 top-4 z-[60] flex w-[min(26rem,calc(100vw-2rem))] items-start gap-3 rounded-2xl border bg-white p-4 text-sm font-semibold shadow-[0_18px_50px_rgba(15,23,42,0.18)]",
-        message.tone === "success" && "border-emerald-200 text-emerald-800",
-        message.tone === "info" && "border-cyan-200 text-cyan-800",
-        message.tone === "error" && "border-rose-200 text-rose-700",
-      )}
-      role={message.tone === "error" ? "alert" : "status"}
-    >
-      <span
-        className={cn(
-          "grid size-9 shrink-0 place-items-center rounded-xl",
-          message.tone === "success" && "bg-emerald-50 text-emerald-700",
-          message.tone === "info" && "bg-cyan-50 text-cyan-700",
-          message.tone === "error" && "bg-rose-50 text-rose-600",
-        )}
-      >
-        {message.tone === "success" ? (
-          <CheckCircle2 className="size-4" />
-        ) : message.tone === "info" ? (
-          <Percent className="size-4" />
-        ) : (
-          <XCircle className="size-4" />
-        )}
-      </span>
-      <p className="min-w-0 flex-1 leading-relaxed">{message.text}</p>
-      <button
-        aria-label="Close notification"
-        className="grid size-7 shrink-0 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-700"
-        onClick={onClose}
-        type="button"
-      >
-        <XCircle className="size-4" />
-      </button>
-    </div>
-  );
+  // All rendering is handled by <Toaster /> in main.tsx
+  return null;
 }
