@@ -1,7 +1,10 @@
-import { Mail, MessageSquareText, Send } from "lucide-react";
+import { useState } from "react";
+import { MessageSquareText, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
+import { toast } from "react-hot-toast";
 import { Input } from "@/components/ui/input";
 import { EMAIL_PATTERN } from "@/lib/validation";
+import { apiRequest } from "@/api/apiClient";
 
 type ContactFormValues = {
   fullName: string;
@@ -11,7 +14,7 @@ type ContactFormValues = {
 };
 
 export function ContactUsPage() {
-  const telegramUrl = "https://t.me/your_telegram_username";
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     register,
     handleSubmit,
@@ -26,9 +29,23 @@ export function ContactUsPage() {
     }
   });
 
-  const onSubmit = handleSubmit(() => {
-    // API wiring will be integrated in the support sprint.
-    reset();
+  const onSubmit = handleSubmit(async (values) => {
+    setIsSubmitting(true);
+    try {
+      await apiRequest("/landing/contact", {
+        method: "POST",
+        body: JSON.stringify(values),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
+      toast.success("Your support request has been submitted successfully!");
+      reset();
+    } catch (err: any) {
+      toast.error(err instanceof Error ? err.message : "Failed to submit request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   });
 
   return (
@@ -53,6 +70,7 @@ export function ContactUsPage() {
             className="h-10 rounded-md border border-cyan-300/25 bg-slate-900/70 px-3 text-sm placeholder:text-slate-500"
             placeholder="Full Name"
             type="text"
+            disabled={isSubmitting}
           />
           <Input
             {...register("email", {
@@ -62,6 +80,7 @@ export function ContactUsPage() {
             className="h-10 rounded-md border border-cyan-300/25 bg-slate-900/70 px-3 text-sm placeholder:text-slate-500"
             placeholder="Email Address"
             type="email"
+            disabled={isSubmitting}
           />
         </div>
         {errors.fullName || errors.email ? (
@@ -78,6 +97,7 @@ export function ContactUsPage() {
           className="h-10 rounded-md border border-cyan-300/25 bg-slate-900/70 px-3 text-sm placeholder:text-slate-500"
           placeholder="Subject"
           type="text"
+          disabled={isSubmitting}
         />
         {errors.subject ? <span className="-mt-1 text-xs text-red-300">{errors.subject.message}</span> : null}
         <textarea
@@ -87,37 +107,29 @@ export function ContactUsPage() {
           })}
           className="min-h-28 rounded-md border border-cyan-300/25 bg-slate-900/70 px-3 py-2 text-sm placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           placeholder="Write your message..."
+          disabled={isSubmitting}
         />
         {errors.message ? <span className="-mt-1 text-xs text-red-300">{errors.message.message}</span> : null}
         <button
-          className="inline-flex h-10 items-center justify-center rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-4 text-sm font-semibold text-slate-950"
+          className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-gradient-to-r from-blue-600 to-cyan-500 px-4 text-sm font-semibold text-slate-950 hover:opacity-90 disabled:opacity-50"
           type="submit"
+          disabled={isSubmitting}
         >
-          Send Request
+          {isSubmitting ? (
+            <>
+              <Loader2 className="size-4 animate-spin" />
+              Sending...
+            </>
+          ) : (
+            "Send Request"
+          )}
         </button>
       </form>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <article className="interactive-card rounded-lg border border-cyan-300/20 bg-slate-900/60 p-4">
-          <Mail className="size-5 text-cyan-300" />
-          <p className="mt-2 text-sm font-semibold">Email Support</p>
-          <p className="mt-1 text-xs text-slate-400">support@arbitrum.example</p>
-        </article>
-        <article className="interactive-card rounded-lg border border-cyan-300/20 bg-slate-900/60 p-4">
-          <Send className="size-5 text-cyan-300" />
-          <p className="mt-2 text-sm font-semibold">Telegram Support</p>
-          <a
-            className="mt-1 inline-block text-xs text-cyan-300 underline-offset-2 transition-colors hover:text-cyan-200 hover:underline"
-            href={telegramUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            Open Telegram Chat
-          </a>
-        </article>
-        <article className="interactive-card rounded-lg border border-cyan-300/20 bg-slate-900/60 p-4">
-          <MessageSquareText className="size-5 text-cyan-300" />
-          <p className="mt-2 text-sm font-semibold">Help Desk</p>
+      <div className="mt-6 flex justify-center">
+        <article className="interactive-card max-w-sm w-full rounded-lg border border-cyan-300/20 bg-slate-900/60 p-4 text-center">
+          <MessageSquareText className="size-5 text-cyan-300 mx-auto" />
+          <p className="mt-2 text-sm font-semibold text-slate-100">Help Desk</p>
           <p className="mt-1 text-xs text-slate-400">Response window: 24-48 hours</p>
         </article>
       </div>

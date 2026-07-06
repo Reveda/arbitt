@@ -1,6 +1,9 @@
 import type { Request, Response, NextFunction } from "express";
 import { HTTP_STATUS } from "../../../constants/http";
-import { PlatformSettingModel } from "../../admin/models/platform-setting.model";export const defaultLandingContent = {
+import { PlatformSettingModel } from "../../admin/models/platform-setting.model";
+import { ContactMessageModel } from "../models/contact-message.model";
+
+export const defaultLandingContent = {
   heroTitle: "Ecosystem Earning Made Simple & Transparent",
   heroSubtitle: "Join a transparent and secure earning ecosystem built on Arbitrum blockchain infrastructure. Build, secure and automate digital asset solutions at scale. Monitor teams, monitor wallet flows and scale your earnings with confidence.",
   copyrightText: "© 2026 Arbitrum. All rights reserved.",
@@ -55,6 +58,7 @@ import { PlatformSettingModel } from "../../admin/models/platform-setting.model"
     }
   ]
 };
+
 export async function getLandingContent(_req: Request, res: Response, next: NextFunction) {
   try {
     const setting = await PlatformSettingModel.findOne({ key: "landing_page_content", deletedAt: null }).lean();
@@ -107,6 +111,34 @@ export async function updateLandingContent(req: Request, res: Response, next: Ne
       success: true,
       message: "Landing page content updated successfully.",
       data: setting.value,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export async function submitContactMessage(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { fullName, email, subject, message } = req.body;
+
+    if (!fullName?.trim() || !email?.trim() || !subject?.trim() || !message?.trim()) {
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        success: false,
+        message: "All fields (fullName, email, subject, message) are required.",
+      });
+    }
+
+    const inquiry = await ContactMessageModel.create({
+      fullName: fullName.trim(),
+      email: email.trim(),
+      subject: subject.trim(),
+      message: message.trim(),
+    });
+
+    return res.status(HTTP_STATUS.OK).json({
+      success: true,
+      message: "Your support request has been submitted successfully.",
+      data: inquiry,
     });
   } catch (error) {
     return next(error);

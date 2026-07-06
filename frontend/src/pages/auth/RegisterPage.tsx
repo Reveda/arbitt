@@ -194,6 +194,16 @@ export function RegisterPage() {
               </span>
             ) : null}
           </label>
+          <p className="text-center text-[11px] text-slate-400 mt-1">
+            By continuing, you agree to our{" "}
+            <Link className="text-cyan-400 hover:underline font-bold" to="/terms-and-conditions" target="_blank">
+              Terms & Conditions
+            </Link>{" "}
+            and{" "}
+            <Link className="text-cyan-400 hover:underline font-bold" to="/privacy-policy" target="_blank">
+              Privacy Policy
+            </Link>.
+          </p>
           <Button
             className="w-full"
             disabled={createAccountMutation.isLoading}
