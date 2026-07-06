@@ -264,11 +264,20 @@ export function UserGrowthChart({ points }: { points?: AdminOverview["userGrowth
     </AdminCard>
   );
 }
-
 export function DepositWithdrawChart({ flow }: { flow?: AdminOverview["depositWithdrawalFlow"] }) {
   const depositsPercent = flow?.depositsPercent ?? 0;
   const withdrawalsPercent = flow?.withdrawalsPercent ?? 0;
   const hasFlow = depositsPercent + withdrawalsPercent > 0;
+
+  // Enforce a minimum visual slice of 5% for better visibility of tiny amounts
+  let visualDepositsPercent = depositsPercent;
+  if (hasFlow) {
+    if (withdrawalsPercent > 0 && withdrawalsPercent < 5) {
+      visualDepositsPercent = 95;
+    } else if (depositsPercent > 0 && depositsPercent < 5) {
+      visualDepositsPercent = 5;
+    }
+  }
 
   return (
     <AdminCard>
@@ -280,7 +289,7 @@ export function DepositWithdrawChart({ flow }: { flow?: AdminOverview["depositWi
           className="relative grid size-40 place-items-center rounded-full"
           style={{
             background: hasFlow
-              ? `conic-gradient(#0891b2 0 ${depositsPercent}%, #f43f5e ${depositsPercent}% 100%)`
+              ? `conic-gradient(#0891b2 0 ${visualDepositsPercent}%, #f43f5e ${visualDepositsPercent}% 100%)`
               : "conic-gradient(#e2e8f0 0 100%)"
           }}
         >
