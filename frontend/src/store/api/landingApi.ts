@@ -28,18 +28,18 @@ export interface WhyChooseItemData {
   description: string;
   iconName: string;
 }
-
 export interface LandingPageContent {
   heroTitle: string;
   heroSubtitle: string;
   copyrightText: string;
+  privacyPolicy: string;
+  termsConditions: string;
   stats: LandingStatData[];
   aboutHighlights: AboutHighlightData[];
   features: FeatureItemData[];
   onboardingSteps: StepItemData[];
   whyChooseItems: WhyChooseItemData[];
 }
-
 export const landingApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getLandingContent: builder.query<ApiSuccessResponse<LandingPageContent>, void>({

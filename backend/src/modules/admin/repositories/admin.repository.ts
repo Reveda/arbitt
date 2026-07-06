@@ -375,7 +375,7 @@ export class AdminRepository {
       };
     });
     const flowTotal = totalDepositsUsdt + totalWithdrawalsUsdt;
-    const depositsPercent = flowTotal > 0 ? Math.round((totalDepositsUsdt / flowTotal) * 100) : 0;
+    const depositsPercent = flowTotal > 0 ? Number(((totalDepositsUsdt / flowTotal) * 100).toFixed(2)) : 0;
     const platformEarningsUsdt = totalDepositsUsdt - totalWithdrawalsUsdt - earningsPaidUsdt;
 
     const platformReserveHistory = [];
@@ -459,7 +459,7 @@ export class AdminRepository {
         depositsUsdt: totalDepositsUsdt,
         withdrawalsUsdt: totalWithdrawalsUsdt,
         depositsPercent,
-        withdrawalsPercent: flowTotal > 0 ? 100 - depositsPercent : 0,
+        withdrawalsPercent: flowTotal > 0 ? Number((100 - depositsPercent).toFixed(2)) : 0,
       },
       userGrowth,
       recentDeposits: recentDeposits.map((transaction) => {

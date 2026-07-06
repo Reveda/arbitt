@@ -21,13 +21,14 @@ export function LandingPageEditor() {
       heroTitle: "",
       heroSubtitle: "",
       copyrightText: "",
+      privacyPolicy: "",
+      termsConditions: "",
       stats: [],
       aboutHighlights: [],
       features: [],
       onboardingSteps: [],
       whyChooseItems: [],
-    },
-  });
+    },  });
 
   const { fields: statFields } = useFieldArray({ control, name: "stats" });
   const { fields: highlightFields } = useFieldArray({ control, name: "aboutHighlights" });
@@ -102,6 +103,31 @@ export function LandingPageEditor() {
               <Input
                 {...register("copyrightText", { required: "Copyright text is required" })}
                 placeholder="Enter footer copyright text"
+                className={inputStyles}
+              />
+            </label>
+          </div>
+        </SuperAdminCard>
+
+        {/* Legal Policies Settings */}
+        <SuperAdminCard className="p-6">
+          <h2 className="text-lg font-black text-slate-900 mb-4 border-b pb-2">Legal Policies & Disclaimers</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+              Privacy Policy Content
+              <Textarea
+                {...register("privacyPolicy", { required: "Privacy policy content is required" })}
+                placeholder="Write the privacy policy content here..."
+                rows={8}
+                className={inputStyles}
+              />
+            </label>
+            <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+              Terms & Conditions Content
+              <Textarea
+                {...register("termsConditions", { required: "Terms & conditions content is required" })}
+                placeholder="Write the terms & conditions content here..."
+                rows={8}
                 className={inputStyles}
               />
             </label>
