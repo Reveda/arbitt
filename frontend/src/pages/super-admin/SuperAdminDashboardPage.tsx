@@ -133,14 +133,32 @@ function TransactionFlowGraph({ points }: { points: SuperAdminDailyPoint[] }) {
     ...data.map((point) => point.depositsUsdt + point.withdrawalsUsdt + point.rewardsUsdt),
   );
   const maxException = Math.max(1, ...data.map((point) => point.failedCount + point.pendingCount));
-  const linePoints = data
-    .map((point, index) => {
-      const x = 24 + index * (592 / Math.max(1, data.length - 1));
-      const y = 132 - ((point.failedCount + point.pendingCount) / maxException) * 104;
+  const lineCoordinates = data.map((point, index) => {
+    const x = 24 + index * (592 / Math.max(1, data.length - 1));
+    const y = 132 - ((point.failedCount + point.pendingCount) / maxException) * 104;
 
-      return `${x},${Math.max(20, y)}`;
-    })
-    .join(" ");
+    return {
+      ...point,
+      x,
+      y: Math.max(20, y),
+    };
+  });
+  const linePoints = lineCoordinates.map((point) => `${point.x},${point.y}`).join(" ");
+  const [activePointIndex, setActivePointIndex] = useState(0);
+
+  useEffect(() => {
+    if (!lineCoordinates.length) {
+      return;
+    }
+
+    const intervalId = window.setInterval(() => {
+      setActivePointIndex((current) => (current + 1) % lineCoordinates.length);
+    }, 1600);
+
+    return () => window.clearInterval(intervalId);
+  }, [lineCoordinates.length]);
+
+  const activePoint = lineCoordinates[activePointIndex] ?? lineCoordinates[0];
 
   return (
     <SuperAdminCard className="overflow-hidden rounded-2xl">
@@ -161,22 +179,50 @@ function TransactionFlowGraph({ points }: { points: SuperAdminDailyPoint[] }) {
 
       <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_220px]">
         <div className="min-w-0">
-          <div className="relative h-72 overflow-hidden rounded-2xl border border-cyan-100 bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-4">
-            <div className="absolute inset-x-4 top-10 h-px bg-slate-200/70" />
-            <div className="absolute inset-x-4 top-24 h-px bg-slate-200/70" />
-            <div className="absolute inset-x-4 top-40 h-px bg-slate-200/70" />
+          <div className="relative h-72 overflow-hidden rounded-2xl border border-cyan-100 bg-gradient-to-br from-slate-50 via-white to-cyan-50 p-4 shadow-[0_24px_60px_-38px_rgba(8,145,178,0.65)] super-admin-flow-surface">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(34,211,238,0.18),transparent_28%),radial-gradient(circle_at_85%_0%,rgba(59,130,246,0.16),transparent_24%)]" />
+            <div className="absolute inset-x-4 top-10 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
+            <div className="absolute inset-x-4 top-24 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
+            <div className="absolute inset-x-4 top-40 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
             <svg
               aria-hidden
-              className="pointer-events-none absolute inset-x-4 top-8 h-36 w-[calc(100%-2rem)] overflow-visible"
+              className="pointer-events-none absolute inset-x-4 top-8 h-36 w-[calc(100%-2rem)] overflow-visible drop-shadow-[0_8px_16px_rgba(239,68,68,0.12)]"
               viewBox="0 0 640 150"
             >
               <defs>
                 <linearGradient id="superAdminExceptionLine" x1="0" x2="1" y1="0" y2="0">
-                  <stop offset="0%" stopColor="#f97316" />
+                  <stop offset="0%" stopColor="#fb923c" />
                   <stop offset="55%" stopColor="#ef4444" />
                   <stop offset="100%" stopColor="#be123c" />
                 </linearGradient>
+                <linearGradient id="superAdminExceptionGlow" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="#f87171" stopOpacity="0.18" />
+                  <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
+                </linearGradient>
+                <filter id="superAdminExceptionShadow" x="-20%" y="-20%" width="160%" height="160%">
+                  <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#ef4444" floodOpacity="0.18" />
+                </filter>
               </defs>
+              <polyline
+                fill="none"
+                points={linePoints}
+                stroke="#ffffff"
+                strokeDasharray="10 14"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeOpacity="0.18"
+                strokeWidth="12"
+                transform="translate(4 4)"
+              />
+              <polyline
+                fill="none"
+                points={linePoints}
+                stroke="url(#superAdminExceptionGlow)"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="18"
+                className="super-admin-flow-glow"
+              />
               <polyline
                 fill="none"
                 points={linePoints}
@@ -184,52 +230,74 @@ function TransactionFlowGraph({ points }: { points: SuperAdminDailyPoint[] }) {
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth="5"
+                filter="url(#superAdminExceptionShadow)"
+                className="super-admin-flow-line"
               />
-              {linePoints.split(" ").map((point, index) => {
-                const [cx, cy] = point.split(",");
+              {activePoint ? (
+                <line
+                  stroke="#ef4444"
+                  strokeDasharray="5 6"
+                  strokeOpacity="0.28"
+                  strokeWidth="1"
+                  x1={activePoint.x}
+                  x2={activePoint.x}
+                  y1="16"
+                  y2="138"
+                />
+              ) : null}
+              {lineCoordinates.map((point, index) => {
+                const isActive = index === activePointIndex;
 
                 return (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    fill="#fff"
-                    key={`${point}-${index}`}
-                    r="6"
-                    stroke="#ef4444"
-                    strokeWidth="3"
-                  />
+                  <g key={`${point.date}-${index}`}>
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      fill="#fff"
+                      r={isActive ? "7" : "6"}
+                      stroke="#ef4444"
+                      strokeWidth={isActive ? "4" : "3"}
+                    />
+                    {isActive ? (
+                      <>
+                        <circle cx={point.x} cy={point.y} fill="#ef4444" fillOpacity="0.18" r="16" className="super-admin-flow-ripple" />
+                        <circle cx={point.x} cy={point.y} fill="#ef4444" fillOpacity="0.12" r="24" className="super-admin-flow-ripple super-admin-flow-ripple-delayed" />
+                      </>
+                    ) : null}
+                  </g>
                 );
               })}
             </svg>
 
             <div className="absolute inset-x-4 bottom-4 flex h-40 items-end justify-between gap-2">
-              {data.map((point) => {
+              {lineCoordinates.map((point) => {
                 const depositHeight = Math.max(8, (point.depositsUsdt / maxVolume) * 128);
                 const withdrawalHeight = Math.max(8, (point.withdrawalsUsdt / maxVolume) * 128);
                 const rewardHeight = Math.max(8, (point.rewardsUsdt / maxVolume) * 128);
+                const isActive = point.date === activePoint?.date;
 
                 return (
                   <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={point.date}>
                     <div className="flex h-32 items-end gap-1.5">
                       <span
-                        className="w-3 rounded-t-full bg-gradient-to-t from-emerald-500 to-emerald-300 shadow-sm"
+                        className={cn("w-3 rounded-t-full bg-gradient-to-t from-emerald-500 to-emerald-300 shadow-sm transition-all duration-300 super-admin-flow-bar super-admin-flow-bar-deposits", isActive && "scale-y-105 shadow-[0_0_16px_rgba(16,185,129,0.35)]")}
                         style={{ height: `${depositHeight}px` }}
                         title={`Deposits: ${formatUsdt(point.depositsUsdt)}`}
                       />
                       <span
-                        className="w-3 rounded-t-full bg-gradient-to-t from-blue-500 to-sky-300 shadow-sm"
+                        className={cn("w-3 rounded-t-full bg-gradient-to-t from-blue-500 to-sky-300 shadow-sm transition-all duration-300 super-admin-flow-bar super-admin-flow-bar-withdrawals", isActive && "scale-y-105 shadow-[0_0_16px_rgba(59,130,246,0.35)]")}
                         style={{ height: `${withdrawalHeight}px` }}
                         title={`Withdrawals: ${formatUsdt(point.withdrawalsUsdt)}`}
                       />
                       <span
-                        className="w-3 rounded-t-full bg-gradient-to-t from-violet-500 to-fuchsia-300 shadow-sm"
+                        className={cn("w-3 rounded-t-full bg-gradient-to-t from-violet-500 to-fuchsia-300 shadow-sm transition-all duration-300 super-admin-flow-bar super-admin-flow-bar-rewards", isActive && "scale-y-105 shadow-[0_0_16px_rgba(168,85,247,0.35)]")}
                         style={{ height: `${rewardHeight}px` }}
                         title={`Rewards: ${formatUsdt(point.rewardsUsdt)}`}
                       />
                     </div>
                     <div className="text-center">
-                      <p className="text-[10px] font-black text-slate-500">{formatDate(point.date)}</p>
-                      <p className="mt-0.5 text-[10px] font-bold text-rose-600">
+                      <p className={cn("text-[10px] font-black transition-colors", isActive ? "text-slate-900" : "text-slate-500")}>{formatDate(point.date)}</p>
+                      <p className={cn("mt-0.5 text-[10px] font-bold transition-colors", isActive ? "text-rose-700" : "text-rose-600")}>
                         {point.failedCount} failed
                       </p>
                     </div>

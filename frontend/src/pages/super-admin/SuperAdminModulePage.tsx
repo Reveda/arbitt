@@ -725,14 +725,37 @@ function ModuleGraph({
     1,
     ...data.map((point) => point.depositsUsdt + point.rewardsUsdt + point.withdrawalsUsdt),
   );
-  const linePoints = data
-    .map((point, index) => {
-      const x = 24 + index * (592 / Math.max(1, data.length - 1));
-      const y = 128 - ((point.failedCount + point.pendingCount) / maxCount) * 104;
+  const lineCoordinates = data.map((point, index) => {
+    const x = 24 + index * (592 / Math.max(1, data.length - 1));
+    const y = 128 - ((point.failedCount + point.pendingCount) / maxCount) * 104;
 
-      return `${x},${Math.max(18, y)}`;
-    })
-    .join(" ");
+    return {
+      ...point,
+      x,
+      y: Math.max(18, y),
+    };
+  });
+  const linePoints = lineCoordinates.map((point) => `${point.x},${point.y}`).join(" ");
+  const [activePointIndex, setActivePointIndex] = useState(0);
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!lineCoordinates.length || hoveredPointIndex !== null) {
+      return;
+    }
+
+    const timerId = window.setInterval(() => {
+      setActivePointIndex((current) => (current + 1) % lineCoordinates.length);
+    }, 1800);
+
+    return () => window.clearInterval(timerId);
+  }, [hoveredPointIndex, lineCoordinates.length]);
+
+  const effectiveIndex = hoveredPointIndex ?? activePointIndex;
+  const activePoint = lineCoordinates[effectiveIndex] ?? lineCoordinates[0];
+  const activeRisk = activePoint ? activePoint.pendingCount + activePoint.failedCount : 0;
+  const activeRiskStatus = activeRisk >= 2 ? "Elevated risk" : activeRisk === 1 ? "Low risk" : "Stable";
+  const placeTooltipRight = activePoint ? activePoint.x < 320 : true;
 
   return (
     <SuperAdminCard className="overflow-hidden rounded-2xl">
@@ -740,75 +763,198 @@ function ModuleGraph({
         <div>
           <p className="text-sm font-black text-slate-950">{title}</p>
           <p className="mt-1 text-xs font-semibold text-slate-500">
-            Seven-day flow for deposits, rewards, withdrawals, pending rows, and exceptions.
+            Seven-day flow for deposits, rewards, withdrawals, pending rows, and exceptions. Red line = pending + failed risk.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-[11px] font-black">
           <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700">Deposit</span>
           <span className="rounded-full bg-violet-50 px-3 py-1 text-violet-700">Reward</span>
-          <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">Risk Line</span>
+          <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700">Risk = Pending + Failed</span>
         </div>
       </div>
       <div className="grid gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="relative h-72 overflow-hidden rounded-2xl border border-cyan-100 bg-slate-50 p-4">
-          <div className="absolute inset-x-4 top-12 h-px bg-slate-200" />
-          <div className="absolute inset-x-4 top-28 h-px bg-slate-200" />
-          <div className="absolute inset-x-4 top-44 h-px bg-slate-200" />
+        <div
+          className="relative h-72 overflow-hidden rounded-2xl border border-cyan-100 bg-slate-50 p-4 shadow-[0_24px_60px_-38px_rgba(8,145,178,0.65)] super-admin-module-surface"
+          onMouseLeave={() => setHoveredPointIndex(null)}
+        >
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(34,211,238,0.12),transparent_28%),radial-gradient(circle_at_85%_0%,rgba(59,130,246,0.08),transparent_24%)]" />
+          <div className="absolute inset-x-4 top-12 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
+          <div className="absolute inset-x-4 top-28 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
+          <div className="absolute inset-x-4 top-44 h-px bg-gradient-to-r from-transparent via-slate-200/80 to-transparent" />
           <svg
             aria-hidden
-            className="pointer-events-none absolute inset-x-4 top-8 h-36 w-[calc(100%-2rem)] overflow-visible"
+            className="pointer-events-none absolute inset-x-4 top-8 h-36 w-[calc(100%-2rem)] overflow-visible drop-shadow-[0_8px_16px_rgba(239,68,68,0.12)]"
             viewBox="0 0 640 150"
           >
+            <defs>
+              <linearGradient id={`moduleGraphLineGlow-${title}`} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stopColor="#f87171" stopOpacity="0.18" />
+                <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id={`moduleGraphLine-${title}`} x1="0" x2="1" y1="0" y2="0">
+                <stop offset="0%" stopColor="#fb923c" />
+                <stop offset="55%" stopColor="#ef4444" />
+                <stop offset="100%" stopColor="#be123c" />
+              </linearGradient>
+              <filter id={`moduleGraphShadow-${title}`} x="-20%" y="-20%" width="160%" height="160%">
+                <feDropShadow dx="0" dy="5" stdDeviation="5" floodColor="#ef4444" floodOpacity="0.18" />
+              </filter>
+            </defs>
             <polyline
               fill="none"
               points={linePoints}
-              stroke="#ef4444"
+              stroke="#ffffff"
+              strokeDasharray="10 14"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeOpacity="0.18"
+              strokeWidth="12"
+              transform="translate(4 4)"
+            />
+            <polyline
+              className="super-admin-module-flow-glow"
+              fill="none"
+              points={linePoints}
+              stroke={`url(#moduleGraphLineGlow-${title})`}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="18"
+            />
+            <polyline
+              className="super-admin-module-flow-line"
+              fill="none"
+              points={linePoints}
+              stroke={`url(#moduleGraphLine-${title})`}
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth="5"
+              filter={`url(#moduleGraphShadow-${title})`}
             />
-            {linePoints.split(" ").map((point, index) => {
-              const [cx, cy] = point.split(",");
+            {activePoint ? (
+              <line
+                stroke="#ef4444"
+                strokeDasharray="5 6"
+                strokeOpacity="0.25"
+                strokeWidth="1"
+                x1={activePoint.x}
+                x2={activePoint.x}
+                y1="16"
+                y2="138"
+              />
+            ) : null}
+            {lineCoordinates.map((point, index) => {
+              const isActive = index === effectiveIndex;
 
               return (
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  fill="#fff"
-                  key={`${point}-${index}`}
-                  r="6"
-                  stroke="#ef4444"
-                  strokeWidth="3"
-                />
+                <g
+                  key={`${point.date}-${index}`}
+                  onFocus={() => setHoveredPointIndex(index)}
+                  onMouseEnter={() => setHoveredPointIndex(index)}
+                >
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    fill="#fff"
+                    r={isActive ? "7" : "6"}
+                    stroke="#ef4444"
+                    strokeWidth={isActive ? "4" : "3"}
+                    tabIndex={0}
+                  />
+                  {isActive ? (
+                    <>
+                      <circle cx={point.x} cy={point.y} fill="#ef4444" fillOpacity="0.16" r="16" />
+                      <circle cx={point.x} cy={point.y} fill="#ef4444" fillOpacity="0.1" r="24" />
+                    </>
+                  ) : null}
+                </g>
               );
             })}
           </svg>
+          {activePoint ? (
+            <div
+              className={cn(
+                "pointer-events-none absolute top-4 z-20 w-56 max-w-[calc(100%-2rem)] rounded-2xl border border-rose-200 bg-white/95 p-3 text-left shadow-[0_16px_36px_rgba(15,23,42,0.12)] backdrop-blur",
+                placeTooltipRight ? "right-4" : "left-4",
+              )}
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-slate-400">Active Day</p>
+                  <p className="text-sm font-black text-slate-950">{formatDate(activePoint.date)}</p>
+                </div>
+                <span
+                  className={cn(
+                    "rounded-full px-2.5 py-1 text-[10px] font-black ring-1",
+                    activeRisk >= 2
+                      ? "bg-rose-50 text-rose-700 ring-rose-100"
+                      : activeRisk === 1
+                        ? "bg-amber-50 text-amber-700 ring-amber-100"
+                        : "bg-emerald-50 text-emerald-700 ring-emerald-100",
+                  )}
+                >
+                  {activeRiskStatus}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-semibold">
+                <div className="rounded-xl bg-slate-50 p-2">
+                  <p className="text-slate-500">Pending</p>
+                  <p className="text-sm font-black text-amber-700">{activePoint.pendingCount}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-2">
+                  <p className="text-slate-500">Failed</p>
+                  <p className="text-sm font-black text-rose-700">{activePoint.failedCount}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-2">
+                  <p className="text-slate-500">Risk Score</p>
+                  <p className="text-sm font-black text-rose-700">{activeRisk}</p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-2">
+                  <p className="text-slate-500">Total Count</p>
+                  <p className="text-sm font-black text-slate-900">{formatNumber(activePoint.totalCount)}</p>
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] font-medium text-slate-500">
+                Higher red line means more pending or failed rows on that day.
+              </p>
+            </div>
+          ) : null}
           <div className="absolute inset-x-4 bottom-4 flex h-40 items-end justify-between gap-2">
-            {data.map((point) => {
+            {lineCoordinates.map((point, index) => {
               const depositHeight = Math.max(8, (point.depositsUsdt / maxVolume) * 128);
               const rewardHeight = Math.max(8, (point.rewardsUsdt / maxVolume) * 128);
               const withdrawalHeight = Math.max(8, (point.withdrawalsUsdt / maxVolume) * 128);
+              const isActive = point.date === activePoint?.date;
 
               return (
                 <div className="flex min-w-0 flex-1 flex-col items-center gap-2" key={point.date}>
-                  <div className="flex h-32 items-end gap-1.5">
+                  <div
+                    className="flex h-32 items-end gap-1.5"
+                    onFocus={() => setHoveredPointIndex(index)}
+                    onMouseEnter={() => setHoveredPointIndex(index)}
+                  >
                     <span
-                      className="w-3 rounded-t-full bg-emerald-500"
+                      className={cn("super-admin-module-bar super-admin-module-bar-deposit w-3 rounded-t-full bg-emerald-500 transition-all duration-300", isActive && "scale-y-105 shadow-[0_0_16px_rgba(16,185,129,0.3)]")}
                       style={{ height: `${depositHeight}px` }}
                       title={`Deposits: ${formatUsdt(point.depositsUsdt)}`}
                     />
                     <span
-                      className="w-3 rounded-t-full bg-violet-500"
+                      className={cn("super-admin-module-bar super-admin-module-bar-reward w-3 rounded-t-full bg-violet-500 transition-all duration-300", isActive && "scale-y-105 shadow-[0_0_16px_rgba(168,85,247,0.3)]")}
                       style={{ height: `${rewardHeight}px` }}
                       title={`Rewards: ${formatUsdt(point.rewardsUsdt)}`}
                     />
                     <span
-                      className="w-3 rounded-t-full bg-sky-500"
+                      className={cn("super-admin-module-bar super-admin-module-bar-withdraw w-3 rounded-t-full bg-sky-500 transition-all duration-300", isActive && "scale-y-105 shadow-[0_0_16px_rgba(56,189,248,0.3)]")}
                       style={{ height: `${withdrawalHeight}px` }}
                       title={`Withdrawals: ${formatUsdt(point.withdrawalsUsdt)}`}
                     />
                   </div>
-                  <p className="text-[10px] font-black text-slate-500">{formatDate(point.date).slice(0, 6)}</p>
+                  <p
+                    className={cn("text-[10px] font-black transition-colors", isActive ? "text-slate-900" : "text-slate-500")}
+                    onFocus={() => setHoveredPointIndex(index)}
+                    onMouseEnter={() => setHoveredPointIndex(index)}
+                  >
+                    {formatDate(point.date).slice(0, 6)}
+                  </p>
                 </div>
               );
             })}

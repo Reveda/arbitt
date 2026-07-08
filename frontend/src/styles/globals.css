@@ -71,6 +71,37 @@
     will-change: transform;
   }
 
+  .feature-card,
+  .landing-selectable-card {
+    display: block;
+    width: 100%;
+    appearance: none;
+    -webkit-appearance: none;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .feature-card.is-selected,
+  .landing-selectable-card.is-selected {
+    transform: translateY(-2px);
+    border-color: rgba(103, 232, 249, 0.58);
+    background: rgba(15, 23, 42, 0.9);
+    box-shadow:
+      0 0 0 1px rgba(103, 232, 249, 0.26),
+      0 0 24px rgba(56, 189, 248, 0.24),
+      0 14px 32px -22px rgba(56, 189, 248, 0.7);
+    filter: saturate(1.08);
+    animation: card-selected-breathe 2.8s ease-in-out infinite;
+  }
+
+  .feature-card.is-selected::after,
+  .landing-selectable-card.is-selected::after {
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.24), transparent 56%);
+  }
+
   .interactive-card {
     position: relative;
     isolation: isolate;
@@ -116,6 +147,7 @@
     .interactive-card:not(.form-motion-off):not(:has(form)):hover,
     .hover-lift:hover,
     .glass-card:hover,
+    .landing-selectable-card:hover,
     .dashboard-marquee-card:hover {
       transform: translateY(-3px) scale(1.007);
       border-color: rgba(103, 232, 249, 0.36);
@@ -125,6 +157,7 @@
     .interactive-card:not(.form-motion-off):not(:has(form)):hover::after,
     .hover-lift:hover::after,
     .glass-card:hover::after,
+    .landing-selectable-card:hover::after,
     .dashboard-marquee-card:hover::after {
       opacity: 1;
     }
@@ -136,6 +169,7 @@
     .interactive-card:not(.form-motion-off):not(:has(form)):active,
     .hover-lift:active,
     .glass-card:active,
+    .landing-selectable-card:active,
     .dashboard-marquee-card:active {
       transform: translateY(-3px) scale(1.007);
       border-color: rgba(103, 232, 249, 0.36);
@@ -145,6 +179,7 @@
     .interactive-card:not(.form-motion-off):not(:has(form)):active::after,
     .hover-lift:active::after,
     .glass-card:active::after,
+    .landing-selectable-card:active::after,
     .dashboard-marquee-card:active::after {
       opacity: 1;
     }
@@ -452,6 +487,13 @@
     min-width: 228px;
     width: 228px;
     flex: 0 0 auto;
+    display: block;
+    appearance: none;
+    -webkit-appearance: none;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
     position: relative;
     isolation: isolate;
     scroll-snap-align: start;
@@ -465,6 +507,23 @@
       box-shadow 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
       border-color 200ms ease,
       background-color 200ms ease;
+  }
+
+  .dashboard-marquee-card.is-selected {
+    transform: translateY(-1px);
+    border-color: rgba(103, 232, 249, 0.58);
+    background: rgba(15, 23, 42, 0.9);
+    box-shadow:
+      0 0 0 1px rgba(103, 232, 249, 0.3),
+      0 0 26px rgba(56, 189, 248, 0.26),
+      0 14px 32px -22px rgba(56, 189, 248, 0.76);
+    filter: saturate(1.08);
+    animation: card-selected-breathe 2.8s ease-in-out infinite;
+  }
+
+  .dashboard-marquee-card.is-selected::after {
+    opacity: 1;
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.26), transparent 56%);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -524,6 +583,208 @@
   .glass-card:hover {
     border-color: rgba(103, 232, 249, 0.35);
     background: rgba(15, 23, 42, 0.78);
+  }
+
+  .super-admin-flow-glow {
+    animation: super-admin-flow-drift 10s linear infinite;
+    transform-origin: center;
+  }
+
+  .super-admin-flow-line {
+    animation: super-admin-flow-drift-reverse 14s linear infinite;
+    transform-origin: center;
+  }
+
+  .super-admin-flow-ripple {
+    animation: super-admin-ripple 1.8s ease-out infinite;
+    transform-origin: center;
+  }
+
+  .super-admin-flow-ripple-delayed {
+    animation-delay: 0.9s;
+  }
+
+  .super-admin-flow-surface {
+    position: relative;
+  }
+
+  .super-admin-flow-surface::before {
+    content: "";
+    position: absolute;
+    inset: -30% -15%;
+    background: radial-gradient(circle at 50% 30%, rgba(34, 211, 238, 0.14), transparent 34%);
+    animation: super-admin-surface-breathe 6.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .super-admin-flow-bar {
+    transform-origin: bottom;
+    animation: super-admin-bar-bob 4.4s ease-in-out infinite;
+  }
+
+  .super-admin-flow-bar-deposits {
+    animation-delay: -0.6s;
+  }
+
+  .super-admin-flow-bar-withdrawals {
+    animation-delay: -1.2s;
+  }
+
+  .super-admin-flow-bar-rewards {
+    animation-delay: -1.8s;
+  }
+
+  .super-admin-module-surface {
+    position: relative;
+  }
+
+  .super-admin-module-surface::before {
+    content: "";
+    position: absolute;
+    inset: -30% -15%;
+    background: radial-gradient(circle at 50% 30%, rgba(34, 211, 238, 0.12), transparent 34%);
+    animation: super-admin-surface-breathe 6.5s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  .super-admin-module-flow-glow {
+    animation: super-admin-flow-drift 10s linear infinite;
+    transform-origin: center;
+  }
+
+  .super-admin-module-flow-line {
+    animation: super-admin-flow-drift-reverse 14s linear infinite;
+    transform-origin: center;
+  }
+
+  .super-admin-module-bar {
+    transform-origin: bottom;
+    animation: super-admin-bar-bob 4.4s ease-in-out infinite;
+  }
+
+  .super-admin-module-bar-deposit {
+    animation-delay: -0.6s;
+  }
+
+  .super-admin-module-bar-reward {
+    animation-delay: -1.2s;
+  }
+
+  .super-admin-module-bar-withdraw {
+    animation-delay: -1.8s;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .feature-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px -22px rgba(56, 189, 248, 0.58);
+    }
+  }
+
+  @media (hover: none),
+  (pointer: coarse) {
+    .feature-card:active {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 28px -22px rgba(56, 189, 248, 0.58);
+    }
+  }
+}
+
+@keyframes card-selected-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(103, 232, 249, 0.28),
+      0 0 24px rgba(56, 189, 248, 0.22),
+      0 14px 30px -22px rgba(56, 189, 248, 0.72);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(103, 232, 249, 0.38),
+      0 0 30px rgba(56, 189, 248, 0.3),
+      0 16px 36px -20px rgba(56, 189, 248, 0.82);
+  }
+}
+
+@keyframes super-admin-flow-drift {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0.7;
+  }
+
+  50% {
+    opacity: 1;
+  }
+
+  100% {
+    stroke-dashoffset: -120;
+    opacity: 0.78;
+  }
+}
+
+@keyframes super-admin-flow-drift-reverse {
+  0% {
+    stroke-dashoffset: 0;
+    opacity: 0.92;
+  }
+
+  100% {
+    stroke-dashoffset: 120;
+    opacity: 0.96;
+  }
+}
+
+@keyframes super-admin-ripple {
+  0% {
+    transform: scale(0.78);
+    opacity: 0;
+  }
+
+  35% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: scale(1.18);
+    opacity: 0;
+  }
+}
+
+@keyframes super-admin-surface-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
+  }
+}
+
+@keyframes super-admin-bar-bob {
+  0%,
+  100% {
+    transform: translateY(0) scaleY(1);
+  }
+
+  50% {
+    transform: translateY(-1px) scaleY(1.02);
+  }
+}
+
+@keyframes super-admin-surface-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.9;
+    transform: scale(1.02);
   }
 }
 

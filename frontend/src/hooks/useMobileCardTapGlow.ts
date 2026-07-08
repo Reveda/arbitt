@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const CARD_SELECTOR = ".interactive-card, .glass-card, .hover-lift, .dashboard-marquee-card";
+const CARD_SELECTOR = ".interactive-card, .glass-card, .hover-lift";
 
 export function useMobileCardTapGlow() {
   useEffect(() => {
@@ -63,4 +63,3 @@ export function useMobileCardTapGlow() {
     };
   }, []);
 }
-

@@ -1,25 +1,33 @@
 import { useEffect, useRef } from "react";
 import type { LandingStat } from "@/features/landing/types";
 import { RevealOnScroll } from "@/components/common/RevealOnScroll";
+import { useLandingCardSelection } from "@/features/landing/context/LandingCardSelectionContext";
 
 interface StatsSectionProps {
   stats: LandingStat[];
 }
 
 export function StatsSection({ stats }: StatsSectionProps) {
+  const { activeCardKey, setActiveCardKey } = useLandingCardSelection();
+
   return (
     <section className="grid gap-4 sm:gap-6 md:gap-8" id="stats">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
         {stats.map((item, idx) => (
           <RevealOnScroll className="h-full" delayMs={idx * 50} key={item.label}>
-            <article className="glass-card hover-lift flex h-full flex-col justify-between rounded-xl p-4 md:p-5">
+            <button
+              className={`glass-card hover-lift landing-selectable-card flex h-full flex-col justify-between rounded-xl p-4 text-left md:p-5${activeCardKey === `stat-${item.label}` ? " is-selected" : ""}`}
+              type="button"
+              onClick={() => setActiveCardKey(`stat-${item.label}`)}
+              aria-pressed={activeCardKey === `stat-${item.label}`}
+            >
               <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 sm:text-xs">
                 {item.label}
               </span>
               <div className="metric-value-premium mt-3 text-2xl font-extrabold text-cyan-300 sm:text-3xl md:text-4xl">
                 <AnimatedCounter value={item.value} />
               </div>
-            </article>
+            </button>
           </RevealOnScroll>
         ))}
       </div>

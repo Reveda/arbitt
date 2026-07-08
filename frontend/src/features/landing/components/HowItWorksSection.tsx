@@ -1,12 +1,15 @@
 import type { StepItem } from "@/features/landing/types";
 import { RevealOnScroll } from "@/components/common/RevealOnScroll";
 import howItWorksImage from "@/assets/how it works.png";
+import { useLandingCardSelection } from "@/features/landing/context/LandingCardSelectionContext";
 
 type HowItWorksSectionProps = {
   steps: StepItem[];
 };
 
 export function HowItWorksSection({ steps }: HowItWorksSectionProps) {
+  const { activeCardKey, setActiveCardKey } = useLandingCardSelection();
+
   return (
     <section className="rounded-2xl border border-blue-400/25 bg-[#040d25]/85 p-4 sm:p-6" id="how-it-works">
       <h2 className="section-title-premium text-2xl font-bold">How It Works</h2>
@@ -16,11 +19,16 @@ export function HowItWorksSection({ steps }: HowItWorksSectionProps) {
         <div className="grid gap-2.5 sm:gap-3">
           {steps.map((step, idx) => (
             <RevealOnScroll className="h-full" delayMs={idx * 42} key={step.id}>
-              <article className="glass-card hover-lift h-full rounded-lg p-4">
+              <button
+                className={`glass-card hover-lift landing-selectable-card h-full rounded-lg p-4 text-left${activeCardKey === `step-${step.id}` ? " is-selected" : ""}`}
+                type="button"
+                onClick={() => setActiveCardKey(`step-${step.id}`)}
+                aria-pressed={activeCardKey === `step-${step.id}`}
+              >
                 <p className="text-lg font-bold text-cyan-200">{step.id}</p>
                 <p className="mt-1 text-sm font-semibold">{step.title}</p>
                 <p className="mt-2 text-xs leading-relaxed text-slate-400">{step.note}</p>
-              </article>
+              </button>
             </RevealOnScroll>
           ))}
         </div>

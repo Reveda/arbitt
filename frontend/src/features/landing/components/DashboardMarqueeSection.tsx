@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, BarChart3, Gift, ShieldCheck, Users } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, BarChart3, ShieldCheck } from "lucide-react";
+import { useLandingCardSelection } from "@/features/landing/context/LandingCardSelectionContext";
 
 const dashboardCards = [
   {
@@ -8,18 +9,18 @@ const dashboardCards = [
     hint: "Current dashboard value",
     icon: BarChart3
   },
-  {
-    title: "Total Team",
-    value: "0 Members",
-    hint: "Current dashboard value",
-    icon: Users
-  },
-  {
-    title: "Total Earnings",
-    value: "0.00 USDT",
-    hint: "Current dashboard value",
-    icon: Gift
-  },
+  // {
+  //   title: "Total Team",
+  //   value: "0 Members",
+  //   hint: "Current dashboard value",
+  //   icon: Users
+  // },
+  // {
+  //   title: "Total Earnings",
+  //   value: "0.00 USDT",
+  //   hint: "Current dashboard value",
+  //   icon: Gift
+  // },
   {
     title: "Total Users",
     value: "25K+",
@@ -44,6 +45,7 @@ const loopCards = [...dashboardCards, ...dashboardCards];
 
 export function DashboardMarqueeSection() {
   const listRef = useRef<HTMLDivElement | null>(null);
+  const { activeCardKey, setActiveCardKey } = useLandingCardSelection();
 
   const cardStep = useCallback(() => {
     const list = listRef.current;
@@ -89,8 +91,17 @@ export function DashboardMarqueeSection() {
         <div className="dashboard-marquee-viewport" ref={listRef}>
           {loopCards.map((card, idx) => {
             const Icon = card.icon;
+            const cardKey = `dashboard-${card.title}-${idx % dashboardCards.length}`;
+            const isSelected = activeCardKey === cardKey;
             return (
-              <article className="dashboard-marquee-card" data-marquee-card="true" key={`${card.title}-${idx}`}>
+              <button
+                className={`dashboard-marquee-card landing-selectable-card${isSelected ? " is-selected" : ""}`}
+                data-marquee-card="true"
+                key={`${card.title}-${idx}`}
+                type="button"
+                onClick={() => setActiveCardKey(cardKey)}
+                aria-pressed={isSelected}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium text-slate-400">{card.title}</p>
@@ -101,7 +112,7 @@ export function DashboardMarqueeSection() {
                   </span>
                 </div>
                 <p className="mt-3 text-xs text-slate-400">{card.hint}</p>
-              </article>
+              </button>
             );
           })}
         </div>

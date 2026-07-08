@@ -1,11 +1,14 @@
 import type { AboutHighlight } from "@/features/landing/types";
 import { RevealOnScroll } from "@/components/common/RevealOnScroll";
+import { useLandingCardSelection } from "@/features/landing/context/LandingCardSelectionContext";
 
 type AboutSectionProps = {
   highlights: AboutHighlight[];
 };
 
 export function AboutSection({ highlights }: AboutSectionProps) {
+  const { activeCardKey, setActiveCardKey } = useLandingCardSelection();
+
   return (
     <section className="grid gap-4 md:gap-5" id="about">
       <article className="rounded-2xl border border-blue-400/25 bg-[#040d25]/85 p-4 sm:p-6">
@@ -17,10 +20,15 @@ export function AboutSection({ highlights }: AboutSectionProps) {
         <div className="mt-4 grid gap-2.5 sm:mt-5 sm:grid-cols-2 sm:gap-3">
           {highlights.map((item, idx) => (
             <RevealOnScroll className="h-full" delayMs={idx * 45} key={item.title}>
-              <div className="glass-card hover-lift h-full rounded-lg p-3">
+              <button
+                className={`glass-card hover-lift landing-selectable-card h-full rounded-lg p-3 text-left${activeCardKey === `about-${item.title}` ? " is-selected" : ""}`}
+                type="button"
+                onClick={() => setActiveCardKey(`about-${item.title}`)}
+                aria-pressed={activeCardKey === `about-${item.title}`}
+              >
                 <p className="text-sm font-semibold text-cyan-200">{item.title}</p>
                 <p className="mt-1 text-xs text-slate-400">{item.description}</p>
-              </div>
+              </button>
             </RevealOnScroll>
           ))}
         </div>
