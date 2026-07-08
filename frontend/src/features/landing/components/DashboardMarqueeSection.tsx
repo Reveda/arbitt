@@ -1,44 +1,44 @@
 import { useCallback, useEffect, useRef } from "react";
-import { ArrowDownToLine, ArrowUpFromLine, BarChart3, ShieldCheck } from "lucide-react";
+import { ArrowDownToLine, ArrowUpFromLine, BarChart3, Gift, ShieldCheck, Users } from "lucide-react";
 import { useLandingCardSelection } from "@/features/landing/context/LandingCardSelectionContext";
 
 const dashboardCards = [
   {
     title: "Wallet Balance",
-    value: "0.00 USDT",
-    hint: "Current dashboard value",
-    icon: BarChart3
+    value: "1.24M USDT",
+    hint: "Live platform wallet overview",
+    icon: BarChart3,
   },
-  // {
-  //   title: "Total Team",
-  //   value: "0 Members",
-  //   hint: "Current dashboard value",
-  //   icon: Users
-  // },
-  // {
-  //   title: "Total Earnings",
-  //   value: "0.00 USDT",
-  //   hint: "Current dashboard value",
-  //   icon: Gift
-  // },
+  {
+    title: "Total Team",
+    value: "320+ Members",
+    hint: "Growing referral network",
+    icon: Users,
+  },
+  {
+    title: "Total Earnings",
+    value: "6.8M USDT",
+    hint: "Accumulated platform earnings",
+    icon: Gift,
+  },
   {
     title: "Total Users",
     value: "25K+",
     hint: "Platform overview",
-    icon: ArrowDownToLine
+    icon: ArrowDownToLine,
   },
   {
     title: "Total Deposits",
     value: "$4.2M+",
     hint: "USDT volume",
-    icon: ArrowUpFromLine
+    icon: ArrowUpFromLine,
   },
   {
     title: "Total Payouts",
     value: "$2.8M+",
     hint: "USDT distributed",
-    icon: ShieldCheck
-  }
+    icon: ShieldCheck,
+  },
 ];
 
 const loopCards = [...dashboardCards, ...dashboardCards];
