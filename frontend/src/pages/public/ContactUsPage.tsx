@@ -34,7 +34,7 @@ export function ContactUsPage() {
     try {
       await apiRequest("/landing/contact", {
         method: "POST",
-        body: JSON.stringify(values),
+        body: values,
         headers: {
           "Content-Type": "application/json"
         }

@@ -7,6 +7,7 @@ import { createApp } from "./app";
 import { roleService } from "./modules/roles/services/role.service";
 import { payoutSchedulerService } from "./modules/admin/services/payout-scheduler.service";
 import { createWithdrawalWorker } from "./modules/wallet/workers/withdrawal.worker";
+import { createEmailWorker } from "./modules/email/workers/email.worker";
 
 async function bootstrap() {
   await connectDatabase();
@@ -16,6 +17,7 @@ async function bootstrap() {
   const shouldRunApi = env.PROCESS_ROLE === "api" || env.PROCESS_ROLE === "all";
   const shouldRunWorkers = env.PROCESS_ROLE === "worker" || env.PROCESS_ROLE === "all";
   const withdrawalWorker = shouldRunWorkers ? createWithdrawalWorker() : null;
+  const emailWorker = shouldRunWorkers ? createEmailWorker() : null;
   let server: ReturnType<typeof createServer> | null = null;
 
   if (shouldRunWorkers) {
@@ -38,6 +40,9 @@ async function bootstrap() {
     const closeResources = async () => {
       if (withdrawalWorker) {
         await withdrawalWorker.close();
+      }
+      if (emailWorker) {
+        await emailWorker.close();
       }
       await disconnectRedis();
       await disconnectDatabase();

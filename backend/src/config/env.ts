@@ -71,6 +71,16 @@ const envSchema = z
     REFRESH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
     FINANCIAL_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
     FINANCIAL_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(30),
+    EMAIL_ENABLED: optionalBooleanString.default(false),
+    EMAIL_QUEUE_ENABLED: optionalBooleanString.default(true),
+    EMAIL_QUEUE_CONCURRENCY: z.coerce.number().int().positive().default(5),
+    SMTP_HOST: z.string().min(1).optional(),
+    SMTP_PORT: z.coerce.number().int().positive().optional(),
+    SMTP_SECURE: optionalBooleanString.default(false),
+    SMTP_USER: z.string().min(1).optional(),
+    SMTP_PASS: z.string().min(1).optional(),
+    EMAIL_FROM: z.string().min(1).optional(),
+    EMAIL_FROM_NAME: z.string().min(1).default("Arbitrum"),
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== "production") {
@@ -108,6 +118,48 @@ const envSchema = z
           "EXPOSE_AUTH_OTP_IN_TEST_MODE can only be enabled in production when APP_ENV=test.",
         path: ["EXPOSE_AUTH_OTP_IN_TEST_MODE"],
       });
+    }
+
+    if (value.EMAIL_ENABLED) {
+      if (!value.SMTP_HOST) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "SMTP_HOST is required when EMAIL_ENABLED is true.",
+          path: ["SMTP_HOST"],
+        });
+      }
+
+      if (!value.SMTP_PORT) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "SMTP_PORT is required when EMAIL_ENABLED is true.",
+          path: ["SMTP_PORT"],
+        });
+      }
+
+      if (!value.SMTP_USER) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "SMTP_USER is required when EMAIL_ENABLED is true.",
+          path: ["SMTP_USER"],
+        });
+      }
+
+      if (!value.SMTP_PASS) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "SMTP_PASS is required when EMAIL_ENABLED is true.",
+          path: ["SMTP_PASS"],
+        });
+      }
+
+      if (!value.EMAIL_FROM) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "EMAIL_FROM is required when EMAIL_ENABLED is true.",
+          path: ["EMAIL_FROM"],
+        });
+      }
     }
   });
 

@@ -6,6 +6,7 @@ import { comparePassword, hashPassword } from "../../../utils/password";
 import { toSafeUser } from "../../auth/dtos/auth.dto";
 import { authRepository } from "../../auth/repositories/auth.repository";
 import { hashToken } from "../../auth/utils/token";
+import { emailService } from "../../email/services/email.service";
 import { calculateUserRoyaltyRanks } from "../../rewards/services/reward.service";
 import type {
   CurrentUserResponseDto,
@@ -106,6 +107,13 @@ export class UserService {
       otpHash,
       expiresAt,
       pendingWalletAddress: walletAddress,
+    });
+    await emailService.sendOtpEmail({
+      to: user.email,
+      otp,
+      purpose: "wallet-address-change",
+      expiresInMinutes: WALLET_ADDRESS_CHANGE_OTP_EXPIRES_IN_MINUTES,
+      contextLabel: "Wallet address change",
     });
 
     this.logDevelopmentOtp("wallet-address-change", user.email, otp, expiresAt);

@@ -18,6 +18,7 @@ import { generateReferralCode } from "../../../utils/referralCode";
 import { referralRepository } from "../../referrals/repositories/referral.repository";
 import { walletRepository } from "../../wallet/repositories/wallet.repository";
 import { authRepository } from "../repositories/auth.repository";
+import { emailService } from "../../email/services/email.service";
 import {
   toSafeUser,
   type EmailVerificationRequestResponseDto,
@@ -672,6 +673,13 @@ export class AuthService {
       otpHash: this.hashOtp("email-verification", email, otp),
       expiresAt,
     });
+    await emailService.sendOtpEmail({
+      to: email,
+      otp,
+      purpose: "email-verification",
+      expiresInMinutes: OTP_EXPIRES_IN_MINUTES,
+      contextLabel: "Email verification",
+    });
     this.logDevelopmentOtp("email-verification", email, otp, expiresAt);
 
     return {
@@ -687,6 +695,13 @@ export class AuthService {
     await authRepository.setPasswordResetOtp(userId, {
       otpHash: this.hashOtp("password-reset", email, otp),
       expiresAt,
+    });
+    await emailService.sendOtpEmail({
+      to: email,
+      otp,
+      purpose: "password-reset",
+      expiresInMinutes: OTP_EXPIRES_IN_MINUTES,
+      contextLabel: "Password reset",
     });
     this.logDevelopmentOtp("password-reset", email, otp, expiresAt);
 
