@@ -279,15 +279,27 @@ This production compose is designed for:
 
 - Host Nginx on the VPS for domain + SSL
 - Docker frontend bound to `127.0.0.1:8080`
+- Two backend API containers by default for a 4-core style base
+- One single worker container
 - Docker backend/worker/mongo/redis on the internal Docker network
 
-For bigger VPS, run two backend API containers:
+Default `up -d --build` now starts:
+
+- `backend`
+- `backend-2`
+- `worker`
+- `mongo`
+- `redis`
+- `mongo-backup`
+- `frontend`
+
+For a bigger VPS, increase beyond the default two API containers only after load testing:
 
 ```bash
-docker compose --env-file backend/.env -f docker-compose.prod.yml up -d --build --scale backend=2
+docker compose --env-file backend/.env -f docker-compose.prod.yml up -d --build
 ```
 
-Do not scale worker. Worker must stay single.
+Do not add extra worker containers. Worker must stay single.
 
 Check running containers:
 
@@ -298,7 +310,8 @@ docker ps
 You should see:
 
 - frontend container
-- backend service container
+- `backend`
+- `backend-2`
 - `arbitrum-worker-prod`
 - `arbitrum-mongo-prod`
 - `arbitrum-redis-prod`
@@ -595,6 +608,7 @@ Implemented in this repo:
 
 - Docker production setup.
 - Docker frontend Nginx for SPA + API proxy.
+- Nginx upstream load balancing across `backend` and `backend-2`.
 - Host Nginx config for domain + SSL termination.
 - Backend API container.
 - Separate BullMQ worker container.

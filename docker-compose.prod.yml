@@ -73,6 +73,30 @@ services:
       redis:
         condition: service_healthy
 
+  backend-2:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./logs/backend:/app/logs
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=production
+      - PROCESS_ROLE=api
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   worker:
     build:
       context: ./backend
@@ -109,6 +133,8 @@ services:
       start_period: 15s
     depends_on:
       backend:
+        condition: service_healthy
+      backend-2:
         condition: service_healthy
 
 volumes:

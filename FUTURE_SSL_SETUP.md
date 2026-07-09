@@ -3,7 +3,7 @@
 Current recommended production setup is:
 
 ```text
-Internet -> Host Nginx (SSL/domain) -> Docker frontend on 127.0.0.1:8080 -> backend service
+Internet -> Host Nginx (SSL/domain) -> Docker frontend on 127.0.0.1:8080 -> backend / backend-2
 ```
 
 Keep SSL at the public VPS Nginx layer, not inside the Node backend.
