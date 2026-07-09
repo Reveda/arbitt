@@ -416,10 +416,10 @@ export function WithdrawPage() {
                 </div>
               </div>
 
-              {/* Withdrawal Tax field */}
+              {/* Withdrawal fee field */}
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Withdrawal Tax (10% Fee)
+                  Withdrawal Fee (10%)
                 </label>
                 <div className="relative">
                   <Input
@@ -706,7 +706,7 @@ export function WithdrawPage() {
                       Confirm Withdrawal Request
                     </h3>
                     <p className="text-[11px] font-semibold text-slate-400">
-                      Please review the payout details and fee deduction
+                      Please review the payout details before continuing
                     </p>
                   </div>
                   <Button
