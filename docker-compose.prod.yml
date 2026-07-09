@@ -9,6 +9,12 @@ services:
       MONGO_INITDB_DATABASE: arbitrum
     volumes:
       - mongo-prod-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
 
   mongo-backup:
     image: mongo:6.0
@@ -24,7 +30,8 @@ services:
       - ./scripts/mongo-backup.sh:/usr/local/bin/mongo-backup.sh:ro
     command: ["sh", "/usr/local/bin/mongo-backup.sh"]
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
 
   redis:
     image: redis:7-alpine
@@ -35,6 +42,12 @@ services:
     command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
     volumes:
       - redis-prod-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   backend:
     build:
@@ -48,9 +61,17 @@ services:
       - NODE_ENV=production
       - APP_ENV=production
       - PROCESS_ROLE=api
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   worker:
     build:
@@ -66,8 +87,10 @@ services:
       - APP_ENV=production
       - PROCESS_ROLE=worker
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   frontend:
     build:
@@ -77,9 +100,16 @@ services:
     container_name: arbitrum-frontend-prod
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "127.0.0.1:8080:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
 volumes:
   mongo-prod-data:

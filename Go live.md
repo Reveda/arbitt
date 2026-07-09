@@ -275,6 +275,12 @@ Start basic production:
 docker compose --env-file backend/.env -f docker-compose.prod.yml up -d --build
 ```
 
+This production compose is designed for:
+
+- Host Nginx on the VPS for domain + SSL
+- Docker frontend bound to `127.0.0.1:8080`
+- Docker backend/worker/mongo/redis on the internal Docker network
+
 For bigger VPS, run two backend API containers:
 
 ```bash
@@ -415,9 +421,10 @@ ping yourdomain.com
 
 Do not launch real money/users without SSL.
 
-When domain points to VPS, install Certbot:
+When domain points to VPS, install host Nginx and Certbot:
 
 ```bash
+apt install -y nginx
 apt install -y snapd
 snap install core
 snap refresh core
@@ -425,20 +432,7 @@ snap install --classic certbot
 ln -s /snap/bin/certbot /usr/bin/certbot
 ```
 
-Because this app uses Docker Nginx, easiest path:
-
-1. Stop frontend container temporarily.
-2. Run Certbot standalone.
-3. Mount `/etc/letsencrypt` into frontend Nginx.
-4. Update Nginx config for 443.
-
-Stop frontend:
-
-```bash
-docker compose --env-file backend/.env -f docker-compose.prod.yml stop frontend
-```
-
-Issue certificate:
+Copy [nginx-arbitrum.conf](/D:/arbitrum/arbitt/nginx-arbitrum.conf) to VPS Nginx sites config, update domain names, then issue certificate:
 
 ```bash
 certbot certonly --standalone -d yourdomain.com -d www.yourdomain.com
@@ -457,9 +451,11 @@ FRONTEND_URL=https://yourdomain.com
 COOKIE_SECURE=true
 ```
 
-Restart:
+Reload Nginx and restart Docker app:
 
 ```bash
+nginx -t
+systemctl reload nginx
 docker compose --env-file backend/.env -f docker-compose.prod.yml up -d --build
 ```
 
@@ -598,7 +594,8 @@ free -h
 Implemented in this repo:
 
 - Docker production setup.
-- Nginx reverse proxy and backend upstream load balancing.
+- Docker frontend Nginx for SPA + API proxy.
+- Host Nginx config for domain + SSL termination.
 - Backend API container.
 - Separate BullMQ worker container.
 - Redis with password.
@@ -608,6 +605,7 @@ Implemented in this repo:
 - Production env example.
 - Future SSL guide.
 - Health endpoint.
+- Container healthchecks.
 - Rate limits.
 - Secure HTTP-only auth cookies.
 
