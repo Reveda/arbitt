@@ -22,6 +22,12 @@ function formatUsdt(value: number) {
   }).format(Number(value.toFixed(2)))} USDT`;
 }
 
+function formatChartUsdt(value: number) {
+  return `${new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(value)} USDT`;
+}
+
 function formatDate(value: string | null) {
   if (!value) {
     return "Now";
@@ -52,6 +58,25 @@ function buildChartPoints(
     x: source.length === 1 ? 158 : 18 + (index * 284) / (source.length - 1),
     y: range === 0 ? 120 : 132 - ((point.amountUsdt - minAmount) / range) * 102,
   }));
+}
+
+function getChartStats(
+  overview: UserDashboardOverview["earningOverview"] | undefined,
+) {
+  const source = overview?.length
+    ? overview
+    : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"].map((month) => ({
+        month,
+        amountUsdt: 0,
+      }));
+
+  const values = source.map((point) => point.amountUsdt);
+  const first = values[0] ?? 0;
+  const last = values[values.length - 1] ?? 0;
+  const peak = Math.max(...values);
+  const growth = first > 0 ? ((last - first) / first) * 100 : last > 0 ? 100 : 0;
+
+  return { first, growth, last, peak };
 }
 
 function getTransactionMeta(
@@ -138,6 +163,7 @@ export function UserDashboardPage() {
     },
   ];
   const chartPoints = buildChartPoints(dashboard?.earningOverview);
+  const chartStats = getChartStats(dashboard?.earningOverview);
   const chartPath = chartPoints
     .map((point, index) => `${index === 0 ? "M" : "L"}${point.x} ${point.y}`)
     .join(" ");
@@ -207,7 +233,7 @@ export function UserDashboardPage() {
       </div>
 
       <div className="grid gap-3 sm:gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-        <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-sm">
+        <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-[0_14px_40px_rgba(8,21,46,0.06)]">
           <CardHeader className="p-4 pb-2">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -222,15 +248,43 @@ export function UserDashboardPage() {
                 This Year
               </span>
             </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Start</p>
+                <p className="mt-1 text-sm font-black text-slate-950">{formatUsdt(chartStats.first)}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Peak</p>
+                <p className="mt-1 text-sm font-black text-slate-950">{formatUsdt(chartStats.peak)}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Growth</p>
+                <p className="mt-1 text-sm font-black text-slate-950">
+                  {chartStats.growth >= 0 ? "+" : ""}
+                  {Math.round(chartStats.growth)}%
+                </p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="p-4 pt-0">
-            <div className="relative h-56 overflow-hidden rounded-xl border border-cyan-100 bg-gradient-to-br from-cyan-50 via-white to-slate-50">
+            <div className="relative h-64 overflow-hidden rounded-2xl border border-cyan-100 bg-gradient-to-br from-cyan-50 via-white to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:h-72">
               <svg
                 className="absolute inset-0 size-full"
                 preserveAspectRatio="none"
                 viewBox="0 0 320 160"
               >
                 <defs>
+                  <linearGradient
+                    id="userEarningStroke"
+                    x1="18"
+                    x2="302"
+                    y1="0"
+                    y2="0"
+                  >
+                    <stop offset="0%" stopColor="#d946ef" />
+                    <stop offset="48%" stopColor="#0ea5e9" />
+                    <stop offset="100%" stopColor="#22d3ee" />
+                  </linearGradient>
                   <linearGradient
                     id="userEarningFill"
                     x1="0"
@@ -241,12 +295,21 @@ export function UserDashboardPage() {
                     <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.2" />
                     <stop offset="100%" stopColor="#06b6d4" stopOpacity="0" />
                   </linearGradient>
+                  <filter id="chartGlow" height="180%" width="180%" x="-40%" y="-40%">
+                    <feGaussianBlur result="blur" stdDeviation="2.4" />
+                    <feColorMatrix
+                      in="blur"
+                      type="matrix"
+                      values="0 0 0 0 0.05 0 0 0 0 0.55 0 0 0 0 0.75 0 0 0 0.35 0"
+                    />
+                  </filter>
                 </defs>
                 {[36, 70, 104, 138].map((lineY) => (
                   <line
                     key={lineY}
-                    stroke="#e2e8f0"
-                    strokeDasharray="3 5"
+                    stroke="#d9e7f2"
+                    strokeDasharray="1.5 9"
+                    strokeOpacity="0.62"
                     strokeWidth="1"
                     x1="12"
                     x2="308"
@@ -257,25 +320,53 @@ export function UserDashboardPage() {
                 <path d={chartFillPath} fill="url(#userEarningFill)" />
                 <path
                   d={chartPath}
+                  filter="url(#chartGlow)"
                   fill="none"
-                  stroke="#0891b2"
+                  stroke="url(#userEarningStroke)"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="4"
+                  strokeWidth="4.5"
                 />
                 {chartPoints.map((point) => (
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    fill="#0891b2"
-                    key={`${point.month}-${point.x}`}
-                    r="4.5"
-                    stroke="#ffffff"
-                    strokeWidth="3"
-                  />
+                  <g key={`${point.month}-${point.x}`}>
+                    <circle cx={point.x} cy={point.y} fill="#22d3ee" opacity="0.14" r="11" />
+                    <circle
+                      cx={point.x}
+                      cy={point.y}
+                      fill="#0891b2"
+                      r="5.5"
+                      stroke="#ffffff"
+                      strokeWidth="3.5"
+                    />
+                    <circle cx={point.x} cy={point.y} fill="#ffffff" r="1.6" opacity="0.85" />
+                  </g>
                 ))}
               </svg>
-              <div className="absolute bottom-3 left-4 right-4 flex justify-between text-[10px] font-bold text-slate-400">
+              <div className="absolute inset-0 pointer-events-none">
+                {chartPoints.map((point) => {
+                  const left = (point.x / 320) * 100;
+                  const top = (point.y / 160) * 100;
+
+                  return (
+                    <div
+                      className="absolute -translate-x-1/2 -translate-y-full"
+                      key={`label-${point.month}-${point.x}`}
+                      style={{
+                        left: `${left}%`,
+                        top: `calc(${top}% - 10px)`,
+                      }}
+                    >
+                      <div className="rounded-full border border-cyan-100 bg-white/95 px-2.5 py-1 text-[10px] font-black text-slate-700 shadow-[0_8px_18px_rgba(8,21,46,0.08)]">
+                        {formatChartUsdt(point.amountUsdt)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="absolute left-4 top-4 rounded-full border border-cyan-100 bg-white/92 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-700 shadow-sm">
+                Revenue trend
+              </div>
+              <div className="absolute bottom-3 left-4 right-4 flex justify-between text-[10px] font-black text-slate-500">
                 {chartPoints.map((point) => (
                   <span key={point.month}>{point.month}</span>
                 ))}
@@ -284,7 +375,7 @@ export function UserDashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-sm">
+        <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-[0_14px_40px_rgba(8,21,46,0.06)]">
           <CardHeader className="p-4 pb-2">
             <CardTitle className="text-sm text-slate-950">
               Recent Activity

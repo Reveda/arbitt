@@ -85,6 +85,15 @@ export type UpdateWalletAddressPayload = {
   walletAddress: string;
 };
 
+export type RequestWalletAddressChangeOtpPayload = {
+  walletAddress: string;
+};
+
+export type VerifyWalletAddressChangeOtpPayload = {
+  walletAddress: string;
+  otp: string;
+};
+
 export type UpdateTransactionPasswordPayload = {
   currentTransactionPassword?: string;
   transactionPassword: string;
@@ -235,6 +244,26 @@ export const authService = {
   updateWalletAddress(payload: UpdateWalletAddressPayload) {
     return apiRequest<{ user: AuthUser }>(API_ENDPOINTS.users.walletAddress, {
       method: "PATCH",
+      body: payload,
+    }).then((response) => {
+      setCurrentUserCache(response.data.user);
+      return response;
+    });
+  },
+
+  requestWalletAddressChangeOtp(payload: RequestWalletAddressChangeOtpPayload) {
+    return apiRequest<OtpDelivery & { accepted: boolean }>(
+      API_ENDPOINTS.users.walletAddressRequestOtp,
+      {
+        method: "POST",
+        body: payload,
+      },
+    );
+  },
+
+  verifyWalletAddressChangeOtp(payload: VerifyWalletAddressChangeOtpPayload) {
+    return apiRequest<{ user: AuthUser }>(API_ENDPOINTS.users.walletAddressVerifyOtp, {
+      method: "POST",
       body: payload,
     }).then((response) => {
       setCurrentUserCache(response.data.user);

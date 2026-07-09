@@ -4,12 +4,16 @@ import { validateRequest } from "../../../middlewares/validateRequest";
 import {
   getCurrentUser,
   getUserProfile,
+  requestWalletAddressChangeOtp,
   updateTransactionPassword,
   updateWalletAddress,
+  verifyWalletAddressChangeOtp,
 } from "../controllers/user.controller";
 import {
+  requestWalletAddressChangeOtpSchema,
   updateTransactionPasswordSchema,
   updateWalletAddressSchema,
+  verifyWalletAddressChangeOtpSchema,
   createSupportTicketSchema,
 } from "../validations/user.validation";
 import { createSupportTicket, listUserSupportTickets } from "../controllers/support.controller";
@@ -24,6 +28,20 @@ userRoutes.patch(
   requirePermissions("profile:update"),
   validateRequest({ body: updateWalletAddressSchema }),
   updateWalletAddress,
+);
+userRoutes.post(
+  "/profile/wallet-address/request-otp",
+  requireAuth,
+  requirePermissions("profile:update"),
+  validateRequest({ body: requestWalletAddressChangeOtpSchema }),
+  requestWalletAddressChangeOtp,
+);
+userRoutes.post(
+  "/profile/wallet-address/verify-otp",
+  requireAuth,
+  requirePermissions("profile:update"),
+  validateRequest({ body: verifyWalletAddressChangeOtpSchema }),
+  verifyWalletAddressChangeOtp,
 );
 userRoutes.patch(
   "/profile/transaction-password",

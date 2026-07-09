@@ -51,6 +51,63 @@ export class UserRepository {
       .lean();
   }
 
+  async findByIdWithWalletAddressOtp(userId: string): Promise<UserRepositoryRecord | null> {
+    return UserModel.findOne({ _id: userId, isDeleted: { $ne: true } })
+      .select("+walletAddressChangeOtpHash")
+      .lean();
+  }
+
+  async setWalletAddressChangeOtp(
+    userId: string,
+    input: {
+      otpHash: string;
+      expiresAt: Date;
+      pendingWalletAddress: string;
+    },
+  ): Promise<UserRepositoryRecord | null> {
+    return UserModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          pendingWalletAddress: input.pendingWalletAddress,
+          walletAddressChangeOtpHash: input.otpHash,
+          walletAddressChangeOtpExpiresAt: input.expiresAt,
+          walletAddressChangeOtpAttempts: 0,
+        },
+      },
+      { new: true },
+    )
+      .select("-passwordHash")
+      .lean();
+  }
+
+  async incrementWalletAddressChangeOtpAttempts(userId: string): Promise<UserRepositoryRecord | null> {
+    return UserModel.findByIdAndUpdate(userId, {
+      $inc: { walletAddressChangeOtpAttempts: 1 },
+    }).lean();
+  }
+
+  async confirmWalletAddressChange(
+    userId: string,
+    walletAddress: string,
+  ): Promise<UserRepositoryRecord | null> {
+    return UserModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          walletAddress,
+          pendingWalletAddress: null,
+          walletAddressChangeOtpHash: null,
+          walletAddressChangeOtpExpiresAt: null,
+          walletAddressChangeOtpAttempts: 0,
+        },
+      },
+      { new: true },
+    )
+      .select("-passwordHash")
+      .lean();
+  }
+
   async updateTransactionPassword(
     userId: string,
     transactionPasswordHash: string,

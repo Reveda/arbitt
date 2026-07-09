@@ -52,6 +52,25 @@ const userSchema = new Schema(
       default: null,
       trim: true,
     },
+    pendingWalletAddress: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    walletAddressChangeOtpHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    walletAddressChangeOtpExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    walletAddressChangeOtpAttempts: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     transactionPasswordHash: {
       type: String,
       default: null,

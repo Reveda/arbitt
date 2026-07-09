@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ChevronLeft,
+  ArrowUpLeft,
   UserCheck,
   UsersRound,
   Wallet,
@@ -237,7 +237,7 @@ export function TeamPage() {
       <Card className="form-motion-off border-slate-200 bg-white text-slate-950 shadow-sm">
         <CardContent className="p-4">
           {selectedMember ? (
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-cyan-50 text-base font-black uppercase text-cyan-700 ring-1 ring-cyan-100">
                   {getDisplayName(selectedMember).charAt(0)}
@@ -252,19 +252,23 @@ export function TeamPage() {
                 </div>
               </div>
 
-              <div className="flex shrink-0 items-center gap-2">
-                <span className="hidden rounded-full bg-cyan-50 px-3 py-1 text-[11px] font-black text-cyan-700 sm:inline-flex">
+              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                <span className="inline-flex rounded-full bg-cyan-50 px-3 py-1 text-[11px] font-black text-cyan-700">
                   {formatNumber(visibleTotalMembers)} members
                 </span>
                 <Button
-                  className="h-9 shrink-0 rounded-xl border-slate-200 px-3 text-slate-700"
+                  className="h-9 shrink-0 rounded-full border-slate-200 bg-white px-3.5 text-slate-700 shadow-sm transition-colors hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800"
                   onClick={returnToPreviousList}
                   size="sm"
                   type="button"
                   variant="outline"
                 >
-                  <ChevronLeft className="size-4" />
-                  <span className="hidden sm:inline">Back</span>
+                  <ArrowUpLeft className="size-4" />
+                  <span className="hidden sm:inline">
+                    {selectedMember?.parentUserId && memberByUserId.has(selectedMember.parentUserId)
+                      ? "Up one level"
+                      : "Direct list"}
+                  </span>
                 </Button>
               </div>
             </div>

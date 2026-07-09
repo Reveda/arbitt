@@ -11,6 +11,8 @@ export const API_ENDPOINTS = {
   },
   users: {
     me: "/users/me",
+    walletAddressRequestOtp: "/users/profile/wallet-address/request-otp",
+    walletAddressVerifyOtp: "/users/profile/wallet-address/verify-otp",
     transactionPassword: "/users/profile/transaction-password",
     walletAddress: "/users/profile/wallet-address",
     supportTickets: "/users/support/tickets"
@@ -90,6 +92,7 @@ export const APP_ROUTES = {
   user: {
     dashboard: "/dashboard",
     profile: "/dashboard/profile",
+    rank: "/dashboard/rank",
     network: "/dashboard/network",
     team: "/dashboard/team",
     wallet: "/dashboard/wallet",

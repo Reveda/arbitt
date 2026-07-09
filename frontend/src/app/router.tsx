@@ -25,6 +25,7 @@ import { RegisterPage } from "@/pages/auth/RegisterPage";
 import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
 import { VerifyEmailPage } from "@/pages/auth/VerifyEmailPage";
 import { UserDashboardPage } from "@/pages/dashboard/UserDashboardPage";
+import { UserRankPage } from "@/pages/dashboard/UserRankPage";
 import { TeamPage } from "@/pages/dashboard/TeamPage";
 import { UserProfilePage } from "@/pages/dashboard/UserProfilePage";
 import { WalletPage } from "@/pages/dashboard/WalletPage";
@@ -106,6 +107,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <UserDashboardPage /> },
       { path: "profile", element: <UserProfilePage /> },
+      { path: "rank", element: <UserRankPage /> },
       {
         path: "network",
         element: <Navigate replace to={APP_ROUTES.user.team} />

@@ -22,6 +22,7 @@ import {
   Settings,
   ShieldCheck,
   UserRound,
+  Trophy,
   UserCog,
   UsersRound,
   Wallet,
@@ -56,6 +57,7 @@ type DashboardNavLink = {
 const userLinks = [
   { to: APP_ROUTES.user.dashboard, label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: APP_ROUTES.user.profile, label: "My Profile", icon: UserRound },
+  { to: APP_ROUTES.user.rank, label: "Rank", icon: Trophy },
   { to: APP_ROUTES.user.team, label: "My Team", icon: UsersRound },
   { to: APP_ROUTES.user.earnings, label: "Earnings", icon: CircleDollarSign },
   { to: APP_ROUTES.user.deposit, label: "Deposit", icon: ArrowDownLeft },
@@ -297,15 +299,15 @@ export function DashboardLayout({ role }: DashboardLayoutProps) {
                     <LogOut className="size-4 shrink-0 text-cyan-100/78" />
                     <span className="min-w-0 flex-1 truncate">{logoutMutation.isLoading ? "Logging out..." : "Logout"}</span>
                   </button>
-                  {logoutMutation.error ? <p className="px-3 text-[11px] font-medium text-rose-200">{logoutMutation.error}</p> : null}
-                </nav>
-              </ScrollArea>
+            {logoutMutation.error ? <p className="px-3 text-[11px] font-medium text-rose-200">{logoutMutation.error}</p> : null}
+          </nav>
+        </ScrollArea>
 
-              <div className="border-t border-cyan-300/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                <NavLink
-                  className={({ isActive }) =>
-                    cn(
-                      "flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200",
+        <div className="border-t border-cyan-300/10 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <NavLink
+            className={({ isActive }) =>
+              cn(
+                "flex items-center gap-3 rounded-2xl border p-3 transition-all duration-200",
                       isActive
                         ? "border-cyan-300/45 bg-cyan-300/12 shadow-[0_16px_34px_rgba(34,211,238,0.18)]"
                         : "border-cyan-300/15 bg-[#061225] active:bg-cyan-300/[0.08]"

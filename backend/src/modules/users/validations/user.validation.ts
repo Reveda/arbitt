@@ -13,6 +13,24 @@ export const updateWalletAddressSchema = z.object({
     .regex(/^0x[a-fA-F0-9]{40}$/, "Wallet address must be a valid BEP20 address."),
 });
 
+export const requestWalletAddressChangeOtpSchema = z.object({
+  walletAddress: z
+    .string({ required_error: "Wallet address is required." })
+    .trim()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Wallet address must be a valid BEP20 address."),
+});
+
+export const verifyWalletAddressChangeOtpSchema = z.object({
+  walletAddress: z
+    .string({ required_error: "Wallet address is required." })
+    .trim()
+    .regex(/^0x[a-fA-F0-9]{40}$/, "Wallet address must be a valid BEP20 address."),
+  otp: z
+    .string({ required_error: "OTP is required." })
+    .trim()
+    .regex(/^\d{6}$/, "Enter the 6-digit OTP."),
+});
+
 export const updateTransactionPasswordSchema = z
   .object({
     currentTransactionPassword: z.string().trim().optional(),

@@ -30,6 +30,32 @@ export const updateWalletAddress = catchAsync(async (req: Request, res: Response
     .json(apiResponse<UpdateUserResponseDto>(HTTP_STATUS.OK, "Wallet address updated.", result));
 });
 
+export const requestWalletAddressChangeOtp = catchAsync(async (req: Request, res: Response) => {
+  const result = await userService.requestWalletAddressChangeOtp(req.user!.id, req.body, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? undefined,
+  });
+  res
+    .status(HTTP_STATUS.OK)
+    .json(
+      apiResponse(
+        HTTP_STATUS.OK,
+        "Wallet address change OTP request accepted.",
+        result,
+      ),
+    );
+});
+
+export const verifyWalletAddressChangeOtp = catchAsync(async (req: Request, res: Response) => {
+  const result = await userService.verifyWalletAddressChangeOtp(req.user!.id, req.body, {
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent") ?? undefined,
+  });
+  res
+    .status(HTTP_STATUS.OK)
+    .json(apiResponse<UpdateUserResponseDto>(HTTP_STATUS.OK, "Wallet address updated.", result));
+});
+
 export const updateTransactionPassword = catchAsync(async (req: Request, res: Response) => {
   const result = await userService.updateTransactionPassword(req.user!.id, req.body);
   res
