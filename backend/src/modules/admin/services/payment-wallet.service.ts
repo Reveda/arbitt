@@ -143,26 +143,36 @@ export async function verifyPaymentWalletOtp(input: {
       ipAddress: input.ipAddress,
       metadata: { network: input.network },
     });
+
     throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Invalid or expired verification code.");
   };
 
-  const expiresAt = user?.get("adminPaymentWalletOtpExpiresAt") as Date | null | undefined;
-  if (!user || user.get("adminPaymentWalletOtpAttempts") >= PAYMENT_WALLET_OTP_MAX_ATTEMPTS ||
+  if (!user) {
+    await fail();
+    return;
+  }
+
+  const expiresAt = user.get("adminPaymentWalletOtpExpiresAt") as Date | null | undefined;
+  const hasExpired = !expiresAt || new Date(expiresAt).getTime() <= Date.now();
+
+  if (
+    (user.get("adminPaymentWalletOtpAttempts") ?? 0) >= PAYMENT_WALLET_OTP_MAX_ATTEMPTS ||
     user.get("pendingAdminPaymentWalletAddress") !== normalizeAddress(input.address) ||
     user.get("pendingAdminPaymentWalletNetwork") !== input.network ||
-    !expiresAt || new Date(expiresAt).getTime() <= Date.now() ||
-    user.get("adminPaymentWalletOtpHash") !== hashPaymentWalletOtp(user.email, input.otp)) {
+    hasExpired ||
+    user.get("adminPaymentWalletOtpHash") !== hashPaymentWalletOtp(user.email, input.otp)
+  ) {
     await fail();
   }
 
-  user!.set({
+  user.set({
     pendingAdminPaymentWalletAddress: null,
     pendingAdminPaymentWalletNetwork: null,
     adminPaymentWalletOtpHash: null,
     adminPaymentWalletOtpExpiresAt: null,
     adminPaymentWalletOtpAttempts: 0,
   });
-  await user!.save();
+  await user.save();
   await AuditLogModel.create({
     actorUserId: input.adminUserId,
     action: "admin.payment_wallet.otp_verified",
@@ -207,10 +217,7 @@ export function decryptValue(value: NonNullable<StoredPaymentWallet["addressEncr
       decipher.final(),
     ]).toString("utf8");
   } catch {
-    throw new ApiError(
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "Please set/save the admin USDT wallet address.",
-    );
+    return "";
   }
 }
 
