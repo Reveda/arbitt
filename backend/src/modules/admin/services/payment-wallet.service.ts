@@ -148,10 +148,10 @@ export async function verifyPaymentWalletOtp(input: {
 
   const expiresAt = user?.get("adminPaymentWalletOtpExpiresAt") as Date | null | undefined;
   if (!user || user.get("adminPaymentWalletOtpAttempts") >= PAYMENT_WALLET_OTP_MAX_ATTEMPTS ||
-      user.get("pendingAdminPaymentWalletAddress") !== normalizeAddress(input.address) ||
-      user.get("pendingAdminPaymentWalletNetwork") !== input.network ||
-      !expiresAt || new Date(expiresAt).getTime() <= Date.now() ||
-      user.get("adminPaymentWalletOtpHash") !== hashPaymentWalletOtp(user.email, input.otp)) {
+    user.get("pendingAdminPaymentWalletAddress") !== normalizeAddress(input.address) ||
+    user.get("pendingAdminPaymentWalletNetwork") !== input.network ||
+    !expiresAt || new Date(expiresAt).getTime() <= Date.now() ||
+    user.get("adminPaymentWalletOtpHash") !== hashPaymentWalletOtp(user.email, input.otp)) {
     await fail();
   }
 
@@ -209,10 +209,11 @@ export function decryptValue(value: NonNullable<StoredPaymentWallet["addressEncr
   } catch {
     throw new ApiError(
       HTTP_STATUS.INTERNAL_SERVER_ERROR,
-      "Encrypted setting value could not be decrypted. Check encryption key.",
+      "Please set/save the admin USDT wallet address.",
     );
   }
 }
+
 
 function encryptAddress(address: string): StoredPaymentWallet["addressEncrypted"] {
   return encryptValue(address);
@@ -313,14 +314,14 @@ async function archiveCurrentWallet(input: {
   const currentAddress = getStoredAddress(currentValue);
   const encryptedArchiveValue = currentAddress
     ? buildStoredWallet({
-        address: currentAddress,
-        network: currentValue?.network ?? "BEP20",
-        updatedBy: currentValue?.updatedBy ?? null,
-      })
+      address: currentAddress,
+      network: currentValue?.network ?? "BEP20",
+      updatedBy: currentValue?.updatedBy ?? null,
+    })
     : {
-        network: currentValue?.network ?? "BEP20",
-        updatedBy: currentValue?.updatedBy ?? null,
-      };
+      network: currentValue?.network ?? "BEP20",
+      updatedBy: currentValue?.updatedBy ?? null,
+    };
 
   await PlatformSettingModel.updateOne(
     { _id: input.current._id },
