@@ -19,6 +19,11 @@ const paymentIntentSchema = new Schema(
       required: true,
       index: true,
     },
+    idempotencyKey: {
+      type: String,
+      trim: true,
+      index: true,
+    },
     type: {
       type: String,
       enum: PAYMENT_INTENT_TYPES,
@@ -124,6 +129,7 @@ const paymentIntentSchema = new Schema(
     txnHash: {
       type: String,
       trim: true,
+      lowercase: true,
       default: null,
     },
     txnHashNormalized: {
@@ -173,6 +179,10 @@ const paymentIntentSchema = new Schema(
 );
 
 paymentIntentSchema.index({ userId: 1, createdAt: -1 });
+paymentIntentSchema.index(
+  { userId: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },
+);
 paymentIntentSchema.index({ status: 1, expiresAt: 1 });
 paymentIntentSchema.index({
   amountTokenUnits: 1,

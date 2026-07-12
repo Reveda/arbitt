@@ -1,4 +1,5 @@
 import { HTTP_STATUS } from "../../../constants/http";
+import mongoose from "mongoose";
 import { env } from "../../../config/env";
 import { ApiError } from "../../../utils/ApiError";
 import { planRepository } from "../../plans/repositories/plan.repository";
@@ -52,6 +53,7 @@ type EvmLog = {
 type EvmReceipt = {
   logs?: unknown;
   status?: unknown;
+  blockNumber?: unknown;
 };
 
 const PLAN_PAYMENT_INTENT_TYPE = "plan_purchase";
@@ -212,6 +214,24 @@ async function verifyUSDTTransfer(input: {
       };
     }
 
+    const receiptBlockNumber = parseRpcQuantity(receipt.blockNumber);
+    if (receiptBlockNumber === null) {
+      return { status: "pending_node", reason: "Receipt block number is unavailable." };
+    }
+
+    const latestBlock = parseRpcQuantity(
+      await callRpcWithFallback(input.network, "eth_blockNumber", []),
+    );
+    if (
+      latestBlock === null ||
+      latestBlock < receiptBlockNumber + BigInt(env.BSC_REQUIRED_CONFIRMATIONS - 1)
+    ) {
+      return {
+        status: "pending_node",
+        reason: `Waiting for ${env.BSC_REQUIRED_CONFIRMATIONS} BSC confirmations.`,
+      };
+    }
+
     const logs = Array.isArray(receipt.logs) ? receipt.logs : [];
     const expectedContractNormalized = input.expectedContract.toLowerCase();
     const expectedReceiverNormalized = input.expectedReceiver.toLowerCase();
@@ -287,12 +307,30 @@ async function verifyUSDTTransfer(input: {
   }
 }
 
+function parseRpcQuantity(value: unknown): bigint | null {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value >= 0) {
+    return BigInt(value);
+  }
+  if (typeof value === "string" && /^(0x[0-9a-f]+|\d+)$/i.test(value)) {
+    try {
+      return BigInt(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
 export class PaymentService {
   async createDepositPaymentIntent(
     userId: string,
     input: CreateDepositPaymentIntentInput,
+    idempotencyKey: string,
   ): Promise<CreateDepositPaymentIntentResponseDto> {
-    const amountUsdt = roundUsdt(input.amountUsdt);
+    const existingIntent = await PaymentIntentModel.findOne({ userId, idempotencyKey });
+    if (existingIntent) return { intent: toPaymentIntentDto(existingIntent) };
+    const amountUsdtText = input.amountUsdt;
+    const amountUsdt = Number(amountUsdtText);
     const networkConfig = PAYMENT_NETWORK_CONFIGS[input.network];
     const platformWallet = await getPlatformPaymentWalletForNetwork(input.network);
 
@@ -306,8 +344,9 @@ export class PaymentService {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + env.PAYMENT_INTENT_EXPIRES_MINUTES * 60 * 1000);
     const intent = await PaymentIntentModel.create({
-      amountTokenUnits: decimalToTokenUnits(amountUsdt, networkConfig.tokenDecimals),
+      amountTokenUnits: decimalToTokenUnits(amountUsdtText, networkConfig.tokenDecimals),
       amountUsdt,
+      idempotencyKey,
       chainId: networkConfig.chainId,
       chainName: networkConfig.chainName,
       expiresAt,
@@ -332,8 +371,12 @@ export class PaymentService {
   async createPlanPaymentIntent(
     userId: string,
     input: CreatePlanPaymentIntentInput,
+    idempotencyKey: string,
   ): Promise<CreatePlanPaymentIntentResponseDto> {
-    const amountUsdt = roundUsdt(input.amountUsdt);
+    const existingIntent = await PaymentIntentModel.findOne({ userId, idempotencyKey });
+    if (existingIntent) return { intent: toPaymentIntentDto(existingIntent) };
+    const amountUsdtText = input.amountUsdt;
+    const amountUsdt = Number(amountUsdtText);
     const tier = await getActiveTier(input.tier, amountUsdt);
     const networkConfig = PAYMENT_NETWORK_CONFIGS[input.network];
     const platformWallet = await getPlatformPaymentWalletForNetwork(input.network);
@@ -348,8 +391,9 @@ export class PaymentService {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + env.PAYMENT_INTENT_EXPIRES_MINUTES * 60 * 1000);
     const intent = await PaymentIntentModel.create({
-      amountTokenUnits: decimalToTokenUnits(amountUsdt, networkConfig.tokenDecimals),
+      amountTokenUnits: decimalToTokenUnits(amountUsdtText, networkConfig.tokenDecimals),
       amountUsdt,
+      idempotencyKey,
       chainId: networkConfig.chainId,
       chainName: networkConfig.chainName,
       expiresAt,
@@ -435,11 +479,7 @@ export class PaymentService {
         txnHashNormalized: intent.txnHashNormalized || normalizeHash(intent.txnHash),
       };
 
-      if (intent.type === WALLET_DEPOSIT_INTENT_TYPE) {
-        await this.completeWalletDepositIntent(completeInput);
-      } else {
-        await this.completePaymentIntent(completeInput);
-      }
+      await this.completePaymentIntent(completeInput);
 
       return await PaymentIntentModel.findById(intentId).lean();
     } else if (verification.status === "failed") {
@@ -531,73 +571,122 @@ export class PaymentService {
     txnHash: string;
     txnHashNormalized: string;
   }): Promise<PaymentCompletionResult> {
-    const existingTransaction = await TransactionModel.findOne({
-      txnHash: input.txnHash,
-    }).lean();
+    const session = env.MONGODB_TRANSACTIONS_ENABLED ? await mongoose.startSession() : undefined;
+    try {
+      const work = async () => {
+        const existingTransaction = await TransactionModel.findOne({
+          txnHash: input.txnHash,
+        })
+          .session(session ?? null)
+          .lean();
 
-    if (existingTransaction) {
-      const expectedTransactionType =
-        input.intent.type === WALLET_DEPOSIT_INTENT_TYPE ? "deposit" : "plan_purchase";
-      const isSameTransaction =
-        existingTransaction.type === expectedTransactionType &&
-        String(existingTransaction.userId) === String(input.intent.userId) &&
-        roundUsdt(existingTransaction.amountUsdt ?? 0) === roundUsdt(input.intent.amountUsdt);
+        if (existingTransaction) {
+          const expectedTransactionType =
+            input.intent.type === WALLET_DEPOSIT_INTENT_TYPE ? "deposit" : "plan_purchase";
+          const isSameTransaction =
+            existingTransaction.type === expectedTransactionType &&
+            String(existingTransaction.userId) === String(input.intent.userId) &&
+            roundUsdt(existingTransaction.amountUsdt ?? 0) === roundUsdt(input.intent.amountUsdt);
 
-      if (!isSameTransaction) {
-        await PaymentIntentModel.updateOne(
-          { _id: input.intent._id },
-          {
-            $set: {
-              failureReason: "This transaction hash is already used by another transaction.",
-              status: "failed",
+          if (!isSameTransaction) {
+            await PaymentIntentModel.updateOne(
+              { _id: input.intent._id },
+              {
+                $set: {
+                  failureReason: "This transaction hash is already used by another transaction.",
+                  status: "failed",
+                },
+              },
+              { session },
+            );
+
+            return "duplicate";
+          }
+
+          await PaymentIntentModel.updateOne(
+            { _id: input.intent._id },
+            {
+              $set: {
+                confirmedAt: new Date(),
+                logIndex: input.logIndex,
+                senderAddress: input.senderAddress,
+                senderAddressNormalized: input.senderAddressNormalized,
+                sourceTransactionId: existingTransaction._id,
+                status: "completed",
+                txnHash: input.txnHash,
+                txnHashNormalized: input.txnHashNormalized,
+              },
             },
-          },
-        );
+            { session },
+          );
 
-        return "duplicate";
-      }
+          return "duplicate";
+        }
 
-      await PaymentIntentModel.updateOne(
-        { _id: input.intent._id },
-        {
-          $set: {
-            confirmedAt: new Date(),
-            logIndex: input.logIndex,
-            senderAddress: input.senderAddress,
-            senderAddressNormalized: input.senderAddressNormalized,
-            sourceTransactionId: existingTransaction._id,
+        if (input.intent.type === WALLET_DEPOSIT_INTENT_TYPE) {
+          const confirmedAt = new Date();
+          const transaction = new TransactionModel({
+            amountUsdt: input.intent.amountUsdt,
+            amountTokenUnits: input.intent.amountTokenUnits,
+            network: input.intent.network,
+            notes: `Tx verified wallet top-up: ${input.intent.network}`,
+            reviewedAt: confirmedAt,
             status: "completed",
             txnHash: input.txnHash,
-            txnHashNormalized: input.txnHashNormalized,
-          },
-        },
-      );
+            type: "deposit",
+            userId: input.intent.userId,
+          });
+          await transaction.save({ session });
+          const wallet = await walletRepository.creditDeposit(
+            String(input.intent.userId),
+            input.intent.amountUsdt,
+            session,
+          );
+          if (!wallet) throw new Error("Unable to credit wallet deposit.");
+          await PaymentIntentModel.updateOne(
+            { _id: input.intent._id },
+            {
+              $set: {
+                confirmedAt,
+                detectedAt: input.intent.detectedAt ?? confirmedAt,
+                logIndex: input.logIndex,
+                senderAddress: input.senderAddress,
+                senderAddressNormalized: input.senderAddressNormalized,
+                sourceTransactionId: transaction._id,
+                status: "completed",
+                txnHash: input.txnHash,
+                txnHashNormalized: input.txnHashNormalized,
+                webhookMetadata: {
+                  streamId: input.streamId,
+                  tag: input.tag,
+                  transaction: toTransactionNode(transaction),
+                },
+              },
+            },
+            { session },
+          );
+          return "completed";
+        }
 
-      return "duplicate";
-    }
+        const purchasedAt = new Date();
+        const transaction = new TransactionModel({
+          amountUsdt: input.intent.amountUsdt,
+          amountTokenUnits: input.intent.amountTokenUnits,
+          network: input.intent.network,
+          notes: `Tx verified plan purchase: ${input.intent.planName}`,
+          payoutPercent: input.intent.weeklyReturnPercent,
+          payoutPrincipalUsdt: input.intent.amountUsdt,
+          payoutTier: input.intent.tier,
+          reviewedAt: purchasedAt,
+          status: "completed",
+          txnHash: input.txnHash,
+          type: "plan_purchase",
+          userId: input.intent.userId,
+        });
+        await transaction.save({ session });
 
-    if (input.intent.type === WALLET_DEPOSIT_INTENT_TYPE) {
-      return this.completeWalletDepositIntent(input);
-    }
-
-    try {
-      const purchasedAt = new Date();
-      const transaction = await TransactionModel.create({
-        amountUsdt: input.intent.amountUsdt,
-        network: input.intent.network,
-        notes: `Tx verified plan purchase: ${input.intent.planName}`,
-        payoutPercent: input.intent.weeklyReturnPercent,
-        payoutPrincipalUsdt: input.intent.amountUsdt,
-        payoutTier: input.intent.tier,
-        reviewedAt: purchasedAt,
-        status: "completed",
-        txnHash: input.txnHash,
-        type: "plan_purchase",
-        userId: input.intent.userId,
-      });
-
-      await Promise.all([
-        UserPlanPurchaseModel.findOneAndUpdate(
+        await Promise.all([
+          UserPlanPurchaseModel.findOneAndUpdate(
           { sourceTransactionId: transaction._id },
           {
             $set: {
@@ -613,10 +702,10 @@ export class PaymentService {
               purchasedAt,
             },
           },
-          { new: true, upsert: true },
-        ),
-        walletRepository.creditAdminPlanPurchase(input.intent.amountUsdt),
-        PaymentIntentModel.updateOne(
+          { new: true, upsert: true, session },
+          ).exec(),
+          walletRepository.creditAdminPlanPurchase(input.intent.amountUsdt, session),
+          PaymentIntentModel.updateOne(
           { _id: input.intent._id },
           {
             $set: {
@@ -636,18 +725,24 @@ export class PaymentService {
               },
             },
           },
-        ),
-      ]);
+            { session },
+          ),
+        ]);
 
       await rewardService.createLevelIncomeRewardsForPlanPurchase({
         amountUsdt: input.intent.amountUsdt,
         transactionId: String(transaction._id),
         userId: String(input.intent.userId),
+        session,
       });
-
-      await adminService.approveAllPendingPayouts({});
-
       return "completed";
+      };
+      const result = session ? await session.withTransaction(work) : await work();
+
+      if (result === "completed" && input.intent.type === "plan_purchase") {
+        await adminService.approveAllPendingPayouts({});
+      }
+      return result;
     } catch (caughtError) {
       if (
         caughtError &&
@@ -662,13 +757,15 @@ export class PaymentService {
         { _id: input.intent._id },
         {
           $set: {
-            failureReason: caughtError instanceof Error ? caughtError.message : "Payment failed.",
+            failureReason: "Payment processing failed. Please contact support.",
             status: "failed",
           },
         },
       );
 
       throw caughtError;
+    } finally {
+      await session?.endSession();
     }
   }
 
@@ -682,22 +779,26 @@ export class PaymentService {
     txnHash: string;
     txnHashNormalized: string;
   }): Promise<PaymentCompletionResult> {
+    const session = env.MONGODB_TRANSACTIONS_ENABLED ? await mongoose.startSession() : undefined;
     try {
-      const confirmedAt = new Date();
-      const transaction = await TransactionModel.create({
-        amountUsdt: input.intent.amountUsdt,
-        network: input.intent.network,
-        notes: `Tx verified wallet top-up: ${input.intent.network}`,
-        reviewedAt: confirmedAt,
-        status: "completed",
-        txnHash: input.txnHash,
-        type: "deposit",
-        userId: input.intent.userId,
-      });
+      const work = async () => {
+        const confirmedAt = new Date();
+        const transaction = new TransactionModel({
+          amountUsdt: input.intent.amountUsdt,
+          network: input.intent.network,
+          notes: `Tx verified wallet top-up: ${input.intent.network}`,
+          reviewedAt: confirmedAt,
+          status: "completed",
+          txnHash: input.txnHash,
+          type: "deposit",
+          userId: input.intent.userId,
+        });
+        await transaction.save({ session });
 
-      await Promise.all([
-        walletRepository.creditDeposit(String(input.intent.userId), input.intent.amountUsdt),
-        PaymentIntentModel.updateOne(
+        const wallet = await walletRepository.creditDeposit(String(input.intent.userId), input.intent.amountUsdt, session);
+        if (!wallet) throw new Error("Unable to credit wallet deposit.");
+
+        await PaymentIntentModel.updateOne(
           { _id: input.intent._id },
           {
             $set: {
@@ -717,8 +818,10 @@ export class PaymentService {
               },
             },
           },
-        ),
-      ]);
+          { session },
+        );
+      };
+      await (session ? session.withTransaction(work) : work());
 
       return "completed";
     } catch (caughtError) {
@@ -742,6 +845,8 @@ export class PaymentService {
       );
 
       throw caughtError;
+    } finally {
+      await session?.endSession();
     }
   }
 }

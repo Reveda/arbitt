@@ -138,6 +138,7 @@ export type AdminDeposit = {
   id: string;
   user: AdminReferralUser | null;
   amountUsdt: number;
+  amountTokenUnits: string | null;
   status: string;
   txnHash: string | null;
   network: string;
@@ -292,6 +293,13 @@ export type AdminPaymentWalletUpdateResponse = {
   wallet: PlatformDepositWallet;
 };
 
+export type AdminPaymentWalletOtpResponse = {
+  email: string;
+  expiresAt: string;
+  testMode?: boolean;
+  testOtp?: string;
+};
+
 export type AdminWallet = {
   id: string;
   user: AdminReferralUser | null;
@@ -399,6 +407,7 @@ export type AdminTransaction = {
   type: "deposit" | "withdrawal" | "reward" | "adjustment" | "plan_purchase";
   status: "pending" | "approved" | "rejected" | "completed" | "failed";
   amountUsdt: number;
+  amountTokenUnits: string | null;
   chargeUsdt: number;
   grossAmountUsdt: number;
   network: string;
@@ -857,7 +866,14 @@ export const adminService = {
     return apiRequest<AdminPaymentWalletResponse>(API_ENDPOINTS.admin.paymentWallet);
   },
 
-  updatePaymentWallet(input: { address: string; network: string }) {
+  requestPaymentWalletOtp(input: { address: string; network: string }) {
+    return apiRequest<AdminPaymentWalletOtpResponse>(API_ENDPOINTS.admin.paymentWalletVerification, {
+      method: "POST",
+      body: input
+    });
+  },
+
+  updatePaymentWallet(input: { address: string; network: string; otp: string }) {
     return apiRequest<AdminPaymentWalletUpdateResponse>(API_ENDPOINTS.admin.paymentWallet, {
       method: "PATCH",
       body: input

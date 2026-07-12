@@ -15,7 +15,7 @@ import { useAdminWallets } from "@/hooks/useAdminQueries";
 import { cn } from "@/lib/utils";
 import { adminService, type AdminWallet } from "@/services/admin.service";
 import type { PlatformDepositWallet } from "@/services/wallet.service";
-import { AdminCard, AdminPageHeader } from "./admin.components";
+import { AdminCard, AdminPageHeader, MetricCard } from "./admin.components";
 
 const PAGE_SIZE = 12;
 const WALLET_NETWORK_OPTIONS = ["BEP20"] as const;
@@ -28,8 +28,8 @@ function normalizeWalletNetwork(value?: string): (typeof WALLET_NETWORK_OPTIONS)
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
+    maximumFractionDigits: 18,
+    minimumFractionDigits: 0,
     useGrouping: false
   }).format(value)} USDT`;
 }
@@ -160,28 +160,28 @@ export function AdminWalletsPage() {
       value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.platformLifetimeDepositsUsdt),
       caption: "Total platform deposits",
       icon: Wallet,
-      tone: "bg-cyan-50 text-cyan-700"
+      tone: "cyan"
     },
     {
       label: "Total Payout Generated",
       value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalLifetimeRewardsUsdt),
       caption: "Lifetime generated payouts",
       icon: TrendingUp,
-      tone: "bg-emerald-50 text-emerald-700"
+      tone: "emerald"
     },
     {
       label: "Total Package Sell",
       value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalPlanPurchasesUsdt),
       caption: "Completed package sales",
       icon: Wallet,
-      tone: "bg-violet-50 text-violet-700"
+      tone: "violet"
     },
     {
       label: "Total Withdrawal",
       value: walletsQuery.isLoading ? "Loading..." : formatUsdt(summary.totalLifetimeWithdrawalsUsdt),
       caption: "Lifetime user withdrawals",
       icon: TrendingDown,
-      tone: "bg-rose-50 text-rose-700"
+      tone: "rose"
     }
   ];
 
@@ -191,9 +191,23 @@ export function AdminWalletsPage() {
     setWalletMessage(null);
 
     try {
-      const response = await adminService.updatePaymentWallet({
-        address: walletAddress,
+      const otpResponse = await adminService.requestPaymentWalletOtp({
+        address: walletAddress.trim(),
         network: walletNetwork
+      });
+      const testHint = otpResponse.data.testOtp ? ` (Local test OTP: ${otpResponse.data.testOtp})` : "";
+      setWalletMessage({
+        text: `A verification code was sent to ${otpResponse.data.email}.${testHint}`,
+        tone: "info"
+      });
+      const otp = window.prompt("Enter the 6-digit verification code sent to the admin email.");
+      if (!otp) {
+        return;
+      }
+      const response = await adminService.updatePaymentWallet({
+        address: walletAddress.trim(),
+        network: walletNetwork,
+        otp: otp.trim()
       });
 
       setPaymentWallet(response.data.wallet);
@@ -286,24 +300,18 @@ export function AdminWalletsPage() {
       </AdminCard>
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {metricCards.map((card) => {
-          const Icon = card.icon;
-
-          return (
-            <AdminCard className="rounded-xl" key={card.label}>
-              <div className="flex items-center justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-slate-500">{card.label}</p>
-                  <p className="mt-1 truncate text-base font-black text-slate-950 sm:text-lg">{card.value}</p>
-                  <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{card.caption}</p>
-                </div>
-                <span className={cn("grid size-10 shrink-0 place-items-center rounded-xl", card.tone)}>
-                  <Icon className="size-4" />
-                </span>
-              </div>
-            </AdminCard>
-          );
-        })}
+        {metricCards.map((card) => (
+          <MetricCard
+            key={card.label}
+            item={{
+              title: card.label,
+              value: card.value,
+              caption: card.caption,
+              tone: card.tone,
+              icon: card.icon
+            }}
+          />
+        ))}
       </div>
 
       <AdminCard>

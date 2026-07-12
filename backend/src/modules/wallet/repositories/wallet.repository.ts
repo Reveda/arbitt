@@ -1,6 +1,7 @@
 import { WalletModel } from "../models/wallet.model";
 import { UserModel } from "../../users/models/user.model";
 import type { WalletRepositoryRecord } from "../types/wallet.repository.types";
+import type { ClientSession } from "mongoose";
 
 export class WalletRepository {
   private async findPrimaryAdminUserId(): Promise<unknown | null> {
@@ -29,7 +30,7 @@ export class WalletRepository {
     return wallet.toObject() as WalletRepositoryRecord;
   }
 
-  creditDeposit(userId: string, amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+  creditDeposit(userId: string, amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       { userId },
       {
@@ -39,11 +40,11 @@ export class WalletRepository {
         },
         $setOnInsert: { userId },
       },
-      { new: true, upsert: true },
+      { new: true, upsert: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
-  creditReward(userId: string, amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+  creditReward(userId: string, amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       { userId },
       {
@@ -53,7 +54,7 @@ export class WalletRepository {
         },
         $setOnInsert: { userId },
       },
-      { new: true, upsert: true },
+      { new: true, upsert: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
@@ -86,7 +87,7 @@ export class WalletRepository {
     ).lean();
   }
 
-  lockWithdrawalAmount(userId: string, amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+  lockWithdrawalAmount(userId: string, amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       {
         availableUsdt: { $gte: amountUsdt },
@@ -98,13 +99,14 @@ export class WalletRepository {
           lockedUsdt: amountUsdt,
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
   unlockWithdrawalAmount(
     userId: string,
     amountUsdt: number,
+    session?: ClientSession,
   ): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       {
@@ -117,13 +119,14 @@ export class WalletRepository {
           lockedUsdt: -amountUsdt,
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
   completeWithdrawalAmount(
     userId: string,
     amountUsdt: number,
+    session?: ClientSession,
   ): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       {
@@ -136,11 +139,31 @@ export class WalletRepository {
           lockedUsdt: -amountUsdt,
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
-  async creditAdminPlanPurchase(amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+  reverseCompletedWithdrawalAmount(
+    userId: string,
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
+    return WalletModel.findOneAndUpdate(
+      {
+        lifetimeWithdrawalsUsdt: { $gte: amountUsdt },
+        userId,
+      },
+      {
+        $inc: {
+          availableUsdt: amountUsdt,
+          lifetimeWithdrawalsUsdt: -amountUsdt,
+        },
+      },
+      { new: true, ...(session ? { session } : {}) },
+    ).lean();
+  }
+
+  async creditAdminPlanPurchase(amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
     const adminUserId = await this.findPrimaryAdminUserId();
 
     if (!adminUserId) {
@@ -156,7 +179,7 @@ export class WalletRepository {
         },
         $setOnInsert: { userId: adminUserId },
       },
-      { new: true, upsert: true },
+      { new: true, upsert: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
@@ -194,7 +217,7 @@ export class WalletRepository {
     return wallet?.availableUsdt ?? 0;
   }
 
-  async debitAdminWithdrawal(amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+  async debitAdminWithdrawal(amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
     const adminUserId = await this.findPrimaryAdminUserId();
 
     if (!adminUserId) {
@@ -210,7 +233,7 @@ export class WalletRepository {
         },
         $setOnInsert: { userId: adminUserId },
       },
-      { new: true, upsert: true },
+      { new: true, upsert: true, ...(session ? { session } : {}) },
     ).lean();
   }
 

@@ -71,6 +71,34 @@ const userSchema = new Schema(
       default: 0,
       min: 0,
     },
+    pendingAdminPaymentWalletAddress: {
+      type: String,
+      default: null,
+      trim: true,
+      select: false,
+    },
+    pendingAdminPaymentWalletNetwork: {
+      type: String,
+      default: null,
+      trim: true,
+      select: false,
+    },
+    adminPaymentWalletOtpHash: {
+      type: String,
+      default: null,
+      select: false,
+    },
+    adminPaymentWalletOtpExpiresAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+    adminPaymentWalletOtpAttempts: {
+      type: Number,
+      default: 0,
+      min: 0,
+      select: false,
+    },
     transactionPasswordHash: {
       type: String,
       default: null,

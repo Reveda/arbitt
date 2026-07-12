@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { HTTP_STATUS } from "../../../constants/http";
 import { apiResponse } from "../../../utils/ApiResponse";
 import { catchAsync } from "../../../utils/catchAsync";
+import { ApiError } from "../../../utils/ApiError";
 import type {
   CreateDepositResponseDto,
   CreateWithdrawalResponseDto,
@@ -41,8 +42,12 @@ export const listDepositRequests = catchAsync(async (req: Request, res: Response
 });
 
 export const createWithdrawalRequest = catchAsync(async (req: Request, res: Response) => {
+  const idempotencyKey = req.get("Idempotency-Key")?.trim();
+  if (!idempotencyKey || idempotencyKey.length > 128) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, "A valid Idempotency-Key header is required.");
+  }
   const input = createWithdrawalRequestSchema.parse(req.body);
-  const result = await walletService.createWithdrawalRequest(req.user!.id, input);
+  const result = await walletService.createWithdrawalRequest(req.user!.id, input, idempotencyKey);
   res
     .status(HTTP_STATUS.ACCEPTED)
     .json(

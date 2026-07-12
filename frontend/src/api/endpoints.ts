@@ -7,7 +7,8 @@ export const API_ENDPOINTS = {
     verifyEmail: "/auth/email-verification/verify",
     resetPassword: "/auth/reset-password",
     refreshToken: "/auth/refresh-token",
-    logout: "/auth/logout"
+    logout: "/auth/logout",
+    checkUsername: "/auth/check-username"
   },
   users: {
     me: "/users/me",
@@ -27,6 +28,7 @@ export const API_ENDPOINTS = {
     withdrawals: "/admin/withdrawals",
     wallets: "/admin/wallets",
     paymentWallet: "/admin/payment-wallet",
+    paymentWalletVerification: "/admin/payment-wallet/verification",
     transactions: "/admin/transactions",
     supportTickets: "/admin/support/tickets",
     resolveSupportTicket: (ticketId: string) => `/admin/support/tickets/${ticketId}/resolve`
@@ -78,7 +80,8 @@ export const AUTH_REFRESH_EXCLUDED_ENDPOINTS = [
   API_ENDPOINTS.auth.resetPassword,
   API_ENDPOINTS.auth.refreshToken,
   API_ENDPOINTS.auth.forgotPassword,
-  API_ENDPOINTS.auth.logout
+  API_ENDPOINTS.auth.logout,
+  API_ENDPOINTS.auth.checkUsername
 ] as const;
 
 export const APP_ROUTES = {
@@ -100,7 +103,8 @@ export const APP_ROUTES = {
     deposit: "/dashboard/deposit",
     withdraw: "/dashboard/withdraw",
     transactions: "/dashboard/transactions",
-    support: "/dashboard/support"
+    support: "/dashboard/support",
+    announcements: "/dashboard/announcements"
   },
   admin: {
     dashboard: "/admin",
@@ -115,7 +119,7 @@ export const APP_ROUTES = {
     plans: "/admin/plans",
     analytics: "/admin/analytics",
     support: "/admin/support",
-    notifications: "/admin/notifications"
+    announcements: "/admin/announcements"
   },
   superAdmin: {
     dashboard: "/super-admin",

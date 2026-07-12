@@ -34,10 +34,12 @@ import { EarningsPage } from "@/pages/dashboard/EarningsPage";
 import { TransactionsPage } from "@/pages/dashboard/TransactionsPage";
 import { SupportPage } from "@/pages/dashboard/SupportPage";
 import { WithdrawPage } from "@/pages/dashboard/WithdrawPage";
+import { UserAnnouncementsPage } from "@/pages/dashboard/UserAnnouncementsPage";
 import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
 import { AdminModulePage } from "@/pages/admin/AdminModulePage";
 import { AdminSupportPage } from "@/pages/admin/AdminSupportPage";
 import { AdminProfilePage } from "@/pages/admin/AdminProfilePage";
+import { AdminAnnouncementsPage } from "@/pages/admin/AdminAnnouncementsPage";
 import { AdminDepositsPage } from "@/pages/admin/AdminDepositsPage";
 import { AdminPayoutsPage } from "@/pages/admin/AdminPayoutsPage";
 import { AdminPlansPage } from "@/pages/admin/AdminPlansPage";
@@ -133,6 +135,10 @@ export const router = createBrowserRouter([
       {
         path: "support",
         element: <SupportPage />
+      },
+      {
+        path: "announcements",
+        element: <UserAnnouncementsPage />
       }
     ]
   },
@@ -184,8 +190,8 @@ export const router = createBrowserRouter([
         element: <AdminSupportPage />
       },
       {
-        path: "notifications",
-        element: <AdminModulePage description="Manage deposit alerts, withdrawal updates, referral events, and security messages." icon={Bell} title="Notifications" />
+        path: "announcements",
+        element: <AdminAnnouncementsPage />
       }
     ]
   },

@@ -7,6 +7,7 @@ import {
   ClipboardList,
   BarChart3,
   Bell,
+  Megaphone,
   CircleDollarSign,
   CreditCard,
   FileText,
@@ -63,7 +64,8 @@ const userLinks = [
   { to: APP_ROUTES.user.deposit, label: "Deposit", icon: ArrowDownLeft },
   { to: APP_ROUTES.user.withdraw, label: "Withdraw", icon: ArrowUpRight },
   { to: APP_ROUTES.user.transactions, label: "Transactions", icon: Activity },
-  { to: APP_ROUTES.user.support, label: "Support", icon: Headphones }
+  { to: APP_ROUTES.user.support, label: "Support", icon: Headphones },
+  { to: APP_ROUTES.user.announcements, label: "Announcements", icon: Megaphone }
 ];
 
 const adminLinks: DashboardNavLink[] = [
@@ -78,7 +80,7 @@ const adminLinks: DashboardNavLink[] = [
   { to: APP_ROUTES.admin.plans, label: "Plan Management", icon: FileText, badgeKey: "pendingPlanPurchases" },
   { to: APP_ROUTES.admin.analytics, label: "Revenue Analytics", icon: BarChart3 },
   { to: APP_ROUTES.admin.support, label: "Support Tickets", icon: LifeBuoy },
-  { to: APP_ROUTES.admin.notifications, label: "Notifications", icon: Bell }
+  { to: APP_ROUTES.admin.announcements, label: "Announcements", icon: Megaphone }
 ];
 
 const superAdminLinks: DashboardNavLink[] = [

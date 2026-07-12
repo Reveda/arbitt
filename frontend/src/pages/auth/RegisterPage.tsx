@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
+import { apiRequest } from "@/api/apiClient";
 import { APP_ROUTES } from "@/api/endpoints";
 import { PasswordField } from "@/components/form/PasswordField";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,9 @@ export function RegisterPage() {
     register,
     handleSubmit,
     getValues,
+    watch,
+    setError,
+    clearErrors,
     formState: { errors },
   } = useForm<RegisterFormValues>({
     defaultValues: {
@@ -45,6 +49,49 @@ export function RegisterPage() {
       invitationCode: referralCodeFromUrl,
     },
   });
+
+  const usernameVal = watch("username");
+  const [usernameAvailability, setUsernameAvailability] = useState<{
+    checking: boolean;
+    available: boolean | null;
+    message: string | null;
+  }>({ checking: false, available: null, message: null });
+
+  useEffect(() => {
+    if (!usernameVal || usernameVal.length < 3 || !/^[a-zA-Z0-9_]{3,24}$/.test(usernameVal)) {
+      setUsernameAvailability({ checking: false, available: null, message: null });
+      return;
+    }
+
+    setUsernameAvailability({ checking: true, available: null, message: null });
+    const timer = setTimeout(async () => {
+      try {
+        const res = await apiRequest<{ available: boolean }>(`/auth/check-username?username=${encodeURIComponent(usernameVal)}`, {
+          method: "GET"
+        });
+        if (res.success) {
+          setUsernameAvailability({
+            checking: false,
+            available: res.data.available,
+            message: res.message
+          });
+          if (!res.data.available) {
+            setError("username", {
+              type: "manual",
+              message: res.message || "Username is already taken."
+            });
+          } else {
+            clearErrors("username");
+          }
+        } else {
+          setUsernameAvailability({ checking: false, available: null, message: null });
+        }
+      } catch (err) {
+        setUsernameAvailability({ checking: false, available: null, message: null });
+      }
+    }, 500); // 500ms debounce
+    return () => clearTimeout(timer);
+  }, [usernameVal, setError, clearErrors]);
 
   const onSubmit = handleSubmit(async (values) => {
     createAccountMutation.reset();
@@ -128,10 +175,10 @@ export function RegisterPage() {
             ) : null}
           </label>
           <label className="grid gap-2 text-sm font-medium">
-            Re-enter Password
+            Confirm Password
             <PasswordField
               error={errors.confirmPassword?.message}
-              placeholder="Re-enter your password"
+              placeholder="Confirm your password"
               registration={register("confirmPassword", {
                 required: "Please confirm your password.",
                 validate: (value) =>
@@ -168,6 +215,16 @@ export function RegisterPage() {
                 {errors.username.message}
               </span>
             ) : null}
+            {usernameAvailability.checking && (
+              <span className="text-xs font-semibold text-slate-400">
+                Checking availability...
+              </span>
+            )}
+            {!usernameAvailability.checking && usernameAvailability.available === true && (
+              <span className="text-xs font-bold text-emerald-400">
+                ✓ Username is available!
+              </span>
+            )}
           </label>
           <label className="grid gap-2 text-sm font-medium">
             Invitation Code

@@ -3,6 +3,7 @@ import type { PaymentNetwork } from "../constants/payment-networks";
 type PaymentIntentRecord = {
   _id?: unknown;
   amountUsdt?: number;
+  amountTokenUnits?: string;
   chainId?: string;
   chainName?: string;
   confirmedAt?: Date | string | null;
@@ -29,6 +30,7 @@ type PaymentIntentRecord = {
 export type PaymentIntentDto = {
   id: string;
   amountUsdt: number;
+  amountTokenUnits: string;
   chainId: string;
   chainName: string;
   confirmedAt: Date | string | null;
@@ -69,16 +71,21 @@ export type SubmitPaymentIntentTxHashResponseDto = {
 };
 
 export function toPaymentIntentDto(record: PaymentIntentRecord): PaymentIntentDto {
+  const safeFailureReason = record.status === "failed"
+    ? "Transaction verification failed. Please verify the amount, network and transaction hash, then contact support if needed."
+    : null;
+
   return {
     id: String(record._id),
     amountUsdt: record.amountUsdt ?? 0,
+    amountTokenUnits: record.amountTokenUnits ?? "0",
     chainId: record.chainId ?? "",
     chainName: record.chainName ?? "",
     confirmedAt: record.confirmedAt ?? null,
     createdAt: record.createdAt ?? null,
     detectedAt: record.detectedAt ?? null,
     expiresAt: record.expiresAt ?? null,
-    failureReason: record.failureReason ?? null,
+    failureReason: safeFailureReason,
     gasToken: record.gasToken ?? "",
     logIndex: record.logIndex ?? null,
     network: record.network ?? "",

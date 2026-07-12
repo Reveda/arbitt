@@ -4,6 +4,7 @@ import { env } from "../../../config/env";
 import { apiResponse } from "../../../utils/ApiResponse";
 import { catchAsync } from "../../../utils/catchAsync";
 import { authService } from "../services/auth.service";
+import { UserModel } from "../../users/models/user.model";
 import { clearAuthCookies, setAuthCookies } from "../utils/auth.cookies";
 import type {
   AuthResponseDto,
@@ -123,4 +124,33 @@ export const logout = catchAsync(async (req: Request, res: Response) => {
   res
     .status(HTTP_STATUS.OK)
     .json(apiResponse<LogoutResponseDto>(HTTP_STATUS.OK, "Logged out successfully.", result));
+});
+
+export const checkUsernameAvailability = catchAsync(async (req: Request, res: Response) => {
+  const username = String(req.query.username || "").trim().toLowerCase();
+  
+  if (!username) {
+    res.status(HTTP_STATUS.BAD_REQUEST).json(
+      apiResponse(HTTP_STATUS.BAD_REQUEST, "Username query parameter is required.", { available: false })
+    );
+    return;
+  }
+
+  if (username.length < 3) {
+    res.status(HTTP_STATUS.OK).json(
+      apiResponse(HTTP_STATUS.OK, "Username must be at least 3 characters long.", { available: false })
+    );
+    return;
+  }
+
+  const existingUser = await UserModel.findOne({ username });
+  if (existingUser) {
+    res.status(HTTP_STATUS.OK).json(
+      apiResponse(HTTP_STATUS.OK, "Username is already taken.", { available: false })
+    );
+  } else {
+    res.status(HTTP_STATUS.OK).json(
+      apiResponse(HTTP_STATUS.OK, "Username is available.", { available: true })
+    );
+  }
 });

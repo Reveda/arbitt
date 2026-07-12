@@ -60,6 +60,15 @@ export const listSuperAdminNotificationsQuerySchema = withDateRangeValidation(
   }),
 );
 
+export const superAdminTransactionParamsSchema = z.object({
+  transactionId: z.string().regex(/^[a-f\d]{24}$/i, "Invalid transaction id."),
+});
+
+export const superAdminTransactionStatusBodySchema = z.object({
+  status: z.enum(["pending", "approved", "rejected", "completed", "failed"]),
+  notes: z.string().trim().min(1).max(500).optional(),
+});
+
 export const listSuperAdminApiActivityQuerySchema = withDateRangeValidation(
   dateRangeQuerySchema.extend({
     action: z.string().trim().max(120).optional(),

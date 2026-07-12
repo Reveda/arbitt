@@ -1,11 +1,16 @@
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomInt } from "node:crypto";
 import { HTTP_STATUS } from "../../../constants/http";
 import { env } from "../../../config/env";
 import { ApiError } from "../../../utils/ApiError";
 import { PlatformSettingModel } from "../models/platform-setting.model";
+import { AuditLogModel } from "../models/audit-log.model";
+import { UserModel } from "../../users/models/user.model";
+import { emailService } from "../../email/services/email.service";
 
 const PAYMENT_WALLET_SETTING_KEY = "payment_wallet";
 const ENCRYPTION_ALGORITHM = "aes-256-gcm";
+const PAYMENT_WALLET_OTP_EXPIRES_MINUTES = 10;
+const PAYMENT_WALLET_OTP_MAX_ATTEMPTS = 5;
 
 type StoredPaymentWallet = {
   address?: string;
@@ -42,6 +47,130 @@ function getEncryptionSecret() {
 
 function getEncryptionKey() {
   return createHash("sha256").update(getEncryptionSecret()).digest();
+}
+
+function maskEmail(email: string) {
+  const [name, domain] = email.split("@", 2);
+  return `${name.slice(0, 2)}***@${domain}`;
+}
+
+function hashPaymentWalletOtp(email: string, otp: string) {
+  return createHmac("sha256", getEncryptionKey())
+    .update(`admin-payment-wallet:${email.toLowerCase()}:${otp}`)
+    .digest("hex");
+}
+
+function createPaymentWalletOtp() {
+  return randomInt(0, 1_000_000).toString().padStart(6, "0");
+}
+
+function testOtpPayload(otp: string) {
+  const allowed = env.EXPOSE_AUTH_OTP_IN_TEST_MODE && env.APP_ENV === "test";
+  return allowed ? { testMode: true, testOtp: otp } : {};
+}
+
+export async function requestPaymentWalletOtp(input: {
+  address: string;
+  network: string;
+  adminUserId: string;
+  ipAddress?: string;
+}) {
+  const user = await UserModel.findOne({
+    _id: input.adminUserId,
+    role: { $in: ["admin", "super_admin"] },
+    status: "active",
+    isDeleted: { $ne: true },
+  }).select("+adminPaymentWalletOtpHash +adminPaymentWalletOtpExpiresAt +adminPaymentWalletOtpAttempts +pendingAdminPaymentWalletAddress +pendingAdminPaymentWalletNetwork");
+
+  if (!user) {
+    throw new ApiError(HTTP_STATUS.FORBIDDEN, "Admin verification is required.");
+  }
+
+  const otp = createPaymentWalletOtp();
+  const expiresAt = new Date(Date.now() + PAYMENT_WALLET_OTP_EXPIRES_MINUTES * 60_000);
+  user.set({
+    pendingAdminPaymentWalletAddress: normalizeAddress(input.address),
+    pendingAdminPaymentWalletNetwork: input.network,
+    adminPaymentWalletOtpHash: hashPaymentWalletOtp(user.email, otp),
+    adminPaymentWalletOtpExpiresAt: expiresAt,
+    adminPaymentWalletOtpAttempts: 0,
+  });
+  await user.save();
+
+  const delivery = await emailService.sendOtpEmail({
+    to: user.email,
+    otp,
+    purpose: "wallet-address-change",
+    expiresInMinutes: PAYMENT_WALLET_OTP_EXPIRES_MINUTES,
+    contextLabel: "Admin payment wallet change",
+  });
+  await AuditLogModel.create({
+    actorUserId: input.adminUserId,
+    action: "admin.payment_wallet.otp_requested",
+    entityType: "platform_setting",
+    entityId: "payment_wallet",
+    ipAddress: input.ipAddress,
+    metadata: { network: input.network, emailSent: delivery.sent },
+  });
+
+  return { email: maskEmail(user.email), expiresAt, ...testOtpPayload(otp) };
+}
+
+export async function verifyPaymentWalletOtp(input: {
+  address: string;
+  network: string;
+  adminUserId: string;
+  otp: string;
+  ipAddress?: string;
+}) {
+  const user = await UserModel.findOne({
+    _id: input.adminUserId,
+    role: { $in: ["admin", "super_admin"] },
+    status: "active",
+    isDeleted: { $ne: true },
+  }).select("+adminPaymentWalletOtpHash +adminPaymentWalletOtpExpiresAt +adminPaymentWalletOtpAttempts +pendingAdminPaymentWalletAddress +pendingAdminPaymentWalletNetwork");
+
+  const fail = async () => {
+    if (user) {
+      user.set({ adminPaymentWalletOtpAttempts: (user.get("adminPaymentWalletOtpAttempts") ?? 0) + 1 });
+      await user.save();
+    }
+    await AuditLogModel.create({
+      actorUserId: input.adminUserId,
+      action: "admin.payment_wallet.otp_failed",
+      entityType: "platform_setting",
+      entityId: "payment_wallet",
+      ipAddress: input.ipAddress,
+      metadata: { network: input.network },
+    });
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Invalid or expired verification code.");
+  };
+
+  const expiresAt = user?.get("adminPaymentWalletOtpExpiresAt") as Date | null | undefined;
+  if (!user || user.get("adminPaymentWalletOtpAttempts") >= PAYMENT_WALLET_OTP_MAX_ATTEMPTS ||
+      user.get("pendingAdminPaymentWalletAddress") !== normalizeAddress(input.address) ||
+      user.get("pendingAdminPaymentWalletNetwork") !== input.network ||
+      !expiresAt || new Date(expiresAt).getTime() <= Date.now() ||
+      user.get("adminPaymentWalletOtpHash") !== hashPaymentWalletOtp(user.email, input.otp)) {
+    await fail();
+  }
+
+  user!.set({
+    pendingAdminPaymentWalletAddress: null,
+    pendingAdminPaymentWalletNetwork: null,
+    adminPaymentWalletOtpHash: null,
+    adminPaymentWalletOtpExpiresAt: null,
+    adminPaymentWalletOtpAttempts: 0,
+  });
+  await user!.save();
+  await AuditLogModel.create({
+    actorUserId: input.adminUserId,
+    action: "admin.payment_wallet.otp_verified",
+    entityType: "platform_setting",
+    entityId: "payment_wallet",
+    ipAddress: input.ipAddress,
+    metadata: { network: input.network },
+  });
 }
 
 export function encryptValue(

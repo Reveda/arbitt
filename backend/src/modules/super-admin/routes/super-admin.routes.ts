@@ -21,6 +21,8 @@ import {
   listSuperAdminNotificationsQuerySchema,
   listSuperAdminSettingsQuerySchema,
   listSuperAdminTransactionsQuerySchema,
+  superAdminTransactionParamsSchema,
+  superAdminTransactionStatusBodySchema,
 } from "../validations/super-admin.validation";
 
 export const superAdminRoutes = Router();
@@ -70,7 +72,11 @@ superAdminRoutes.get(
 
 superAdminRoutes.patch(
   "/transactions/:transactionId/status",
-  requirePermissions("transactions:read"),
+  requirePermissions("super_admin:corrections:manage"),
+  validateRequest({
+    params: superAdminTransactionParamsSchema,
+    body: superAdminTransactionStatusBodySchema,
+  }),
   fixTransactionStatus,
 );
 

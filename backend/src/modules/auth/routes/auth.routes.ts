@@ -8,6 +8,7 @@ import {
   requestEmailVerificationOtp,
   resetPassword,
   verifyEmail,
+  checkUsernameAvailability,
 } from "../controllers/auth.controller";
 import {
   authIdentifierRateLimiter,
@@ -72,3 +73,4 @@ authRoutes.post(
 );
 authRoutes.post("/refresh-token", refreshTokenRateLimiter, refreshToken);
 authRoutes.post("/logout", logout);
+authRoutes.get("/check-username", checkUsernameAvailability);

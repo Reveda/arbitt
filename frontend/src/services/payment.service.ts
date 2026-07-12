@@ -6,6 +6,7 @@ export type PaymentNetwork = "BEP20";
 export type PaymentIntent = {
   id: string;
   amountUsdt: number;
+  amountTokenUnits: string;
   chainId: string;
   chainName: string;
   confirmedAt: string | null;
@@ -30,13 +31,13 @@ export type PaymentIntent = {
 };
 
 export type CreatePlanPaymentIntentInput = {
-  amountUsdt: number;
+  amountUsdt: string | number;
   network: PaymentNetwork;
   tier: string;
 };
 
 export type CreateDepositPaymentIntentInput = {
-  amountUsdt: number;
+  amountUsdt: string | number;
   network: PaymentNetwork;
 };
 
@@ -48,6 +49,7 @@ export const paymentService = {
   createDepositIntent(input: CreateDepositPaymentIntentInput) {
     return apiRequest<PaymentIntentResponse>(API_ENDPOINTS.payments.depositIntents, {
       method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
       body: input
     });
   },
@@ -55,6 +57,7 @@ export const paymentService = {
   createPlanIntent(input: CreatePlanPaymentIntentInput) {
     return apiRequest<PaymentIntentResponse>(API_ENDPOINTS.payments.planIntents, {
       method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
       body: input
     });
   },

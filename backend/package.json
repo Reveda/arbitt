@@ -23,6 +23,7 @@
     "seed:payout-test": "tsx src/scripts/seedPayoutTestData.ts",
     "test:payout-logic": "tsx src/scripts/testPayoutLogic.ts",
     "db:indexes": "node dist/scripts/setupDatabaseIndexes.js",
+    "db:normalize-hashes": "tsx src/scripts/normalizeOnChainHashes.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "lint:fix": "eslint \"src/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.ts\""

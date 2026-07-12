@@ -40,10 +40,19 @@ const LIMIT_OPTIONS = [10, 25, 50, 100];
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
+    maximumFractionDigits: 18,
+    minimumFractionDigits: 0,
     useGrouping: false
   }).format(value)} USDT`;
+}
+
+function formatExactTokenAmount(tokenUnits: string | null, decimals = 18) {
+  if (!tokenUnits) return null;
+  const normalized = tokenUnits.replace(/^0+(?=\d)/, "") || "0";
+  const padded = normalized.padStart(decimals + 1, "0");
+  const whole = padded.slice(0, -decimals) || "0";
+  const fraction = padded.slice(-decimals).replace(/0+$/, "");
+  return `${whole}${fraction ? `.${fraction}` : ""} USDT`;
 }
 
 function formatDate(value: string | null) {
@@ -156,7 +165,7 @@ export function AdminTransactionsPage() {
       />
 
       {/* Filtering Section */}
-      <div className="flex flex-col gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+      <div className="flex flex-col gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm relative z-30">
         
         {/* Row 1: Search & Date filter */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -323,14 +332,14 @@ export function AdminTransactionsPage() {
                             "text-xs font-extrabold",
                             isPositive ? "text-emerald-600" : "text-rose-600"
                           )}>
-                            {isPositive ? "+" : ""}{formatUsdt(txn.amountUsdt)}
+                            {isPositive ? "+" : ""}{formatExactTokenAmount(txn.amountTokenUnits) ?? formatUsdt(txn.amountUsdt)}
                           </span>
                         </td>
 
                         {/* Gross / Fee */}
                         <td className="py-4 px-2 text-right text-slate-500 text-[11px]">
-                          <div>G: {txn.grossAmountUsdt.toFixed(2)}</div>
-                          <div className="text-[10px] text-rose-500">F: {txn.chargeUsdt.toFixed(2)}</div>
+                          <div>G: {txn.grossAmountUsdt}</div>
+                          <div className="text-[10px] text-rose-500">F: {txn.chargeUsdt}</div>
                         </td>
 
                         {/* Destination Wallet address */}

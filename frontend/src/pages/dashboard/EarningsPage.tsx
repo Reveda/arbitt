@@ -61,8 +61,8 @@ const emptySummary: UserEarningsResponse["summary"] = {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
+    maximumFractionDigits: 18,
+    minimumFractionDigits: 0,
     useGrouping: false
   }).format(value);
 }
@@ -76,7 +76,7 @@ function formatPercent(value: number | null) {
     return "";
   }
 
-  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(value)}%`;
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 18 }).format(value)}%`;
 }
 
 function formatDate(value: string | null) {

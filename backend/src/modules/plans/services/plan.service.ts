@@ -216,7 +216,7 @@ export class PlanService {
   }
 
   async purchasePlan(userId: string, input: PurchasePlanInput): Promise<PurchasePlanResponseDto> {
-    const amountUsdt = Math.round(input.amountUsdt * 100) / 100;
+    const amountUsdt = Number(input.amountUsdt);
     const ruleSet = await planRepository.ensureDefaultRuleSet();
     const tier = [...ruleSet.investmentTiers].find(
       (candidate) => candidate.isActive !== false && candidate.tier === input.tier.trim(),

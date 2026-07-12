@@ -48,8 +48,8 @@ const STATUS_FILTERS = [
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
+    maximumFractionDigits: 18,
+    minimumFractionDigits: 0,
     useGrouping: false,
   }).format(value)} USDT`;
 }
@@ -387,7 +387,7 @@ export function AdminPayoutsPage() {
       </div>
 
       <AdminCard className="min-w-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-4 relative z-30">
           <div>
             <p className="text-sm font-black text-slate-950">Payout Records</p>
             <p className="mt-1 text-xs font-semibold text-slate-500">

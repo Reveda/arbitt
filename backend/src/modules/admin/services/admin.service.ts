@@ -7,7 +7,7 @@ import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.mod
 import { rewardService, calculateUserRoyaltyRanks } from "../../rewards/services/reward.service";
 import { getSalaryRoyaltyPeriod } from "../../rewards/utils/salaryRoyalty";
 import { adminRepository } from "../repositories/admin.repository";
-import { getPlatformPaymentWallet, updatePlatformPaymentWallet } from "./payment-wallet.service";
+import { getPlatformPaymentWallet, requestPaymentWalletOtp, updatePlatformPaymentWallet, verifyPaymentWalletOtp } from "./payment-wallet.service";
 import { toSafeUser } from "../../auth/dtos/auth.dto";
 import { ReferralModel } from "../../referrals/models/referral.model";
 import { getTeamBusinessMap, getSelfBusinessMap } from "../../referrals/services/referral.service";
@@ -632,9 +632,9 @@ export class AdminService {
       return [
         username,
         u.payoutKind,
-        u.amountUsdt.toFixed(2),
+        String(u.amountUsdt),
         u.payoutTier ?? "",
-        u.payoutPrincipalUsdt !== null ? u.payoutPrincipalUsdt.toFixed(2) : "",
+        u.payoutPrincipalUsdt !== null ? String(u.payoutPrincipalUsdt) : "",
         u.payoutPercent !== null ? u.payoutPercent.toFixed(2) : "",
         periodStartStr,
         periodEndStr,
@@ -1036,7 +1036,9 @@ export class AdminService {
     network: string;
     adminUserId: string;
     ipAddress?: string;
+    otp: string;
   }) {
+    await verifyPaymentWalletOtp(input);
     const wallet = await updatePlatformPaymentWallet({
       address: input.address,
       network: input.network,
@@ -1055,6 +1057,15 @@ export class AdminService {
     });
 
     return { wallet };
+  }
+
+  requestPaymentWalletOtp(input: {
+    address: string;
+    network: string;
+    adminUserId: string;
+    ipAddress?: string;
+  }) {
+    return requestPaymentWalletOtp(input);
   }
 
   async reviewPlanPurchase(input: {

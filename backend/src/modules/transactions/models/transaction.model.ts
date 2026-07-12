@@ -23,6 +23,11 @@ const transactionSchema = new Schema(
       required: true,
       index: true,
     },
+    idempotencyKey: {
+      type: String,
+      trim: true,
+      index: true,
+    },
     type: {
       type: String,
       enum: TRANSACTION_TYPES,
@@ -40,11 +45,18 @@ const transactionSchema = new Schema(
       required: true,
       min: 0,
     },
+    amountTokenUnits: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     txnHash: {
       type: String,
       unique: true,
       sparse: true,
       trim: true,
+      set: (value: string | null | undefined) =>
+        typeof value === "string" && /^0x/i.test(value) ? value.toLowerCase() : value,
       default: function (this: { _id: { toString(): string } }) {
         return `SYS-${this._id.toString().toUpperCase()}`;
       },
@@ -121,6 +133,16 @@ const transactionSchema = new Schema(
       min: 0,
       default: null,
     },
+    grossAmountTokenUnits: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    netAmountTokenUnits: {
+      type: String,
+      trim: true,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -128,6 +150,10 @@ const transactionSchema = new Schema(
 );
 
 transactionSchema.index({ userId: 1, createdAt: -1 });
+transactionSchema.index(
+  { userId: 1, type: 1, idempotencyKey: 1 },
+  { unique: true, partialFilterExpression: { idempotencyKey: { $type: "string" } } },
+);
 transactionSchema.index({ status: 1, type: 1, createdAt: -1 });
 transactionSchema.index({ type: 1, createdAt: -1 });
 transactionSchema.index({ status: 1, createdAt: -1 });

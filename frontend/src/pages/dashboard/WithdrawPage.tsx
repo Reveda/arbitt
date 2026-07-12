@@ -37,8 +37,8 @@ const compactMetricCardClass = "min-w-0 rounded-2xl border border-slate-200 bg-s
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
+    maximumFractionDigits: 18,
+    minimumFractionDigits: 0,
     useGrouping: false
   }).format(value)} USDT`;
 }
@@ -424,7 +424,7 @@ export function WithdrawPage() {
                 <div className="relative">
                   <Input
                     type="text"
-                    value={chargeVal > 0 ? chargeVal.toFixed(2) : "0.00"}
+                    value={chargeVal > 0 ? String(chargeVal) : "0"}
                     className="border-slate-200 bg-slate-100 font-bold text-slate-500 cursor-not-allowed"
                     disabled
                   />
@@ -442,7 +442,7 @@ export function WithdrawPage() {
                 <div className="relative">
                   <Input
                     type="text"
-                    value={netVal > 0 ? netVal.toFixed(2) : "0.00"}
+                    value={netVal > 0 ? String(netVal) : "0"}
                     className="border-slate-200 bg-slate-100 font-black text-emerald-600 cursor-not-allowed"
                     disabled
                   />

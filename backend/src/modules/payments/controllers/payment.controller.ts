@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { HTTP_STATUS } from "../../../constants/http";
 import { apiResponse } from "../../../utils/ApiResponse";
 import { catchAsync } from "../../../utils/catchAsync";
+import { ApiError } from "../../../utils/ApiError";
 import {
   type CreateDepositPaymentIntentResponseDto,
   type CreatePlanPaymentIntentResponseDto,
@@ -17,8 +18,12 @@ import {
 } from "../validations/payment.validation";
 
 export const createDepositPaymentIntent = catchAsync(async (req: Request, res: Response) => {
+  const idempotencyKey = req.get("Idempotency-Key")?.trim();
+  if (!idempotencyKey || idempotencyKey.length > 128) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, "A valid Idempotency-Key header is required.");
+  }
   const input = createDepositPaymentIntentSchema.parse(req.body);
-  const result = await paymentService.createDepositPaymentIntent(req.user!.id, input);
+  const result = await paymentService.createDepositPaymentIntent(req.user!.id, input, idempotencyKey);
 
   res
     .status(HTTP_STATUS.CREATED)
@@ -32,8 +37,12 @@ export const createDepositPaymentIntent = catchAsync(async (req: Request, res: R
 });
 
 export const createPlanPaymentIntent = catchAsync(async (req: Request, res: Response) => {
+  const idempotencyKey = req.get("Idempotency-Key")?.trim();
+  if (!idempotencyKey || idempotencyKey.length > 128) {
+    throw new ApiError(HTTP_STATUS.BAD_REQUEST, "A valid Idempotency-Key header is required.");
+  }
   const input = createPlanPaymentIntentSchema.parse(req.body);
-  const result = await paymentService.createPlanPaymentIntent(req.user!.id, input);
+  const result = await paymentService.createPlanPaymentIntent(req.user!.id, input, idempotencyKey);
 
   res
     .status(HTTP_STATUS.CREATED)

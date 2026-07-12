@@ -33,7 +33,7 @@ function formatNumber(value: number) {
 }
 
 function formatUsdt(value: number) {
-  return `${new Intl.NumberFormat("en-US", { useGrouping: false }).format(Number(value.toFixed(2)))} USDT`;
+  return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 18, useGrouping: false }).format(value)} USDT`;
 }
 
 function toDateString(date: Date) {

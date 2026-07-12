@@ -30,6 +30,7 @@ const envSchema = z
     API_PREFIX: z.string().startsWith("/").default("/api/v1"),
     FRONTEND_URL: z.string().default("http://localhost:5173"),
     MONGODB_URI: z.string().min(1).default("mongodb://127.0.0.1:27017/arbitrum"),
+    MONGODB_TRANSACTIONS_ENABLED: optionalBooleanString.default(true),
     REDIS_ENABLED: optionalBooleanString.default(false),
     REDIS_URL: z.string().min(1).default("redis://127.0.0.1:6379"),
     CACHE_KEY_PREFIX: z.string().min(1).default("arbitrum"),
@@ -46,6 +47,7 @@ const envSchema = z
     JWT_REFRESH_SECRET: z.string().min(32).default("change-me-local-refresh-secret-32chars"),
     BSC_PRIMARY_RPC_URL: z.string().url().default("https://bsc-dataseed.binance.org/"),
     BSC_BACKUP_RPC_URL: z.string().url().default("https://bsc.publicnode.com"),
+    BSC_REQUIRED_CONFIRMATIONS: z.coerce.number().int().min(1).default(12),
     PAYMENT_INTENT_EXPIRES_MINUTES: z.coerce.number().int().positive().default(60),
     PAYMENT_WALLET_ENCRYPTION_KEY: z.string().min(32).optional(),
     WITHDRAWAL_ADMIN_PRIVATE_KEY: z.string().optional(),
@@ -87,7 +89,7 @@ const envSchema = z
       return;
     }
 
-    if (value.JWT_ACCESS_SECRET.startsWith("change-me")) {
+    if (value.JWT_ACCESS_SECRET.length < 64 || value.JWT_ACCESS_SECRET.startsWith("change-me")) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "JWT_ACCESS_SECRET must be replaced in production.",
@@ -95,7 +97,7 @@ const envSchema = z
       });
     }
 
-    if (value.JWT_REFRESH_SECRET.startsWith("change-me")) {
+    if (value.JWT_REFRESH_SECRET.length < 64 || value.JWT_REFRESH_SECRET.startsWith("change-me")) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "JWT_REFRESH_SECRET must be replaced in production.",
@@ -103,11 +105,35 @@ const envSchema = z
       });
     }
 
-    if (!value.PAYMENT_WALLET_ENCRYPTION_KEY) {
+    if (!value.PAYMENT_WALLET_ENCRYPTION_KEY || value.PAYMENT_WALLET_ENCRYPTION_KEY.length < 64) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "PAYMENT_WALLET_ENCRYPTION_KEY is required in production.",
         path: ["PAYMENT_WALLET_ENCRYPTION_KEY"],
+      });
+    }
+
+    if (value.COOKIE_SECURE === false) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "COOKIE_SECURE must be true in production.",
+        path: ["COOKIE_SECURE"],
+      });
+    }
+
+    if (value.FRONTEND_URL.split(",").some((origin) => !origin.trim().startsWith("https://"))) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "FRONTEND_URL must use HTTPS in production.",
+        path: ["FRONTEND_URL"],
+      });
+    }
+
+    if (value.WITHDRAWAL_ADMIN_PRIVATE_KEY && !/^0x[0-9a-fA-F]{64}$/.test(value.WITHDRAWAL_ADMIN_PRIVATE_KEY)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "WITHDRAWAL_ADMIN_PRIVATE_KEY must be a valid 32-byte hex key.",
+        path: ["WITHDRAWAL_ADMIN_PRIVATE_KEY"],
       });
     }
 

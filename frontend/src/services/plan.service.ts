@@ -68,7 +68,7 @@ export type PlanPurchasesResponse = {
 
 export type PurchasePlanInput = {
   tier: string;
-  amountUsdt: number;
+  amountUsdt: string | number;
 };
 
 export type PurchasePlanResponse = {

@@ -73,7 +73,7 @@ export function SupportPage() {
             <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3.5 flex items-start gap-3">
               <Clock className="size-5 text-blue-600 mt-0.5 shrink-0" />
               <div className="text-xs text-blue-950 font-semibold leading-relaxed">
-                <span className="font-bold">Estimated Turnaround Time:</span> Support tickets are processed and resolved by our helpdesk team within <strong className="font-extrabold underline decoration-wavy decoration-blue-400">24 to 48 hours</strong>.
+                <span className="font-bold">Estimated Turnaround Time:</span> Support tickets are processed and resolved by our helpdesk team within <strong className="font-black text-blue-700">24 to 48 hours</strong>.
               </div>
             </div>
 

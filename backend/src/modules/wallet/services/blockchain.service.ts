@@ -10,7 +10,7 @@ const USDT_ABI = [
 ];
 
 export class BlockchainService {
-  async sendBscUsdt(toAddress: string, amountUsdt: number): Promise<string | null> {
+  async sendBscUsdt(toAddress: string, amountUsdt: string | number): Promise<string | null> {
     const privateKey = env.WITHDRAWAL_ADMIN_PRIVATE_KEY?.trim() || null;
 
     if (!privateKey) {
@@ -35,9 +35,8 @@ export class BlockchainService {
 
       const usdtContract = new ethers.Contract(tokenContractAddress, USDT_ABI, wallet);
 
-      // Format number to maximum decimal places to avoid floating point issues during parseUnits
-      const formattedAmount = Number(amountUsdt.toFixed(decimals));
-      const amountWei = ethers.parseUnits(formattedAmount.toString(), decimals);
+      // Keep the caller's decimal string intact; converting through Number would lose 18-decimal precision.
+      const amountWei = ethers.parseUnits(String(amountUsdt), decimals);
 
       // Execute on-chain transfer
       const tx = await usdtContract.transfer(toAddress, amountWei);

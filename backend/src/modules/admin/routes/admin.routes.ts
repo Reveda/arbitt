@@ -18,6 +18,7 @@ import {
   approveAllAdminPayouts,
   reviewAdminWithdrawal,
   updateAdminPaymentWallet,
+  requestAdminPaymentWalletOtp,
   exportAdminPayouts,
   editAdminUser,
   deleteAdminUser,
@@ -44,6 +45,7 @@ import {
   reviewAdminPayoutBodySchema,
   reviewAdminWithdrawalBodySchema,
   updateAdminPaymentWalletBodySchema,
+  requestAdminPaymentWalletOtpBodySchema,
   adminOverviewQuerySchema,
   adminUserParamsSchema,
   editAdminUserBodySchema,
@@ -72,6 +74,13 @@ adminRoutes.patch(
     body: editAdminUserBodySchema,
   }),
   editAdminUser,
+);
+adminRoutes.post(
+  "/payment-wallet/verification",
+  requirePermissions("admin:settings:manage"),
+  financialActionRateLimiter,
+  validateRequest({ body: requestAdminPaymentWalletOtpBodySchema }),
+  requestAdminPaymentWalletOtp,
 );
 adminRoutes.delete(
   "/users/:userId",
@@ -192,8 +201,25 @@ adminRoutes.get(
   listAdminSupportTickets,
 );
 
+import {
+  createAnnouncement,
+  deleteAnnouncement
+} from "../../notifications/controllers/announcement.controller";
+
 adminRoutes.post(
   "/support/tickets/:id/resolve",
   requirePermissions("admin:users:manage"),
   resolveSupportTicket,
+);
+
+adminRoutes.post(
+  "/announcements",
+  requirePermissions("admin:users:manage"),
+  createAnnouncement,
+);
+
+adminRoutes.delete(
+  "/announcements/:id",
+  requirePermissions("admin:users:manage"),
+  deleteAnnouncement,
 );

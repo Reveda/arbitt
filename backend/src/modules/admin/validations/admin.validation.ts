@@ -117,6 +117,16 @@ export const updateAdminPaymentWalletBodySchema = z.object({
     .min(8, "Wallet address is required.")
     .max(180, "Wallet address is too long."),
   network: z.enum(["BEP20"]),
+  otp: z.string().regex(/^\d{6}$/, "Verification code must be 6 digits."),
+});
+
+export const requestAdminPaymentWalletOtpBodySchema = z.object({
+  address: z
+    .string()
+    .trim()
+    .min(8, "Wallet address is required.")
+    .max(180, "Wallet address is too long."),
+  network: z.enum(["BEP20"]),
 });
 
 export const adminOverviewQuerySchema = z

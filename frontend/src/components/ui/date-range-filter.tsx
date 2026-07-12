@@ -42,12 +42,24 @@ function getButtonLabel(fromDate: string, toDate: string) {
   return "Date";
 }
 
+import { createPortal } from "react-dom";
+
 export function DateRangeFilter({ fromDate, toDate, onApply, className }: DateRangeFilterProps) {
   const [open, setOpen] = useState(false);
   const [draftFromDate, setDraftFromDate] = useState(fromDate);
   const [draftToDate, setDraftToDate] = useState(toDate);
+  const [isMobile, setIsMobile] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const active = Boolean(fromDate || toDate);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -58,9 +70,14 @@ export function DateRangeFilter({ fromDate, toDate, onApply, className }: DateRa
 
   useEffect(() => {
     const closeOnOutsideClick = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setOpen(false);
+      const target = event.target as Element;
+      if (
+        containerRef.current?.contains(target) ||
+        target.closest(".date-range-filter-portal")
+      ) {
+        return;
       }
+      setOpen(false);
     };
 
     if (open) {
@@ -81,6 +98,71 @@ export function DateRangeFilter({ fromDate, toDate, onApply, className }: DateRa
     onApply({ fromDate: "", toDate: "" });
     setOpen(false);
   };
+
+  const dropdownContent = (
+    <div
+      className={cn(
+        "overflow-hidden rounded-2xl border border-slate-200 bg-white text-left date-range-filter-portal",
+        isMobile
+          ? "fixed inset-x-4 top-1/2 z-[100] w-auto max-w-sm -translate-y-1/2 shadow-[0_24px_70px_rgba(15,23,42,0.24)]"
+          : "absolute right-0 top-[calc(100%+0.65rem)] z-50 w-[26rem] shadow-[0_24px_70px_rgba(15,23,42,0.18)]"
+      )}
+    >
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-white to-cyan-50/55 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className="grid size-9 place-items-center rounded-xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
+            <CalendarDays className="size-4" />
+          </span>
+          <div>
+            <p className="text-sm font-black text-slate-950">Date Filter</p>
+            <p className="mt-0.5 text-[11px] font-bold text-slate-400">
+              {active ? getButtonLabel(fromDate, toDate) : "All records"}
+            </p>
+          </div>
+        </div>
+        <button
+          className="grid size-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
+          onClick={() => setOpen(false)}
+          type="button"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+
+      <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
+        <label className="block">
+          <span className="mb-2 block text-xs font-black text-slate-500">From Date</span>
+          <Input
+            className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 [color-scheme:light]"
+            max={draftToDate || undefined}
+            onChange={(event) => setDraftFromDate(event.target.value)}
+            type="date"
+            value={draftFromDate}
+          />
+        </label>
+        <label className="block">
+          <span className="mb-2 block text-xs font-black text-slate-500">To Date</span>
+          <Input
+            className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 [color-scheme:light]"
+            min={draftFromDate || undefined}
+            onChange={(event) => setDraftToDate(event.target.value)}
+            type="date"
+            value={draftToDate}
+          />
+        </label>
+      </div>
+
+      <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-4 py-3">
+        <Button className="h-10 rounded-xl bg-white px-5" onClick={clearRange} type="button" variant="outline">
+          Clear
+        </Button>
+        <Button className="h-10 rounded-xl bg-cyan-600 px-5 text-white shadow-sm shadow-cyan-200 hover:bg-cyan-700" onClick={applyRange} type="button">
+          <Check className="size-4" />
+          Apply
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative" ref={containerRef}>
@@ -104,69 +186,21 @@ export function DateRangeFilter({ fromDate, toDate, onApply, className }: DateRa
       </Button>
 
       {open ? (
-        <>
-          {/* Mobile backdrop */}
-          <div
-            className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm sm:hidden"
-            onClick={() => setOpen(false)}
-          />
-          {/* Filter Container */}
-          <div className="fixed inset-x-4 top-1/2 z-50 w-auto max-w-sm -translate-y-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-[0_24px_70px_rgba(15,23,42,0.24)] sm:absolute sm:inset-auto sm:right-0 sm:top-[calc(100%+0.65rem)] sm:translate-y-0 sm:w-[26rem] sm:max-w-none sm:z-40 sm:shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
-            <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-gradient-to-r from-white to-cyan-50/55 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <span className="grid size-9 place-items-center rounded-xl bg-cyan-50 text-cyan-700 ring-1 ring-cyan-100">
-                  <CalendarDays className="size-4" />
-                </span>
-                <div>
-                  <p className="text-sm font-black text-slate-950">Date Filter</p>
-                  <p className="mt-0.5 text-[11px] font-bold text-slate-400">
-                    {active ? getButtonLabel(fromDate, toDate) : "All records"}
-                  </p>
-                </div>
-              </div>
-              <button
-                className="grid size-9 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-slate-50"
+        isMobile ? (
+          createPortal(
+            <>
+              {/* Mobile backdrop */}
+              <div
+                className="fixed inset-0 z-[99] bg-slate-950/60 backdrop-blur-sm"
                 onClick={() => setOpen(false)}
-                type="button"
-              >
-                <X className="size-4" />
-              </button>
-            </div>
-
-            <div className="grid gap-3 px-4 py-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-slate-500">From Date</span>
-                <Input
-                  className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 [color-scheme:light]"
-                  max={draftToDate || undefined}
-                  onChange={(event) => setDraftFromDate(event.target.value)}
-                  type="date"
-                  value={draftFromDate}
-                />
-              </label>
-              <label className="block">
-                <span className="mb-2 block text-xs font-black text-slate-500">To Date</span>
-                <Input
-                  className="h-11 rounded-xl border-slate-200 bg-slate-50 px-3 text-sm font-bold text-slate-900 [color-scheme:light]"
-                  min={draftFromDate || undefined}
-                  onChange={(event) => setDraftToDate(event.target.value)}
-                  type="date"
-                  value={draftToDate}
-                />
-              </label>
-            </div>
-
-            <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50/70 px-4 py-3">
-              <Button className="h-10 rounded-xl bg-white px-5" onClick={clearRange} type="button" variant="outline">
-                Clear
-              </Button>
-              <Button className="h-10 rounded-xl bg-cyan-600 px-5 text-white shadow-sm shadow-cyan-200 hover:bg-cyan-700" onClick={applyRange} type="button">
-                <Check className="size-4" />
-                Apply
-              </Button>
-            </div>
-          </div>
-        </>
+              />
+              {dropdownContent}
+            </>,
+            document.body
+          )
+        ) : (
+          dropdownContent
+        )
       ) : null}
     </div>
   );

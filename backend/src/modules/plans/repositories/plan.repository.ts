@@ -1,6 +1,7 @@
 import { PlanModel } from "../models/plan.model";
 import { DEFAULT_PLAN_RULE_SET_KEY, defaultPlanRuleSet } from "../constants/plan-rule-set.defaults";
 import { PlanRuleSetModel } from "../models/plan-rule-set.model";
+import type { ClientSession } from "mongoose";
 import type {
   PlanRepositoryRecord,
   PlanRuleSetRepositoryRecord,
@@ -19,7 +20,7 @@ export class PlanRepository {
     return PlanModel.countDocuments({ isActive: true });
   }
 
-  async ensureDefaultRuleSet(): Promise<PlanRuleSetRepositoryRecord> {
+  async ensureDefaultRuleSet(session?: ClientSession): Promise<PlanRuleSetRepositoryRecord> {
     const { key, ...ruleSetDefaults } = defaultPlanRuleSet;
 
     const ruleSet = await PlanRuleSetModel.findOneAndUpdate(
@@ -28,7 +29,7 @@ export class PlanRepository {
         $set: ruleSetDefaults,
         $setOnInsert: { key },
       },
-      { new: true, setDefaultsOnInsert: true, upsert: true },
+      { new: true, setDefaultsOnInsert: true, upsert: true, ...(session ? { session } : {}) },
     ).lean();
 
     return ruleSet as PlanRuleSetRepositoryRecord;

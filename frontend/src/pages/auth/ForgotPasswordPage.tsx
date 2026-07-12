@@ -150,10 +150,10 @@ export function ForgotPasswordPage() {
               ) : null}
             </label>
             <label className="grid gap-2 text-sm font-medium">
-              Re-enter Password
+              Confirm Password
               <PasswordField
                 error={resetPasswordErrors.confirmPassword?.message}
-                placeholder="Re-enter your new password"
+                placeholder="Confirm your new password"
                 registration={registerResetPassword("confirmPassword", {
                   required: "Please confirm your password.",
                   validate: (value) => value === getValues("password") || "Passwords do not match."

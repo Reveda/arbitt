@@ -8,6 +8,7 @@ import path from "node:path";
 import { allowedOrigins, env } from "./config/env";
 import { logger } from "./config/logger";
 import { apiActivityTracker } from "./middlewares/apiActivityTracker";
+import { csrfProtection } from "./middlewares/csrfProtection";
 import { errorHandler } from "./middlewares/errorHandler";
 import { notFoundHandler } from "./middlewares/notFound";
 import { requestLogger } from "./middlewares/requestLogger";
@@ -79,6 +80,7 @@ export function createApp() {
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));
   app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+  app.use(csrfProtection);
   app.use(requestLogger);
   app.use(apiActivityTracker);
 

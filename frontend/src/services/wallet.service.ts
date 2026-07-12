@@ -127,6 +127,7 @@ export const walletService = {
   createWithdrawal(input: CreateWithdrawalInput) {
     return apiRequest<WithdrawalRequest>(API_ENDPOINTS.wallet.withdrawals, {
       method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
       body: input
     });
   }

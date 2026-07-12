@@ -43,8 +43,8 @@ const modalFooterClass =
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
+    maximumFractionDigits: 18,
+    minimumFractionDigits: 0,
     useGrouping: false
   }).format(value)} USDT`;
 }
@@ -189,7 +189,7 @@ export function AdminWithdrawalsPage() {
       />
 
       {/* Filtering Section */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between relative z-30">
         
         {/* Status Pills */}
         <div className="flex flex-wrap items-center gap-1.5">

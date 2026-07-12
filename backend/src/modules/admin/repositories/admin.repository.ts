@@ -402,7 +402,7 @@ export class AdminRepository {
       ]);
       platformReserveHistory.push({
         month: bucket.month,
-        reserve: Number((depSum - witSum - rewSum).toFixed(2))
+        reserve: depSum - witSum - rewSum
       });
 
       // 2. Calculate monthly activity inside this bucket
@@ -425,9 +425,9 @@ export class AdminRepository {
       ]);
       transactionActivity.push({
         month: bucket.month,
-        deposits: Number(depAct.toFixed(2)),
-        withdrawals: Number(witAct.toFixed(2)),
-        payouts: Number(rewAct.toFixed(2))
+        deposits: depAct,
+        withdrawals: witAct,
+        payouts: rewAct
       });
     }
 

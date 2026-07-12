@@ -393,7 +393,7 @@ async function assertTotalRewardCapIncludesLevelAndRoyalty(input: {
   });
 
   const sourceTransaction = await TransactionModel.create({
-    amountUsdt: 100,
+    amountUsdt: "100",
     network: "SYSTEM",
     notes: "Logic test source purchase for capped level income",
     status: "completed",
@@ -515,7 +515,7 @@ async function assertWithdrawalChargeFlow(input: { adminUserId: string; userId: 
   ]);
 
   const withdrawal = await walletService.createWithdrawalRequest(input.userId, {
-    amountUsdt: 100,
+    amountUsdt: "100",
     network: "BEP20",
     walletAddress: "0x0000000000000000000000000000000000000000",
     transactionPassword: "123456",
@@ -566,7 +566,7 @@ async function assertWithdrawalChargeFlow(input: { adminUserId: string; userId: 
   );
 
   const rejectedWithdrawal = await walletService.createWithdrawalRequest(input.userId, {
-    amountUsdt: 50,
+    amountUsdt: "50",
     network: "BEP20",
     walletAddress: "0x0000000000000000000000000000000000000000",
     transactionPassword: "123456",

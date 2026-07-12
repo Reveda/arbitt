@@ -3,6 +3,7 @@ import type { PaginationDto } from "../../../utils/ApiResponse";
 type TransactionRecord = {
   _id?: unknown;
   amountUsdt?: number;
+  amountTokenUnits?: string | null;
   createdAt?: Date | string | null;
   network?: string | null;
   notes?: string | null;
@@ -28,6 +29,7 @@ export type TransactionDto = {
   type: string;
   status: string;
   amountUsdt: number;
+  amountTokenUnits: string | null;
   txnHash: string | null;
   network: string;
   walletAddress: string | null;
@@ -61,6 +63,7 @@ export function toTransactionNode(record: TransactionRecord): TransactionDto {
     type: record.type ?? "adjustment",
     status: record.status ?? "pending",
     amountUsdt: record.amountUsdt ?? 0,
+    amountTokenUnits: record.amountTokenUnits ?? null,
     txnHash: record.txnHash ?? null,
     network: record.network ?? "BEP20",
     walletAddress: record.walletAddress ?? null,

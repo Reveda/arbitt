@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -41,8 +41,8 @@ const transactionStatuses: Array<"all" | UserTransaction["status"]> = [
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
+    maximumFractionDigits: 18,
+    minimumFractionDigits: 0,
     useGrouping: false
   }).format(value)} USDT`;
 }
@@ -130,47 +130,42 @@ export function TransactionsPage() {
     setPage(1);
   }, [fromDate, status, toDate, type, limit]);
 
-  useEffect(() => {
-    let active = true;
+  const loadTransactions = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setIsLoading(true);
+    }
 
-    setIsLoading(true);
-
-    transactionService
-      .listTransactions({
+    try {
+      const response = await transactionService.listTransactions({
         page,
         limit,
         type: type === "all" ? undefined : type,
         status: status === "all" ? undefined : status,
         fromDate: fromDate || undefined,
         toDate: toDate || undefined
-      })
-      .then((response) => {
-        if (!active) {
-          return;
-        }
-
-        setTransactions(response.data.transactions);
-        setPagination(response.data.pagination);
-        setError(null);
-      })
-      .catch((caughtError) => {
-        if (!active) {
-          return;
-        }
-
-        setError(caughtError instanceof Error ? caughtError.message : "Unable to load transactions.");
-      })
-      .finally(() => {
-        if (active) {
-          setIsLoading(false);
-        }
       });
-
-    return () => {
-      active = false;
-    };
+      setTransactions(response.data.transactions);
+      setPagination(response.data.pagination);
+      setError(null);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "Unable to load transactions.");
+    } finally {
+      setIsLoading(false);
+    }
   }, [fromDate, page, status, toDate, type, limit]);
 
+  useEffect(() => {
+    void loadTransactions();
+  }, [loadTransactions]);
+
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      void loadTransactions(false);
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    return () => window.removeEventListener("focus", handleWindowFocus);
+  }, [loadTransactions]);
 
   return (
     <section className="space-y-4">

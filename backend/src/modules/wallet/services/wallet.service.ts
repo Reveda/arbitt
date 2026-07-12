@@ -29,6 +29,19 @@ import type {
 
 type CreateDepositRequestInput = z.infer<typeof createDepositRequestSchema>;
 type CreateWithdrawalRequestInput = z.infer<typeof createWithdrawalRequestSchema>;
+
+const USDT_DECIMALS = 18;
+const USDT_SCALE = 10n ** BigInt(USDT_DECIMALS);
+
+function decimalToTokenUnits(value: string | number) {
+  const normalized = String(value).trim();
+  const [whole, fraction = ""] = normalized.split(".");
+  return BigInt(whole) * USDT_SCALE + BigInt((fraction + "0".repeat(USDT_DECIMALS)).slice(0, USDT_DECIMALS));
+}
+
+function tokenUnitsToNumber(value: bigint) {
+  return Number(value) / Number(USDT_SCALE);
+}
 type ListDepositRequestsInput = z.infer<typeof listDepositRequestsQuerySchema>;
 type WalletBalanceRecord = {
   availableUsdt?: number;
@@ -156,7 +169,24 @@ export class WalletService {
   async createWithdrawalRequest(
     userId: string,
     input: CreateWithdrawalRequestInput,
+    idempotencyKey?: string,
   ): Promise<CreateWithdrawalResponseDto> {
+    const existing = idempotencyKey
+      ? await TransactionModel.findOne({ userId, type: "withdrawal", idempotencyKey }).lean()
+      : null;
+    if (existing) {
+      const existingGross = existing.payoutPrincipalUsdt ?? existing.amountUsdt;
+      const existingCharge = roundUsdt(existingGross - (existing.amountUsdt ?? 0));
+      const existingWallet = await walletRepository.findByUserId(userId);
+      return {
+        ...toTransactionNode(existing),
+        chargeUsdt: existingCharge,
+        grossAmountUsdt: existingGross,
+        netAmountUsdt: existing.amountUsdt,
+        wallet: await this.getSummaryBalanceFields(userId, existingWallet),
+        withdrawalChargePercent: WITHDRAWAL_CHARGE_PERCENT,
+      };
+    }
     // Verify transaction password first
     const user = await userRepository.findByIdWithTransactionPassword(userId);
     if (!user) {
@@ -176,9 +206,12 @@ export class WalletService {
       throw new ApiError(HTTP_STATUS.UNAUTHORIZED, "Incorrect transaction password.");
     }
 
-    const grossAmountUsdt = roundUsdt(input.amountUsdt);
-    const chargeUsdt = roundUsdt((grossAmountUsdt * WITHDRAWAL_CHARGE_PERCENT) / 100);
-    const netAmountUsdt = roundUsdt(grossAmountUsdt - chargeUsdt);
+    const grossAmountTokenUnits = decimalToTokenUnits(input.amountUsdt);
+    const chargeTokenUnits = (grossAmountTokenUnits * BigInt(WITHDRAWAL_CHARGE_PERCENT)) / 100n;
+    const netAmountTokenUnits = grossAmountTokenUnits - chargeTokenUnits;
+    const grossAmountUsdt = tokenUnitsToNumber(grossAmountTokenUnits);
+    const chargeUsdt = tokenUnitsToNumber(chargeTokenUnits);
+    const netAmountUsdt = tokenUnitsToNumber(netAmountTokenUnits);
 
     await walletRepository.ensureWallet(userId);
     const wallet = await walletRepository.lockWithdrawalAmount(userId, grossAmountUsdt);
@@ -237,11 +270,14 @@ export class WalletService {
         notes: [initialNotes, input.notes].filter(Boolean).join(" "),
         payoutPercent: WITHDRAWAL_CHARGE_PERCENT,
         payoutPrincipalUsdt: grossAmountUsdt,
+        grossAmountTokenUnits: grossAmountTokenUnits.toString(),
+        netAmountTokenUnits: netAmountTokenUnits.toString(),
         status,
         txnHash,
         reviewedAt,
         type: "withdrawal",
         userId,
+        ...(idempotencyKey ? { idempotencyKey } : {}),
       });
 
       // Queue the background job if eligible and queue is enabled

@@ -22,7 +22,7 @@ function formatNumber(value: number) {
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
     useGrouping: false,
-  }).format(Number(value.toFixed(2)))} USDT`;
+  }).format(value)} USDT`;
 }
 
 function formatDate(value: string | null) {
@@ -59,15 +59,20 @@ export function AdminPageHeader({ title, description }: { title: string; descrip
   );
 }
 
-export function MetricCard({ item }: { item: { title: string; value: string; tone: string; icon: ComponentType<{ className?: string }> } }) {
+export function MetricCard({ item }: { item: { title: string; value: string; caption?: string; tone: string; icon: ComponentType<{ className?: string }> } }) {
   const Icon = item.icon;
 
   return (
-    <AdminCard className="rounded-2xl">
+    <AdminCard className="relative rounded-2xl select-text">
       <CardContent className="flex items-center justify-between gap-2 p-3.5 sm:gap-3 sm:p-4">
-        <div>
-          <p className="text-[11px] font-bold text-slate-500 sm:text-xs">{item.title}</p>
-          <p className="mt-1 text-sm font-black tracking-tight text-slate-950 sm:text-lg">{item.value}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold text-slate-500 sm:text-xs">{item.title}</p>
+          <p className="mt-1 break-all text-xs font-black tracking-tight text-slate-950 sm:text-base leading-tight">
+            {item.value}
+          </p>
+          {item.caption ? (
+            <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-400">{item.caption}</p>
+          ) : null}
         </div>
         <span className={cn("grid size-9 shrink-0 place-items-center rounded-xl sm:size-10", toneClasses[item.tone])}>
           <Icon className="size-3.5 sm:size-4" />
@@ -363,48 +368,20 @@ const fallbackReservePoints = [
 ];
 
 export function PlatformReserveChart({ points }: { points?: AdminOverview["platformReserveHistory"] }) {
+  const [hoveredPoint, setHoveredPoint] = useState<any>(null);
+  
   const sourcePoints = points?.length ? points : fallbackReservePoints;
-  const minReserve = Math.min(...sourcePoints.map((point) => point.reserve), 0);
-  const maxReserve = Math.max(...sourcePoints.map((point) => point.reserve), 100);
+  const slicedPoints = sourcePoints.slice(-6);
+  
+  const minReserve = Math.min(...slicedPoints.map((point) => point.reserve), 0);
+  const maxReserve = Math.max(...slicedPoints.map((point) => point.reserve), 100);
   const range = maxReserve - minReserve;
-  const chartPoints = sourcePoints.map((point, index) => ({
+  
+  const chartPoints = slicedPoints.map((point, index) => ({
     ...point,
-    x: sourcePoints.length === 1 ? 158 : 18 + (index * 280) / (sourcePoints.length - 1),
-    y: range === 0 ? 82 : 132 - ((point.reserve - minReserve) / range) * 112
+    x: slicedPoints.length === 1 ? 158 : 18 + (index * 284) / (slicedPoints.length - 1),
+    y: range === 0 ? 120 : 132 - ((point.reserve - minReserve) / range) * 76
   }));
-
-  // Generate a mathematically smooth Catmull-Rom spline
-  const getCurvePath = (pts: { x: number; y: number }[]) => {
-    if (pts.length === 0) return "";
-    let d = `M ${pts[0].x} ${pts[0].y}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = pts[Math.max(i - 1, 0)];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = pts[Math.min(i + 2, pts.length - 1)];
-
-      const cp1x = p1.x + (p2.x - p0.x) / 6;
-      const cp1y = p1.y + (p2.y - p0.y) / 6;
-      const cp2x = p2.x - (p3.x - p1.x) / 6;
-      const cp2y = p2.y - (p3.y - p1.y) / 6;
-
-      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
-    }
-    return d;
-  };
-
-  const chartPath = getCurvePath(chartPoints);
-  const chartFillPath = `${chartPath} L298 150 L18 150 Z`;
-  const [activePointIndex, setActivePointIndex] = useState<number | null>(null);
-  const activePoint = activePointIndex === null ? null : chartPoints[activePointIndex];
-  const previousPoint = activePointIndex === null ? null : chartPoints[Math.max(activePointIndex - 1, 0)];
-  const reserveDelta = activePoint && previousPoint ? activePoint.reserve - previousPoint.reserve : 0;
-  const growthPercent =
-    activePoint && previousPoint && previousPoint.reserve !== 0 && previousPoint.reserve !== activePoint.reserve
-      ? (reserveDelta / previousPoint.reserve) * 100
-      : 0;
-  const tooltipX = activePoint ? (activePoint.x > 250 ? 68 : activePoint.x < 70 ? 32 : 50) : 50;
-  const tooltipY = activePoint && activePoint.y < 60 ? 60 : 18;
 
   return (
     <AdminCard>
@@ -416,120 +393,170 @@ export function PlatformReserveChart({ points }: { points?: AdminOverview["platf
         <span className="shrink-0 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 sm:px-3 sm:text-[11px]">Treasury</span>
       </CardHeader>
       <CardContent className="p-3.5 pt-0 sm:p-4 sm:pt-0">
-        <div
-          className="relative h-48 overflow-hidden rounded-2xl border border-slate-100 bg-slate-50/20 sm:h-56"
-          onMouseLeave={() => setActivePointIndex(null)}
-        >
+        <div className="relative h-48 overflow-hidden rounded-2xl border border-slate-150 bg-gradient-to-br from-emerald-50/20 via-white to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] sm:h-56">
           <svg className="absolute inset-0 size-full" preserveAspectRatio="none" viewBox="0 0 320 160">
             <defs>
-              <linearGradient id="reserveLineFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-                <stop offset="50%" stopColor="#14b8a6" stopOpacity="0.08" />
-                <stop offset="100%" stopColor="#14b8a6" stopOpacity="0.0" />
+              <linearGradient id="barFront" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#4ade80" />
+                <stop offset="100%" stopColor="#16a34a" />
               </linearGradient>
-              <linearGradient id="reserveLineStroke" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#10b981" />
-                <stop offset="50%" stopColor="#059669" />
-                <stop offset="100%" stopColor="#14b8a6" />
+              <linearGradient id="barSide" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#166534" />
+                <stop offset="100%" stopColor="#14532d" />
               </linearGradient>
-              <filter id="reserveLineShadow" x="-20%" y="-20%" width="140%" height="140%">
-                <feDropShadow dx="0" dy="5" stdDeviation="4" floodColor="#10b981" floodOpacity="0.15" />
+              <linearGradient id="barTop" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stopColor="#a7f3d0" />
+                <stop offset="100%" stopColor="#4ade80" />
+              </linearGradient>
+              <linearGradient id="curveGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#22c55e" stopOpacity="0.12" />
+                <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
+              </linearGradient>
+              <linearGradient id="arrowLineGradient" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stopColor="#22c55e" />
+                <stop offset="100%" stopColor="#15803d" />
+              </linearGradient>
+              <filter id="arrowGlow" height="200%" width="200%" x="-50%" y="-50%">
+                <feGaussianBlur result="blur" stdDeviation="2.5" />
+                <feColorMatrix
+                  in="blur"
+                  type="matrix"
+                  values="0 0 0 0 0.14 0 0 0 0 0.77 0 0 0 0 0.37 0 0 0 0.35 0"
+                />
+              </filter>
+              <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="1" dy="2" stdDeviation="2" floodColor="#14532d" floodOpacity="0.12" />
               </filter>
             </defs>
-
-            {/* Faint dotted horizontal lines */}
             {[36, 70, 104, 138].map((lineY) => (
-              <line key={lineY} stroke="#e2e8f0" strokeDasharray="2 4" strokeWidth="1.2" x1="12" x2="308" y1={lineY} y2={lineY} />
+              <line key={lineY} stroke="#e2e8f0" strokeDasharray="1.5 9" strokeOpacity="0.8" strokeWidth="1" x1="12" x2="308" y1={lineY} y2={lineY} />
             ))}
 
-            <path d={chartFillPath} fill="url(#reserveLineFill)" />
+            {/* Curve Background area glow */}
             <path
-              d={chartPath}
-              fill="none"
-              filter="url(#reserveLineShadow)"
-              stroke="url(#reserveLineStroke)"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="4.5"
+              d="M 25 138 Q 170 138 280 61 L 280 142 L 25 142 Z"
+              fill="url(#curveGradient)"
             />
-            {activePoint ? (
-              <>
-                <line
-                  stroke="#10b981"
-                  strokeDasharray="4 4"
-                  strokeOpacity="0.3"
-                  strokeWidth="1"
-                  x1={activePoint.x}
-                  x2={activePoint.x}
-                  y1="18"
-                  y2="142"
-                />
-              </>
-            ) : null}
 
-            {/* Invisible hover zones */}
-            {chartPoints.map((point, index) => (
-              <circle
-                key={point.month}
-                cx={point.x}
-                cy={point.y}
-                fill="transparent"
-                r="16"
-                className="cursor-pointer outline-none"
-                onMouseEnter={() => setActivePointIndex(index)}
-              />
-            ))}
+            {/* 3D Bar Blocks with Gradient Shading and Interactive Glow */}
+            {chartPoints.map((point) => {
+              const cx = point.x;
+              const cy = point.y;
+              const yBase = 142;
+              return (
+                <g
+                  key={`bar-3d-${point.month}-${cx}`}
+                  className="group cursor-pointer"
+                  filter="url(#barShadow)"
+                  onMouseEnter={() => setHoveredPoint(point)}
+                  onMouseLeave={() => setHoveredPoint(null)}
+                >
+                  {/* Top Face */}
+                  <polygon
+                    points={`${cx - 7},${cy} ${cx - 3},${cy - 4} ${cx + 11},${cy - 4} ${cx + 7},${cy}`}
+                    fill="url(#barTop)"
+                    stroke="#ffffff"
+                    strokeWidth="0.4"
+                    className="transition-all duration-300 group-hover:brightness-105"
+                  />
+                  {/* Side Face */}
+                  <polygon
+                    points={`${cx + 7},${cy} ${cx + 11},${cy - 4} ${cx + 11},${yBase - 4} ${cx + 7},${yBase}`}
+                    fill="url(#barSide)"
+                    className="transition-all duration-300 group-hover:brightness-105"
+                  />
+                  {/* Front Face */}
+                  <rect
+                    x={cx - 7}
+                    y={cy}
+                    width={14}
+                    height={yBase - cy}
+                    fill="url(#barFront)"
+                    className="transition-all duration-300 group-hover:brightness-105"
+                  />
+                </g>
+              );
+            })}
+
+            {/* Green Upward Arrow Curve */}
+            <path
+              d="M 25 138 Q 170 138 280 61"
+              fill="none"
+              stroke="url(#arrowLineGradient)"
+              strokeWidth="3.8"
+              strokeLinecap="round"
+              filter="url(#arrowGlow)"
+            />
           </svg>
 
-          {/* Dynamic perfect circle marker */}
-          {activePoint ? (
+          <div className="absolute inset-0 pointer-events-none">
+            {/* Non-scaling, non-distorting HTML Arrowhead aligned perfectly with tangent */}
             <div
-              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center size-8 z-10"
+              className="absolute"
               style={{
-                left: `${(activePoint.x / 320) * 100}%`,
-                top: `${(activePoint.y / 160) * 100}%`
+                left: `${(280 / 320) * 100}%`,
+                top: `${(61 / 160) * 100}%`,
+                transform: "translate(-30%, -50%) rotate(-42deg)",
+                filter: "drop-shadow(0 2px 5px rgba(21, 128, 61, 0.45))"
               }}
             >
-              <div className="absolute inset-0 rounded-full bg-emerald-600/20 animate-ping opacity-75" />
-              <div className="absolute size-4 rounded-full bg-emerald-600/30" />
-              <div className="size-2.5 rounded-full bg-emerald-600 border-2 border-white shadow-[0_2px_4px_rgba(0,0,0,0.15)]" />
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 18L18 12L6 6L9 12L6 18Z" fill="#15803d" stroke="#15803d" strokeWidth="2" strokeLinejoin="round" />
+              </svg>
             </div>
-          ) : null}
 
-          {activePoint ? (
-            <div
-              className="pointer-events-none absolute w-40 -translate-x-1/2 rounded-xl border border-slate-100 bg-white/95 p-2.5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.12)] backdrop-blur sm:w-44 sm:p-3 text-slate-800"
-              style={{ left: `${tooltipX}%`, top: `${tooltipY}%` }}
-            >
-              <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
-                <p className="text-xs font-bold text-slate-500">{activePoint.month} Reserve</p>
-                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-black", reserveDelta >= 0 ? "bg-emerald-50 text-emerald-600" : "bg-rose-50 text-rose-500")}>
-                  {growthPercent >= 0 ? "+" : ""}
-                  {growthPercent.toFixed(1)}%
-                </span>
-              </div>
-              <p className="mt-2 text-md font-black tracking-tight text-slate-900 sm:text-lg">{formatUsdt(activePoint.reserve)}</p>
-              <p className="text-[10px] font-bold text-slate-400">Total Net Treasury</p>
-              <div className="mt-2 flex items-center justify-between rounded-lg bg-slate-50 px-2 py-1 text-[10px] font-semibold text-slate-600">
-                <span className="text-slate-400">Monthly change</span>
-                <span className={cn("font-black", reserveDelta >= 0 ? "text-emerald-600" : "text-rose-600")}>
-                  {reserveDelta >= 0 ? "+" : ""}
-                  {formatNumber(reserveDelta)}
-                </span>
-              </div>
-            </div>
-          ) : null}
+            {chartPoints.map((point, index) => {
+              const left = (point.x / 320) * 100;
+              const top = (point.y / 160) * 100;
+              const isLatest = index === chartPoints.length - 1;
 
-          <div className="absolute bottom-3 left-4 right-4 flex justify-between text-[10px] font-bold text-slate-400">
-            {chartPoints.map((point, index) => (
-              <button
-                key={point.month}
-                className={cn("rounded-full px-1.5 py-0.5 transition-colors", index === activePointIndex ? "bg-emerald-50 text-emerald-700 font-extrabold" : "hover:bg-slate-100")}
-                onMouseEnter={() => setActivePointIndex(index)}
-                type="button"
+              // Hide static label if it's currently hovered (detailed tooltip will show instead)
+              if (hoveredPoint && hoveredPoint.month === point.month) return null;
+
+              // Declutter: hide zero labels except for the latest month
+              if (point.reserve <= 0 && !isLatest) return null;
+
+              return (
+                <div
+                  className="absolute -translate-x-1/2 -translate-y-full"
+                  key={`label-${point.month}-${point.x}`}
+                  style={{
+                    left: `${left}%`,
+                    top: `calc(${top}% - 10px)`
+                  }}
+                >
+                  <div className="rounded-full border border-emerald-100 bg-white/95 px-2.5 py-1 text-[10px] font-black text-slate-700 shadow-[0_8px_18px_rgba(8,21,46,0.08)]">
+                    {formatUsdt(point.reserve)}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Hover Tooltip Details with smart overflow protection */}
+            {hoveredPoint && (
+              <div
+                className={cn(
+                  "absolute z-10 -translate-x-1/2 pointer-events-none rounded-xl border border-emerald-500 bg-slate-950/95 px-3 py-2 text-white shadow-lg backdrop-blur-sm transition-all duration-200 animate-in fade-in zoom-in-95",
+                  hoveredPoint.y < 65 ? "top-full mt-2" : "bottom-full mb-2"
+                )}
+                style={{
+                  left: `${(hoveredPoint.x / 320) * 100}%`,
+                  top: hoveredPoint.y < 65 ? `calc(${(hoveredPoint.y / 160) * 100}% + 4px)` : undefined,
+                  bottom: hoveredPoint.y >= 65 ? `calc(${100 - (hoveredPoint.y / 160) * 100}% + 4px)` : undefined
+                }}
               >
-                {point.month}
-              </button>
+                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-wider">{hoveredPoint.month} Reserve</p>
+                <p className="mt-0.5 text-xs font-black">{formatUsdt(hoveredPoint.reserve)}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="absolute left-4 top-4 rounded-full border border-emerald-100 bg-white/92 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700 shadow-sm">
+            Treasury Reserve
+          </div>
+          <div className="absolute bottom-3 left-4 right-4 flex justify-between text-[10px] font-black text-slate-500">
+            {chartPoints.map((point) => (
+              <span key={point.month}>{point.month}</span>
             ))}
           </div>
         </div>

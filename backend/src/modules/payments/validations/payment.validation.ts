@@ -1,17 +1,15 @@
 import { z } from "zod";
 import { PAYMENT_NETWORKS } from "../constants/payment-networks";
+import { usdtAmount } from "../../../utils/amountValidation";
 
 export const createPlanPaymentIntentSchema = z.object({
-  amountUsdt: z.coerce.number().positive(),
+  amountUsdt: usdtAmount({ min: 0.01, minMessage: "Amount must be greater than 0." }),
   network: z.enum(PAYMENT_NETWORKS),
   tier: z.string().trim().min(1).max(80),
 });
 
 export const createDepositPaymentIntentSchema = z.object({
-  amountUsdt: z.coerce
-    .number()
-    .min(100, "Minimum deposit amount is 100 USDT.")
-    .max(50000, "Maximum deposit amount is 50000 USDT."),
+  amountUsdt: usdtAmount({ min: 100, max: 50000, minMessage: "Minimum deposit amount is 100 USDT.", maxMessage: "Maximum deposit amount is 50000 USDT." }),
   network: z.enum(PAYMENT_NETWORKS),
 });
 

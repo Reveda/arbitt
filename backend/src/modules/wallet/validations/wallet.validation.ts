@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { TRANSACTION_STATUSES } from "../../transactions/models/transaction.model";
+import { usdtAmount } from "../../../utils/amountValidation";
 
 const dateFilterSchema = z
   .string()
@@ -17,22 +18,14 @@ const optionalText = (maxLength: number) =>
   }, z.string().max(maxLength).optional());
 
 export const createDepositRequestSchema = z.object({
-  amountUsdt: z.coerce
-    .number()
-    .positive("Deposit amount must be greater than 0.")
-    .min(100, "Minimum deposit amount is 100 USDT.")
-    .max(50000, "Maximum deposit amount is 50000 USDT."),
+  amountUsdt: usdtAmount({ min: 100, max: 50000, minMessage: "Minimum deposit amount is 100 USDT.", maxMessage: "Maximum deposit amount is 50000 USDT." }),
   network: z.enum(["APP", "BEP20"]).default("APP"),
   notes: optionalText(500),
   txnHash: optionalText(180),
 });
 
 export const createWithdrawalRequestSchema = z.object({
-  amountUsdt: z.coerce
-    .number()
-    .positive("Withdrawal amount must be greater than 0.")
-    .min(10, "Minimum withdrawal amount is 10 USDT.")
-    .max(50000, "Maximum withdrawal amount is 50000 USDT."),
+  amountUsdt: usdtAmount({ min: 10, max: 50000, minMessage: "Minimum withdrawal amount is 10 USDT.", maxMessage: "Maximum withdrawal amount is 50000 USDT." }),
   network: z.enum(["BEP20"]).default("BEP20"),
   walletAddress: z
     .string()

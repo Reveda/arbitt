@@ -23,8 +23,8 @@ const PAGE_SIZE = 10;
 
 function formatUsdt(value: number) {
   return `${new Intl.NumberFormat("en-US", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
+    maximumFractionDigits: 18,
+    minimumFractionDigits: 0,
     useGrouping: false
   }).format(value)} USDT`;
 }
@@ -150,21 +150,21 @@ export function AdminRevenueAnalyticsPage() {
       csv += `Generated At,${new Date().toLocaleString()}\n\n`;
 
       csv += "FINANCIAL SUMMARY\n";
-      csv += `Total Deposits,${overviewData.totalDepositsUsdt.toFixed(2)} USDT\n`;
-      csv += `Total Package Sells,${overviewData.totalPackagesSellUsdt.toFixed(2)} USDT\n`;
-      csv += `Total Withdrawals,${overviewData.totalWithdrawalsUsdt.toFixed(2)} USDT\n`;
-      csv += `Total Rewards Paid,${overviewData.earningsPaidUsdt.toFixed(2)} USDT\n`;
-      csv += `Net Liquidity Flow (Deposits - Withdrawals - Rewards),${(overviewData.totalDepositsUsdt - overviewData.totalWithdrawalsUsdt - overviewData.earningsPaidUsdt).toFixed(2)} USDT\n\n`;
+      csv += `Total Deposits,${overviewData.totalDepositsUsdt} USDT\n`;
+      csv += `Total Package Sells,${overviewData.totalPackagesSellUsdt} USDT\n`;
+      csv += `Total Withdrawals,${overviewData.totalWithdrawalsUsdt} USDT\n`;
+      csv += `Total Rewards Paid,${overviewData.earningsPaidUsdt} USDT\n`;
+      csv += `Net Liquidity Flow (Deposits - Withdrawals - Rewards),${overviewData.totalDepositsUsdt - overviewData.totalWithdrawalsUsdt - overviewData.earningsPaidUsdt} USDT\n\n`;
 
       csv += "DETAILED TRANSACTIONS LOG\n";
       csv += "Type,User,Date,Amount (USDT),Status,Network,Txn Hash/Fee (USDT)\n";
 
       depositsData.forEach((d: any) => {
-        csv += `Deposit,${d.user?.username ?? "Unknown"},${new Date(d.createdAt).toLocaleString()},${d.amountUsdt.toFixed(2)},${d.status},${d.network},"${d.txnHash ?? ""}"\n`;
+        csv += `Deposit,${d.user?.username ?? "Unknown"},${new Date(d.createdAt).toLocaleString()},${d.amountUsdt},${d.status},${d.network},"${d.txnHash ?? ""}"\n`;
       });
 
       withdrawalsData.forEach((w: any) => {
-        csv += `Withdrawal,${w.user?.username ?? "Unknown"},${new Date(w.createdAt).toLocaleString()},${w.amountUsdt.toFixed(2)},${w.status},${w.network},"${w.chargeUsdt ? w.chargeUsdt.toFixed(2) + " Fee" : ""}"\n`;
+        csv += `Withdrawal,${w.user?.username ?? "Unknown"},${new Date(w.createdAt).toLocaleString()},${w.amountUsdt},${w.status},${w.network},"${w.chargeUsdt ? w.chargeUsdt + " Fee" : ""}"\n`;
       });
 
       const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });

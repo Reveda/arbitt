@@ -1,5 +1,5 @@
 import { env } from "../../../config/env";
-import { Types, type PipelineStage } from "mongoose";
+import mongoose, { Types, type PipelineStage } from "mongoose";
 import { AuditLogModel } from "../../admin/models/audit-log.model";
 import { PlatformSettingModel } from "../../admin/models/platform-setting.model";
 import { NotificationModel } from "../../notifications/models/notification.model";
@@ -23,6 +23,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 type StatusAggregate = {
   _id: string;
   amountUsdt: number;
+  amountTokenUnits?: string | null;
   count: number;
 };
 
@@ -46,6 +47,7 @@ type DailyAggregate = {
 type TransactionRecord = {
   _id: unknown;
   amountUsdt: number;
+  amountTokenUnits?: string | null;
   createdAt?: Date | string;
   network?: string | null;
   status: string;
@@ -198,7 +200,7 @@ type SuperAdminListApiActivityRecord = {
 };
 
 function roundUsdt(value: number) {
-  return Number(value.toFixed(2));
+  return Number(value.toFixed(18));
 }
 
 function getUtcDayStart(date: Date) {
@@ -283,6 +285,7 @@ function buildDateRangeFilter(input: { fromDate?: string; toDate?: string }) {
 function toStatusNode(record: StatusAggregate) {
   return {
     amountUsdt: roundUsdt(record.amountUsdt ?? 0),
+    amountTokenUnits: record.amountTokenUnits ?? null,
     count: record.count ?? 0,
     status: record._id,
   };
@@ -302,6 +305,7 @@ function toTransactionNode(record: TransactionRecord) {
   return {
     id: String(record._id),
     amountUsdt: roundUsdt(record.amountUsdt ?? 0),
+    amountTokenUnits: record.amountTokenUnits ?? null,
     createdAt: record.createdAt ?? null,
     network: record.network ?? null,
     status: record.status,
@@ -479,6 +483,7 @@ export class SuperAdminService {
               $project: {
                 _id: 1,
                 amountUsdt: 1,
+                amountTokenUnits: 1,
                 createdAt: 1,
                 network: 1,
                 notes: 1,
@@ -1190,46 +1195,62 @@ export class SuperAdminService {
   }
 
   async fixTransactionStatus(transactionId: string, status: string, notes?: string, adminUserId?: string) {
-    const transaction = await TransactionModel.findById(transactionId);
-    if (!transaction) {
-      throw new ApiError(HTTP_STATUS.NOT_FOUND, "Transaction not found.");
-    }
-
-    const previousStatus = transaction.status;
-    if (previousStatus === status) {
-      throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Transaction is already in the requested status.");
-    }
-
-    // Process status transition side-effects (wallet changes)
-    if (transaction.type === "deposit") {
-      if (status === "completed" && previousStatus !== "completed") {
-        await walletRepository.creditDeposit(String(transaction.userId), transaction.amountUsdt);
-      } else if (previousStatus === "completed" && status !== "completed") {
-        await walletRepository.creditDeposit(String(transaction.userId), -transaction.amountUsdt);
+    return mongoose.connection.transaction(async (session) => {
+      const transaction = await TransactionModel.findById(transactionId).session(session);
+      if (!transaction) {
+        throw new ApiError(HTTP_STATUS.NOT_FOUND, "Transaction not found.");
       }
-    } else if (transaction.type === "withdrawal") {
-      if (status === "completed" && previousStatus === "pending") {
-        await walletRepository.completeWithdrawalAmount(String(transaction.userId), transaction.amountUsdt);
-      } else if ((status === "rejected" || status === "failed") && previousStatus === "pending") {
-        await walletRepository.unlockWithdrawalAmount(String(transaction.userId), transaction.amountUsdt);
-      } else if (status === "pending" && previousStatus === "completed") {
-        await walletRepository.lockWithdrawalAmount(String(transaction.userId), transaction.amountUsdt);
-      } else if ((status === "rejected" || status === "failed") && previousStatus === "completed") {
-        await walletRepository.creditDeposit(String(transaction.userId), transaction.amountUsdt);
+
+      const previousStatus = transaction.status;
+      if (previousStatus === status) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Transaction is already in the requested status.");
       }
-    }
 
-    transaction.status = status as any;
-    if (notes) {
-      transaction.notes = `${transaction.notes || ""}\n[SUPER_ADMIN Override]: ${notes}`.trim();
-    }
-    if (adminUserId) {
-      transaction.reviewedBy = adminUserId as any;
-      transaction.reviewedAt = new Date();
-    }
+      if (transaction.type === "deposit") {
+        if (status === "completed" && previousStatus !== "completed") {
+          await walletRepository.creditDeposit(String(transaction.userId), transaction.amountUsdt, session);
+        } else if (previousStatus === "completed" && status !== "completed") {
+          await walletRepository.creditDeposit(String(transaction.userId), -transaction.amountUsdt, session);
+        }
+      } else if (transaction.type === "withdrawal") {
+        const lockedAmount = transaction.payoutPrincipalUsdt ?? transaction.amountUsdt;
+        if (status === "completed" && previousStatus === "pending") {
+          await walletRepository.completeWithdrawalAmount(String(transaction.userId), lockedAmount, session);
+        } else if ((status === "rejected" || status === "failed") && previousStatus === "pending") {
+          await walletRepository.unlockWithdrawalAmount(String(transaction.userId), lockedAmount, session);
+        } else if (status === "pending" && previousStatus === "completed") {
+          const wallet = await walletRepository.reverseCompletedWithdrawalAmount(
+            String(transaction.userId),
+            lockedAmount,
+            session,
+          );
+          if (!wallet || !(await walletRepository.lockWithdrawalAmount(String(transaction.userId), lockedAmount, session))) {
+            throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Unable to restore the withdrawal ledger state.");
+          }
+        } else if ((status === "rejected" || status === "failed") && previousStatus === "completed") {
+          const wallet = await walletRepository.reverseCompletedWithdrawalAmount(
+            String(transaction.userId),
+            lockedAmount,
+            session,
+          );
+          if (!wallet) {
+            throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Unable to reverse the completed withdrawal.");
+          }
+        }
+      }
 
-    await transaction.save();
-    return transaction.toObject();
+      transaction.status = status as any;
+      if (notes) {
+        transaction.notes = `${transaction.notes || ""}\n[SUPER_ADMIN Override]: ${notes}`.trim();
+      }
+      if (adminUserId) {
+        transaction.reviewedBy = adminUserId as any;
+        transaction.reviewedAt = new Date();
+      }
+
+      await transaction.save({ session });
+      return transaction.toObject();
+    });
   }
 
   async getPayoutSummary() {

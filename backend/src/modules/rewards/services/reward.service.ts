@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import { Types, type ClientSession } from "mongoose";
 import { planRepository } from "../../plans/repositories/plan.repository";
 import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.model";
 import { ReferralModel } from "../../referrals/models/referral.model";
@@ -158,7 +158,7 @@ function getPeriodKey(
   return `${new Date(periodStart).toISOString()}:${new Date(periodEnd).toISOString()}`;
 }
 
-async function getRemainingRewardCapacityByUserId(userIds: string[]) {
+async function getRemainingRewardCapacityByUserId(userIds: string[], session?: ClientSession) {
   const uniqueUserIds = [...new Set(userIds)];
 
   if (!uniqueUserIds.length) {
@@ -181,7 +181,7 @@ async function getRemainingRewardCapacityByUserId(userIds: string[]) {
           principalUsdt: { $sum: "$amountUsdt" },
         },
       },
-    ]),
+    ]).session(session ?? null),
     TransactionModel.aggregate<RewardCapTotalRecord>([
       {
         $match: {
@@ -197,7 +197,7 @@ async function getRemainingRewardCapacityByUserId(userIds: string[]) {
           amountUsdt: { $sum: "$amountUsdt" },
         },
       },
-    ]),
+    ]).session(session ?? null),
   ]);
   const principalByUserId = new Map(
     principalTotals.map((total) => [String(total._id), total.principalUsdt ?? 0]),
@@ -216,13 +216,16 @@ async function getRemainingRewardCapacityByUserId(userIds: string[]) {
   );
 }
 
-async function insertRewardRows(rows: Array<Record<string, unknown>>) {
+async function insertRewardRows(rows: Array<Record<string, unknown>>, session?: ClientSession) {
   if (!rows.length) {
     return [];
   }
 
   try {
-    return await TransactionModel.insertMany(rows, { ordered: false });
+    return await TransactionModel.insertMany(rows, {
+      ordered: session ? true : false,
+      ...(session ? { session } : {}),
+    });
   } catch (caughtError) {
     if (
       caughtError &&
@@ -332,16 +335,17 @@ export async function calculateUserRoyaltyRanks(royaltyCutoff?: Date) {
 }
 
 export class RewardService {
-  async createLevelIncomeRewardsForPlanPurchase(input: DepositRewardInput) {
+  async createLevelIncomeRewardsForPlanPurchase(input: DepositRewardInput & { session?: ClientSession }) {
     const [ruleSet, referral, existingRewards] = await Promise.all([
-      planRepository.ensureDefaultRuleSet(),
-      ReferralModel.findOne({ userId: input.userId }).lean<ReferralRecord | null>(),
+      planRepository.ensureDefaultRuleSet(input.session),
+      ReferralModel.findOne({ userId: input.userId }).session(input.session ?? null).lean<ReferralRecord | null>(),
       TransactionModel.find({
         payoutKind: "level",
         payoutSourceTransactionId: input.transactionId,
         type: "reward",
       })
         .select("userId")
+        .session(input.session ?? null)
         .lean(),
     ]);
     const levelRules = [...ruleSet.levelIncomeRules]
@@ -372,10 +376,11 @@ export class RewardService {
           status: "active",
         })
           .select("_id")
+          .session(input.session ?? null)
           .lean()
       ).map((user) => String(user._id)),
     );
-    const rewardCapacityByUserId = await getRemainingRewardCapacityByUserId([...activeSponsorIds]);
+    const rewardCapacityByUserId = await getRemainingRewardCapacityByUserId([...activeSponsorIds], input.session);
 
     const rewardRows = sponsorLevels
       .map((entry) => {
@@ -421,7 +426,7 @@ export class RewardService {
       })
       .filter(Boolean) as Array<Record<string, unknown>>;
 
-    return insertRewardRows(rewardRows);
+    return insertRewardRows(rewardRows, input.session);
   }
 
   async generateSalaryRoyaltyRewards(input: SalaryRoyaltyRewardInput = {}) {

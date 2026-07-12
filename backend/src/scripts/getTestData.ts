@@ -70,7 +70,7 @@ async function main() {
   if (!pendingWithdrawal) {
     console.log("\nNo pending withdrawal found. Creating one...");
     const result = await walletService.createWithdrawalRequest(String(user._id), {
-      amountUsdt: 500,
+      amountUsdt: "500",
       network: "BEP20",
       walletAddress: user.walletAddress || "0x9621da5d61ffc6104f62b2bb746a8d8e578c7bf9",
       transactionPassword: "123456",
