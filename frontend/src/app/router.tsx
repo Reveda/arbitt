@@ -36,7 +36,6 @@ import { SupportPage } from "@/pages/dashboard/SupportPage";
 import { WithdrawPage } from "@/pages/dashboard/WithdrawPage";
 import { UserAnnouncementsPage } from "@/pages/dashboard/UserAnnouncementsPage";
 import { AdminDashboardPage } from "@/pages/admin/AdminDashboardPage";
-import { AdminModulePage } from "@/pages/admin/AdminModulePage";
 import { AdminSupportPage } from "@/pages/admin/AdminSupportPage";
 import { AdminProfilePage } from "@/pages/admin/AdminProfilePage";
 import { AdminAnnouncementsPage } from "@/pages/admin/AdminAnnouncementsPage";
