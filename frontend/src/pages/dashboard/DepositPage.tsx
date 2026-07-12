@@ -42,10 +42,10 @@ const MIN_DEPOSIT_USDT = 100;
 const modalOverlayClass =
   "fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-950/80 p-0 backdrop-blur-sm sm:items-center sm:p-4";
 const modalPanelClass =
-  "flex h-[100dvh] max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-none border-slate-200 bg-white text-slate-950 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl";
+  "flex max-h-[96dvh] w-full max-w-lg flex-col overflow-hidden rounded-b-none rounded-t-2xl border-slate-200 bg-white text-slate-950 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl";
 const modalHeaderClass =
   "flex shrink-0 flex-row items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:p-5";
-const modalBodyClass = "min-h-0 flex-1";
+const modalBodyClass = "min-h-0";
 const modalContentClass = "p-3 sm:p-5";
 const modalFooterClass =
   "sticky bottom-0 -mx-3 -mb-3 mt-auto border-t border-slate-100 bg-white/95 p-3 backdrop-blur sm:-mx-5 sm:-mb-5 sm:p-5";
@@ -957,7 +957,7 @@ export function DepositPage() {
             </CardHeader>
             <div className={cn("overflow-y-auto overscroll-contain", modalBodyClass)}>
               <CardContent className={modalContentClass}>
-                <form className="flex min-h-full flex-col gap-4" onSubmit={submitPlanPurchase}>
+                <form className="flex flex-col gap-4" onSubmit={submitPlanPurchase}>
                   <label className="block">
                     <span className="text-xs font-black text-slate-600">Select Plan</span>
                     <select
@@ -1094,7 +1094,7 @@ export function DepositPage() {
             </CardHeader>
             <div className={cn("overflow-y-auto overscroll-contain", modalBodyClass)}>
               <CardContent className={modalContentClass}>
-                <form className="flex min-h-full flex-col gap-4" onSubmit={submitDeposit}>
+                <form className="flex flex-col gap-4" onSubmit={submitDeposit}>
                   {!depositIntent ? (
                     <>
                       <label className="block">

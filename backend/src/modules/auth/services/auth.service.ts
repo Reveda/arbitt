@@ -287,6 +287,7 @@ export class AuthService {
     return {
       accepted: true,
       expiresAt: passwordReset.expiresAt,
+      ...this.getTestOtpPayload(passwordReset.testOtp ?? ""),
     };
   }
 
