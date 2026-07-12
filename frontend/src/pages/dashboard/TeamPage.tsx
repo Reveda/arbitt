@@ -257,7 +257,7 @@ export function TeamPage() {
                   {formatNumber(visibleTotalMembers)} members
                 </span>
                 <Button
-                  className="h-9 shrink-0 rounded-full border-slate-200 bg-white px-3.5 text-slate-700 shadow-sm transition-colors hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800"
+                  className="hidden h-9 shrink-0 rounded-full border-slate-200 bg-white px-3.5 text-slate-700 shadow-sm transition-colors hover:border-cyan-200 hover:bg-cyan-50 hover:text-cyan-800 sm:inline-flex"
                   onClick={returnToPreviousList}
                   size="sm"
                   type="button"

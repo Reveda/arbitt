@@ -40,9 +40,9 @@ import { cn } from "@/lib/utils";
 const DEPOSITS_PAGE_SIZE = 10;
 const MIN_DEPOSIT_USDT = 100;
 const modalOverlayClass =
-  "fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-950/60 p-0 backdrop-blur-sm sm:items-center sm:p-4";
+  "fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-slate-950/80 p-0 backdrop-blur-sm sm:items-center sm:p-4";
 const modalPanelClass =
-  "flex max-h-[96dvh] w-full max-w-lg flex-col overflow-hidden rounded-b-none rounded-t-2xl border-slate-200 bg-white text-slate-950 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl";
+  "flex h-[100dvh] max-h-[100dvh] w-full max-w-lg flex-col overflow-hidden rounded-none border-slate-200 bg-white text-slate-950 shadow-2xl sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl";
 const modalHeaderClass =
   "flex shrink-0 flex-row items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:p-5";
 const modalBodyClass = "min-h-0 flex-1";
@@ -159,6 +159,19 @@ export function DepositPage() {
   const [toastMessage, setToastMessage] = useState<ToastMessageValue | null>(null);
   const [latestDeposit, setLatestDeposit] = useState<DepositRequest | null>(null);
   const [copiedAddress, setCopiedAddress] = useState(false);
+
+  useEffect(() => {
+    if (!isModalOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isModalOpen]);
 
   const activeInvestmentTiers = useMemo(
     () => (ruleSet?.investmentTiers ?? []).filter((tier) => tier.status !== "Inactive"),
@@ -942,7 +955,7 @@ export function DepositPage() {
                 <X className="size-4" />
               </button>
             </CardHeader>
-            <div className={cn("overflow-y-auto", modalBodyClass)}>
+            <div className={cn("overflow-y-auto overscroll-contain", modalBodyClass)}>
               <CardContent className={modalContentClass}>
                 <form className="flex min-h-full flex-col gap-4" onSubmit={submitPlanPurchase}>
                   <label className="block">
@@ -1079,7 +1092,7 @@ export function DepositPage() {
                 <X className="size-4" />
               </button>
             </CardHeader>
-            <div className={cn("overflow-y-auto", modalBodyClass)}>
+            <div className={cn("overflow-y-auto overscroll-contain", modalBodyClass)}>
               <CardContent className={modalContentClass}>
                 <form className="flex min-h-full flex-col gap-4" onSubmit={submitDeposit}>
                   {!depositIntent ? (
