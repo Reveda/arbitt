@@ -408,11 +408,30 @@ export function PlatformReserveChart({ points }: { points?: AdminOverview["platf
 
   const lastPoint = chartPoints[chartPoints.length - 1];
   const secondLastPoint = chartPoints[chartPoints.length - 2];
-  let arrowheadAngle = -42;
+  let arrowheadPolygonPoints = "";
   if (lastPoint && secondLastPoint) {
     const dx = lastPoint.x - secondLastPoint.x;
     const dy = lastPoint.y - secondLastPoint.y;
-    arrowheadAngle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 0) {
+      const ux = dx / len;
+      const uy = dy / len;
+      const vx = -uy;
+      const vy = ux;
+
+      const size = 11;
+      const width = 6.5;
+      const indent = 8;
+
+      const b1x = lastPoint.x - size * ux + width * vx;
+      const b1y = lastPoint.y - size * uy + width * vy;
+      const mx = lastPoint.x - indent * ux;
+      const my = lastPoint.y - indent * uy;
+      const b2x = lastPoint.x - size * ux - width * vx;
+      const b2y = lastPoint.y - size * uy - width * vy;
+
+      arrowheadPolygonPoints = `${lastPoint.x},${lastPoint.y} ${b1x},${b1y} ${mx},${my} ${b2x},${b2y}`;
+    }
   }
 
 
@@ -429,10 +448,11 @@ export function PlatformReserveChart({ points }: { points?: AdminOverview["platf
         <div className="relative h-48 overflow-hidden rounded-2xl border border-slate-700/40 bg-gradient-to-b from-[#0d1b2e] to-[#091422] sm:h-56">
           <svg className="absolute inset-0 size-full" preserveAspectRatio="none" viewBox="0 0 320 160">
             <defs>
-              <linearGradient id="aBarGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22d3ee" />
-                <stop offset="50%" stopColor="#3b82f6" />
-                <stop offset="100%" stopColor="#1d4ed8" />
+              <linearGradient id="aBarGradient" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor="#0891b2" />
+                <stop offset="25%" stopColor="#67e8f9" />
+                <stop offset="65%" stopColor="#0284c7" />
+                <stop offset="100%" stopColor="#0f172a" />
               </linearGradient>
               <linearGradient id="aCurveGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.08" />
@@ -495,43 +515,27 @@ export function PlatformReserveChart({ points }: { points?: AdminOverview["platf
                     rx="8"
                     fill="url(#aBarGradient)"
                     stroke="#22d3ee"
-                    strokeWidth="0.5"
-                    strokeOpacity="0.25"
+                    strokeWidth="0.8"
+                    strokeOpacity="0.4"
                     className="transition-all duration-300 hover:brightness-125"
                   />
-                  <rect x={cx - 4} y={cy + 2} width={4} height={Math.max(barH - 8, 2)} rx="2" fill="white" fillOpacity="0.08" />
+                  {/* Glossy specular highlight for 3D feel */}
+                  <rect x={cx - 5} y={cy + 3} width={3} height={Math.max(barH - 8, 2)} rx="1.5" fill="#ffffff" fillOpacity="0.3" />
                 </g>
               );
             })}
 
-            {/* Neon Trend Curve */}
-            <path
-              d={buildCurvePath(chartPoints)}
-              fill="none"
-              stroke="url(#aArrowLineGradient)"
-              strokeWidth="3"
-              strokeLinecap="round"
-              filter="url(#aArrowGlow)"
-            />
+            {/* Sloped arrowhead directly inside SVG */}
+            {arrowheadPolygonPoints && (
+              <polygon
+                points={arrowheadPolygonPoints}
+                fill="url(#aArrowLineGradient)"
+                filter="url(#aArrowGlow)"
+              />
+            )}
           </svg>
 
           <div className="absolute inset-0 pointer-events-none">
-            {/* Neon Arrowhead */}
-            {lastPoint && (
-              <div
-                className="absolute"
-                style={{
-                  left: `${(lastPoint.x / 320) * 100}%`,
-                  top: `${(lastPoint.y / 160) * 100}%`,
-                  transform: `translate(-30%, -50%) rotate(${arrowheadAngle}deg)`,
-                  filter: "drop-shadow(0 2px 8px rgba(34,211,238,0.5))"
-                }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M6 18L18 12L6 6L9 12L6 18Z" fill="#22d3ee" stroke="#22d3ee" strokeWidth="2" strokeLinejoin="round" />
-                </svg>
-              </div>
-            )}
 
             {chartPoints.map((point, index) => {
               const left = (point.x / 320) * 100;
@@ -577,7 +581,7 @@ export function PlatformReserveChart({ points }: { points?: AdminOverview["platf
             )}
           </div>
 
-          <div className="absolute left-4 top-4 rounded-full border border-cyan-500/20 bg-slate-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.15)] backdrop-blur-sm">
+          <div className="absolute right-4 top-3 rounded-full border border-cyan-500/20 bg-slate-950/70 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.15)] backdrop-blur-sm">
             Treasury Reserve
           </div>
           <div className="absolute bottom-3 left-4 right-4 flex justify-between pl-8 text-[10px] font-black text-slate-500">

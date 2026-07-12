@@ -78,6 +78,16 @@ export function AdminWalletsPage() {
   const [isSavingWallet, setIsSavingWallet] = useState(false);
   const [walletMessage, setWalletMessage] = useState<ToastMessageValue | null>(null);
 
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpTestHint, setOtpTestHint] = useState<string | null>(null);
+  const [otpPendingAction, setOtpPendingAction] = useState<{
+    address: string;
+    network: string;
+  } | null>(null);
+
+
   useEffect(() => {
     const timerId = window.setTimeout(() => setDebouncedSearch(searchValue.trim()), 350);
     return () => window.clearTimeout(timerId);
@@ -189,25 +199,43 @@ export function AdminWalletsPage() {
     event.preventDefault();
     setIsSavingWallet(true);
     setWalletMessage(null);
+    setOtpError(null);
+    setOtpTestHint(null);
 
     try {
+      const address = walletAddress.trim();
+      const network = walletNetwork;
+
       const otpResponse = await adminService.requestPaymentWalletOtp({
-        address: walletAddress.trim(),
-        network: walletNetwork
+        address,
+        network
       });
-      const testHint = otpResponse.data.testOtp ? ` (Local test OTP: ${otpResponse.data.testOtp})` : "";
+      const testHint = otpResponse.data.testOtp ?? null;
+      setOtpTestHint(testHint);
+      setOtpPendingAction({ address, network });
+      setIsOtpModalOpen(true);
+    } catch (caughtError) {
       setWalletMessage({
-        text: `A verification code was sent to ${otpResponse.data.email}.${testHint}`,
-        tone: "info"
+        text: caughtError instanceof Error ? caughtError.message : "Unable to request OTP code.",
+        tone: "error"
       });
-      const otp = window.prompt("Enter the 6-digit verification code sent to the admin email.");
-      if (!otp) {
-        return;
-      }
+    } finally {
+      setIsSavingWallet(false);
+    }
+  };
+
+  const handleVerifyOtp = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!otpPendingAction) return;
+
+    setIsSavingWallet(true);
+    setOtpError(null);
+
+    try {
       const response = await adminService.updatePaymentWallet({
-        address: walletAddress.trim(),
-        network: walletNetwork,
-        otp: otp.trim()
+        address: otpPendingAction.address,
+        network: otpPendingAction.network,
+        otp: otpCode.trim()
       });
 
       setPaymentWallet(response.data.wallet);
@@ -217,11 +245,11 @@ export function AdminWalletsPage() {
         text: "Admin USDT wallet saved. User deposits are now unlocked.",
         tone: "success"
       });
+      setIsOtpModalOpen(false);
+      setOtpCode("");
+      setOtpPendingAction(null);
     } catch (caughtError) {
-      setWalletMessage({
-        text: caughtError instanceof Error ? caughtError.message : "Unable to save payment wallet.",
-        tone: "error"
-      });
+      setOtpError(caughtError instanceof Error ? caughtError.message : "Invalid or expired verification code.");
     } finally {
       setIsSavingWallet(false);
     }
@@ -447,6 +475,85 @@ export function AdminWalletsPage() {
           </div>
         </div>
       </AdminCard>
+
+      {/* OTP verification Modal dialog */}
+      {isOtpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-slate-950/60 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-100 bg-white p-6 text-slate-950 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h3 className="text-sm font-black text-slate-900">Admin Wallet Verification</h3>
+              <button
+                type="button"
+                className="text-slate-400 hover:text-slate-600 font-black text-sm"
+                onClick={() => {
+                  setIsOtpModalOpen(false);
+                  setOtpCode("");
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <form onSubmit={handleVerifyOtp} className="mt-4 space-y-4">
+              <p className="text-xs font-semibold text-slate-500 leading-relaxed">
+                Enter the 6-digit verification code sent to your admin email address to save the wallet.
+              </p>
+
+              {otpTestHint && (
+                <div className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-3 text-xs text-cyan-800 font-bold flex items-center justify-between">
+                  <span>Testing Verification OTP:</span>
+                  <span className="font-mono text-sm font-black tracking-wider bg-white border border-cyan-200 rounded px-2 py-0.5 select-all text-cyan-600">
+                    {otpTestHint}
+                  </span>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  6-Digit OTP Code
+                </label>
+                <Input
+                  className="h-11 text-center font-mono text-base font-bold tracking-widest rounded-xl border-slate-200 bg-slate-50"
+                  disabled={isSavingWallet}
+                  maxLength={6}
+                  onChange={(event) => setOtpCode(event.target.value)}
+                  placeholder="000000"
+                  required
+                  type="text"
+                  value={otpCode}
+                />
+              </div>
+
+              {otpError && (
+                <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-xs font-semibold text-rose-600 leading-normal">
+                  {otpError}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100"
+                  disabled={isSavingWallet}
+                  onClick={() => {
+                    setIsOtpModalOpen(false);
+                    setOtpCode("");
+                  }}
+                  type="button"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="h-11 w-full rounded-xl bg-cyan-600 text-white hover:bg-cyan-700"
+                  disabled={isSavingWallet || otpCode.trim().length !== 6}
+                  type="submit"
+                >
+                  {isSavingWallet ? <Loader2 className="size-4 animate-spin" /> : "Verify & Save"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
