@@ -9,9 +9,9 @@ services:
       MONGO_INITDB_DATABASE: arbitrum
     volumes:
       - mongo-prod-data:/data/db
-    command: ["mongod", "--replSet", "rs0", "--bind_ip_all"]
+    command: ["mongod", "--replSet", "rs0", "--bind_ip_all", "--auth"]
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: ["CMD-SHELL", "mongosh --quiet --username \"$$MONGO_INITDB_ROOT_USERNAME\" --password \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval \"db.adminCommand('ping').ok\" | grep 1"]
       interval: 20s
       timeout: 10s
       retries: 5
@@ -21,10 +21,19 @@ services:
     image: mongo:6.0
     container_name: arbitrum-mongo-init-replica-prod
     restart: "no"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME is required}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD is required}
     command:
       - mongosh
       - --host
       - mongo:27017
+      - --username
+      - ${MONGO_INITDB_ROOT_USERNAME:?MONGO_INITDB_ROOT_USERNAME is required}
+      - --password
+      - ${MONGO_INITDB_ROOT_PASSWORD:?MONGO_INITDB_ROOT_PASSWORD is required}
+      - --authenticationDatabase
+      - admin
       - --quiet
       - --eval
       - "try { rs.status() } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongo:27017'}]}) }"

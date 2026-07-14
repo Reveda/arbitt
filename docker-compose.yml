@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mongo:
     image: mongo:6.0
@@ -34,8 +32,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: arbitrum-redis-local
-    ports:
-      - "127.0.0.1:6379:6379"
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
@@ -44,7 +40,7 @@ services:
     image: node:22-alpine
     container_name: arbitrum-backend-local
     working_dir: /app
-    command: npm run dev
+    command: sh -c "npm install --no-audit --no-fund && npm run dev"
     ports:
       - "5000:5000"
     volumes:
@@ -68,7 +64,7 @@ services:
     image: node:22-alpine
     container_name: arbitrum-frontend-local
     working_dir: /app
-    command: npm run dev -- --host
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host"
     ports:
       - "5173:5173"
     volumes:
@@ -76,8 +72,6 @@ services:
       - /app/node_modules
     env_file:
       - ./frontend/.env
-    environment:
-      - VITE_API_BASE_URL=http://localhost:5000/api/v1
     depends_on:
       - backend
 
