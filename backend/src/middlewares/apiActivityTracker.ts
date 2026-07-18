@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { env } from "../config/env";
 import { logger } from "../config/logger";
-import { ApiActivityModel } from "../modules/super-admin/models/api-activity.model";
+import { addApiActivityJob, type ApiActivityEvent } from "../modules/super-admin/queues/api-activity.queue";
 
 function normalizePath(originalUrl: string) {
   const [path] = originalUrl.split("?");
@@ -85,7 +85,7 @@ export function apiActivityTracker(req: Request, res: Response, next: NextFuncti
 
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
 
-    ApiActivityModel.create({
+    const activity: ApiActivityEvent = {
       action: getAction(method, path),
       durationMs: Math.round(durationMs * 100) / 100,
       ipAddress: req.ip ?? "",
@@ -97,8 +97,10 @@ export function apiActivityTracker(req: Request, res: Response, next: NextFuncti
       userAgent: req.get("user-agent") ?? "",
       userId: req.user?.id ?? null,
       userRole: req.user?.role ?? null,
-    }).catch((error) => {
-      logger.warn({ error, path }, "API activity tracking failed");
+    };
+
+    void addApiActivityJob(activity).catch((error) => {
+      logger.warn({ error, path }, "API activity queueing failed");
     });
   });
 

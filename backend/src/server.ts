@@ -8,6 +8,7 @@ import { roleService } from "./modules/roles/services/role.service";
 import { payoutSchedulerService } from "./modules/admin/services/payout-scheduler.service";
 import { createWithdrawalWorker } from "./modules/wallet/workers/withdrawal.worker";
 import { createEmailWorker } from "./modules/email/workers/email.worker";
+import { createApiActivityWorker } from "./modules/super-admin/workers/api-activity.worker";
 
 async function bootstrap() {
   await connectDatabase();
@@ -18,6 +19,7 @@ async function bootstrap() {
   const shouldRunWorkers = env.PROCESS_ROLE === "worker" || env.PROCESS_ROLE === "all";
   const withdrawalWorker = shouldRunWorkers ? createWithdrawalWorker() : null;
   const emailWorker = shouldRunWorkers ? createEmailWorker() : null;
+  const apiActivityWorker = shouldRunWorkers ? createApiActivityWorker() : null;
   let server: ReturnType<typeof createServer> | null = null;
 
   if (shouldRunWorkers) {
@@ -43,6 +45,9 @@ async function bootstrap() {
       }
       if (emailWorker) {
         await emailWorker.close();
+      }
+      if (apiActivityWorker) {
+        await apiActivityWorker.close();
       }
       await disconnectRedis();
       await disconnectDatabase();
