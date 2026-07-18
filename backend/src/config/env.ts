@@ -55,6 +55,7 @@ const envSchema = z
     JWT_REFRESH_EXPIRES_IN: z.string().regex(durationPattern).default("7d"),
     ACCESS_TOKEN_COOKIE_NAME: z.string().min(1).default("arbitrum_access_token"),
     REFRESH_TOKEN_COOKIE_NAME: z.string().min(1).default("arbitrum_refresh_token"),
+    CSRF_COOKIE_NAME: z.string().min(1).default("arbitrum_csrf_token"),
     COOKIE_DOMAIN: z.string().optional(),
     COOKIE_SAME_SITE: z.enum(["lax", "strict", "none"]).default("lax"),
     COOKIE_SECURE: optionalBooleanString,
@@ -129,7 +130,10 @@ const envSchema = z
       });
     }
 
-    if (value.WITHDRAWAL_ADMIN_PRIVATE_KEY && !/^0x[0-9a-fA-F]{64}$/.test(value.WITHDRAWAL_ADMIN_PRIVATE_KEY)) {
+    if (
+      value.WITHDRAWAL_ADMIN_PRIVATE_KEY &&
+      !/^0x[0-9a-fA-F]{64}$/.test(value.WITHDRAWAL_ADMIN_PRIVATE_KEY)
+    ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "WITHDRAWAL_ADMIN_PRIVATE_KEY must be a valid 32-byte hex key.",

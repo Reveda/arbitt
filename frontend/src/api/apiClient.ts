@@ -14,6 +14,8 @@ type ParsedResponse<T> = {
 };
 
 let authRefreshRequest: Promise<void> | null = null;
+let csrfTokenRequest: Promise<string> | null = null;
+let csrfToken: string | null = null;
 
 function buildUrl(path: string) {
   return `${API_BASE_URL}${path.startsWith("/") ? path : `/${path}`}`;
@@ -29,8 +31,37 @@ function buildHeaders(options: ApiRequestOptions) {
   return headers;
 }
 
+async function getCsrfToken() {
+  if (csrfToken) {
+    return csrfToken;
+  }
+
+  if (!csrfTokenRequest) {
+    csrfTokenRequest = fetch(buildUrl("/csrf-token"), { credentials: "include" })
+      .then(async (response) => {
+        const payload = (await response.json()) as { data?: { csrfToken?: string } };
+        if (!response.ok || !payload.data?.csrfToken) {
+          throw new ApiClientError("Unable to initialize CSRF protection.", response.status);
+        }
+        csrfToken = payload.data.csrfToken;
+        return csrfToken;
+      })
+      .finally(() => {
+        csrfTokenRequest = null;
+      });
+  }
+
+  return csrfTokenRequest;
+}
+
 async function sendRequest<T>(path: string, options: ApiRequestOptions = {}): Promise<ParsedResponse<T>> {
   const url = buildUrl(path);
+  const requestHeaders = buildHeaders(options);
+  const method = (options.method ?? "GET").toUpperCase();
+
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    requestHeaders.set("X-CSRF-Token", await getCsrfToken());
+  }
 
   let response: Response;
 
@@ -38,7 +69,7 @@ async function sendRequest<T>(path: string, options: ApiRequestOptions = {}): Pr
     response = await fetch(url, {
       ...options,
       credentials: "include",
-      headers: buildHeaders(options),
+      headers: requestHeaders,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined
     });
   } catch {

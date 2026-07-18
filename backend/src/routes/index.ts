@@ -14,11 +14,13 @@ import { superAdminRoutes } from "../modules/super-admin/routes/super-admin.rout
 import { transactionRoutes } from "../modules/transactions/routes/transaction.routes";
 import { userRoutes } from "../modules/users/routes/user.routes";
 import { walletRoutes } from "../modules/wallet/routes/wallet.routes";
+import { issueCsrfToken } from "../middlewares/csrfProtection";
 
 export const apiRoutes = Router();
 
 apiRoutes.use("/health", healthRoutes);
 apiRoutes.use(apiRateLimiter);
+apiRoutes.get("/csrf-token", issueCsrfToken);
 apiRoutes.use("/landing", landingRoutes);
 apiRoutes.use("/auth", authRoutes);
 apiRoutes.use("/users", userRoutes);

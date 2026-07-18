@@ -59,6 +59,67 @@
     animation: pulse-soft 3.4s ease-in-out infinite;
   }
 
+  .how-it-works-flow-path,
+  .how-it-works-flow-glow {
+    fill: none;
+    stroke-linecap: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: how-it-works-flow-draw 4.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  }
+
+  .how-it-works-visual {
+    aspect-ratio: auto;
+    height: clamp(220px, 27vw, 320px);
+  }
+
+  @media (min-width: 1024px) {
+    .how-it-works-visual {
+      height: 280px;
+    }
+  }
+
+  @media (max-width: 1023px) {
+    .how-it-works-visual {
+      aspect-ratio: 7 / 4;
+      height: auto;
+    }
+  }
+
+  .how-it-works-flow-path {
+    stroke: rgba(56, 189, 248, 0.92);
+    stroke-width: 3;
+    filter: drop-shadow(0 0 5px rgba(34, 211, 238, 0.9));
+  }
+
+  .how-it-works-flow-glow {
+    stroke: rgba(14, 165, 233, 0.38);
+    stroke-width: 13;
+    filter: blur(5px);
+    animation-delay: 80ms;
+  }
+
+  .how-it-works-flow-node {
+    fill: #67e8f9;
+    opacity: 0.35;
+    transform-box: fill-box;
+    transform-origin: center;
+    filter: drop-shadow(0 0 7px rgba(34, 211, 238, 0.95));
+    animation: how-it-works-flow-node-pulse 4.8s ease-in-out infinite;
+  }
+
+  .how-it-works-flow-node-2 {
+    animation-delay: 1.2s;
+  }
+
+  .how-it-works-flow-node-3 {
+    animation-delay: 2.4s;
+  }
+
+  .how-it-works-flow-node-4 {
+    animation-delay: 3.6s;
+  }
+
   .glass-card {
     @apply border border-cyan-300/20 bg-slate-900/60;
     position: relative;
@@ -580,6 +641,10 @@
     filter: blur(0) saturate(1);
   }
 
+  .scroll-reveal.how-it-works-reveal {
+    filter: none;
+  }
+
   .glass-card:hover {
     border-color: rgba(103, 232, 249, 0.35);
     background: rgba(15, 23, 42, 0.78);
@@ -833,6 +898,43 @@
 
   50% {
     box-shadow: 0 0 24px rgba(56, 189, 248, 0.32);
+  }
+}
+
+@keyframes how-it-works-flow-draw {
+  0% {
+    stroke-dashoffset: 1;
+    opacity: 0.2;
+  }
+
+  12%,
+  78% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+
+  100% {
+    stroke-dashoffset: -0.08;
+    opacity: 0.2;
+  }
+}
+
+@keyframes how-it-works-flow-node-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.7);
+  }
+
+  12%,
+  28% {
+    opacity: 1;
+    transform: scale(1.45);
+  }
+
+  42% {
+    opacity: 0.35;
+    transform: scale(0.9);
   }
 }
 

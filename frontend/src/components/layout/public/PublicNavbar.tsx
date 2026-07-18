@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import arbitrumIcon from "@/assets/arbitrum-mark-hex.png";
+import arbitrumOfficialLogo from "@/assets/arbitrum-official-logo.svg";
 
 export type PublicNavItem = {
   id: string;
@@ -89,7 +89,7 @@ export function PublicNavbar({ authState, mobileOpen, navItems, onCloseMobile, o
                 <img
                   alt="Arbitrum icon"
                   className="h-[76%] w-[76%] object-contain brightness-110 contrast-125"
-                  src={arbitrumIcon}
+                  src={arbitrumOfficialLogo}
                 />
               </span>
               <span className="text-base font-extrabold tracking-wide text-slate-100 sm:text-lg">ARBITRUM</span>
@@ -138,7 +138,7 @@ export function PublicNavbar({ authState, mobileOpen, navItems, onCloseMobile, o
               <img
                 alt="Arbitrum icon"
                 className="h-[76%] w-[76%] object-contain brightness-110 contrast-125"
-                src={arbitrumIcon}
+                src={arbitrumOfficialLogo}
               />
             </span>
             <span className="text-base font-extrabold tracking-wide text-slate-100">ARBITRUM</span>
