@@ -95,6 +95,18 @@ function getOtpTestFields(result: OtpDispatchResult) {
 }
 
 export class AuthService {
+  async getReferralOwner(referralCode: string) {
+    const user = await authRepository.findUserByReferralCode(referralCode);
+
+    if (!user || user.status === "suspended") {
+      return null;
+    }
+
+    return {
+      username: user.username ?? null,
+    };
+  }
+
   async register(input: RegisterInput, meta: AuthRequestMeta): Promise<InternalAuthResponseDto> {
     const email = normalizeEmail(input.email);
     const username = normalizeUsername(input.username);

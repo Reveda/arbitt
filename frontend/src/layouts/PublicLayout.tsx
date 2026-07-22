@@ -235,7 +235,7 @@ export function PublicLayout() {
   }, []);
 
   return (
-    <div className="min-h-screen">
+    <div className={isAuthPage ? "h-[100dvh] overflow-hidden lg:min-h-screen lg:h-auto lg:overflow-visible" : "min-h-screen"}>
       <PublicNavbar
         authState={authNavState}
         mobileOpen={mobileOpen}
@@ -248,7 +248,7 @@ export function PublicLayout() {
       <main
         className={`container ${
           isAuthPage
-            ? "flex min-h-[calc(100dvh-8.5rem)] items-center justify-center overflow-y-auto py-4 pb-24 sm:py-6 sm:pb-10 md:py-8 lg:pb-8"
+            ? "flex h-[calc(100dvh-5rem)] min-h-0 items-start justify-center overflow-y-auto overscroll-contain py-3 pb-4 sm:items-center sm:py-6 sm:pb-6 md:py-8 lg:h-auto lg:min-h-[calc(100dvh-5rem)] lg:items-center lg:overflow-visible lg:pb-8"
             : isHomePage
               ? "pt-0 pb-6 sm:pt-0 sm:pb-8 md:pt-1 md:pb-8"
               : "py-5 sm:py-6 md:py-8"

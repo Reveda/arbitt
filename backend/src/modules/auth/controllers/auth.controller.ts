@@ -154,3 +154,23 @@ export const checkUsernameAvailability = catchAsync(async (req: Request, res: Re
     );
   }
 });
+
+export const checkReferralCode = catchAsync(async (req: Request, res: Response) => {
+  const referralCode = String(req.query.referralCode || "").trim();
+
+  if (!referralCode) {
+    res
+      .status(HTTP_STATUS.BAD_REQUEST)
+      .json(apiResponse(HTTP_STATUS.BAD_REQUEST, "Referral code query parameter is required.", { valid: false }));
+    return;
+  }
+
+  const owner = await authService.getReferralOwner(referralCode);
+  res.status(HTTP_STATUS.OK).json(
+    apiResponse(
+      HTTP_STATUS.OK,
+      owner ? "Referral code is valid." : "Invalid referral code.",
+      { valid: Boolean(owner), referredBy: owner?.username ?? null },
+    ),
+  );
+});

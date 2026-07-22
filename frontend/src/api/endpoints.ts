@@ -8,7 +8,8 @@ export const API_ENDPOINTS = {
     resetPassword: "/auth/reset-password",
     refreshToken: "/auth/refresh-token",
     logout: "/auth/logout",
-    checkUsername: "/auth/check-username"
+    checkUsername: "/auth/check-username",
+    checkReferral: "/auth/check-referral"
   },
   users: {
     me: "/users/me",
@@ -81,7 +82,8 @@ export const AUTH_REFRESH_EXCLUDED_ENDPOINTS = [
   API_ENDPOINTS.auth.refreshToken,
   API_ENDPOINTS.auth.forgotPassword,
   API_ENDPOINTS.auth.logout,
-  API_ENDPOINTS.auth.checkUsername
+  API_ENDPOINTS.auth.checkUsername,
+  API_ENDPOINTS.auth.checkReferral
 ] as const;
 
 export const APP_ROUTES = {
