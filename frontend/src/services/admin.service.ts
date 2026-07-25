@@ -880,7 +880,7 @@ export const adminService = {
     });
   },
 
-  editUser(userId: string, body: { username?: string; role?: string; status?: string }) {
+  editUser(userId: string, body: { username?: string; role?: string; status?: string; reason?: string }) {
     return apiRequest<any>(`${API_ENDPOINTS.admin.users}/${userId}`, {
       method: "PATCH",
       body

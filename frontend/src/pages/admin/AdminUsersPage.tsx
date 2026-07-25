@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, Search, Trash2, X, Loader2 } from "lucide-react";
+import { Edit3, Search, ShieldAlert, ShieldCheck, Trash2, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAdminUsers } from "@/hooks/useAdminQueries";
@@ -45,6 +45,7 @@ export function AdminUsersPage() {
   const [editUsername, setEditUsername] = useState("");
   const [editRole, setEditRole] = useState("");
   const [editStatus, setEditStatus] = useState("");
+  const [securityReason, setSecurityReason] = useState("");
   const [editError, setEditError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
@@ -83,7 +84,8 @@ export function AdminUsersPage() {
       await adminService.editUser(selectedEditUser.id, {
         username: editUsername.trim() || undefined,
         role: editRole,
-        status: editStatus
+        status: editStatus,
+        reason: editStatus === "suspended" ? securityReason.trim() || undefined : undefined,
       });
       setSuccessMessage("User updated successfully.");
       setSelectedEditUser(null);
@@ -203,32 +205,35 @@ export function AdminUsersPage() {
                       {user.status}
                     </td>
                     <td className="py-4 text-slate-400">{formatDate(user.createdAt)}</td>
-                    <td className="py-4">
-                      <div className="flex justify-end gap-3">
+                    <td className="whitespace-nowrap py-3 pl-3">
+                      <div className="flex items-center justify-end gap-2.5">
                         <button
                           aria-label={`Edit ${getUserName(user.username)}`}
-                          className="text-cyan-500 transition-colors hover:text-cyan-600"
+                          className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-600 shadow-sm transition-all hover:border-cyan-300 hover:bg-cyan-100 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 active:scale-95 sm:size-8"
                           onClick={() => {
                             setEditUsername(user.username || "");
                             setEditRole(user.role);
                             setEditStatus(user.status);
+                            setSecurityReason("");
                             setEditError("");
                             setSelectedEditUser(user);
                           }}
+                          title="Edit user"
                           type="button"
                         >
-                          <Edit3 className="size-4" />
+                          <Edit3 className="size-4" strokeWidth={2.2} />
                         </button>
                         <button
                           aria-label={`Delete ${getUserName(user.username)}`}
-                          className="text-rose-500 transition-colors hover:text-rose-600"
+                          className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 active:scale-95 sm:size-8"
                           onClick={() => {
                             setDeleteError("");
                             setSelectedDeleteUser(user);
                           }}
+                          title="Delete user"
                           type="button"
                         >
-                          <Trash2 className="size-4" />
+                          <Trash2 className="size-4" strokeWidth={2.2} />
                         </button>
                       </div>
                     </td>
@@ -330,7 +335,7 @@ export function AdminUsersPage() {
               <label className="block">
                 <span className="mb-1.5 block text-xs font-bold text-slate-600">Username</span>
                 <Input
-                  className="h-10 rounded-xl text-xs font-semibold border-slate-200"
+                  className="h-10 rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus-visible:ring-cyan-100"
                   onChange={(e) => setEditUsername(e.target.value)}
                   placeholder="Enter username"
                   required
@@ -363,6 +368,61 @@ export function AdminUsersPage() {
                   <option value="suspended">Suspended</option>
                 </select>
               </label>
+
+              <div className={cn(
+                "rounded-xl border px-3.5 py-3",
+                editStatus === "suspended"
+                  ? "border-rose-200 bg-rose-50"
+                  : "border-emerald-200 bg-emerald-50"
+              )}>
+                <div className="flex items-start gap-2.5">
+                  {editStatus === "suspended" ? (
+                    <ShieldAlert className="mt-0.5 size-4 shrink-0 text-rose-600" />
+                  ) : (
+                    <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className={cn(
+                      "text-xs font-black",
+                      editStatus === "suspended" ? "text-rose-800" : "text-emerald-800"
+                    )}>
+                      {editStatus === "suspended" ? "Suspend account access" : "Account access is active"}
+                    </p>
+                    <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-600">
+                      {editStatus === "suspended"
+                        ? "The user will be signed out, blocked from login and notified by email after saving."
+                        : "Restoring the account will allow the user to sign in again after saving."
+                      }
+                    </p>
+                    <button
+                      className={cn(
+                        "mt-2 inline-flex items-center rounded-lg px-2.5 py-1.5 text-[11px] font-black transition-colors",
+                        editStatus === "suspended"
+                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                          : "bg-rose-600 text-white hover:bg-rose-700"
+                      )}
+                      onClick={() => {
+                        setEditStatus(editStatus === "suspended" ? "active" : "suspended");
+                        if (editStatus === "suspended") {
+                          setSecurityReason("");
+                        }
+                      }}
+                      type="button"
+                    >
+                      {editStatus === "suspended" ? "Restore account" : "Suspend account"}
+                    </button>
+                  </div>
+                </div>
+                {editStatus === "suspended" ? (
+                  <textarea
+                    className="mt-3 min-h-20 w-full resize-y rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+                    maxLength={500}
+                    onChange={(event) => setSecurityReason(event.target.value)}
+                    placeholder="Optional review reason for the suspension email"
+                    value={securityReason}
+                  />
+                ) : null}
+              </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button

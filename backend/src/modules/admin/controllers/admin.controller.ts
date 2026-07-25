@@ -150,7 +150,9 @@ export const requestAdminPaymentWalletOtp = catchAsync(async (req: Request, res:
     adminUserId: req.user!.id,
     ipAddress: req.ip,
   });
-  res.status(HTTP_STATUS.OK).json(apiResponse(HTTP_STATUS.OK, "Verification code sent to the admin email.", result));
+  res
+    .status(HTTP_STATUS.OK)
+    .json(apiResponse(HTTP_STATUS.OK, "Verification code sent to the admin email.", result));
 });
 
 export const generateAdminPayouts = catchAsync(async (req: Request, res: Response) => {
@@ -275,7 +277,7 @@ export const exportAdminPayouts = catchAsync(async (req: Request, res: Response)
 export const editAdminUser = catchAsync(async (req: Request, res: Response) => {
   const params = adminUserParamsSchema.parse(req.params);
   const body = editAdminUserBodySchema.parse(req.body);
-  const result = await adminService.editUser(params.userId, body);
+  const result = await adminService.editUser(params.userId, body, req.user!.id, req.ip);
 
   res
     .status(HTTP_STATUS.OK)

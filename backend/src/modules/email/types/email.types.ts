@@ -21,3 +21,10 @@ export type SendOtpEmailInput = {
   expiresInMinutes: number;
   contextLabel?: string;
 };
+
+export type SendAccountStatusEmailInput = {
+  to: string;
+  username?: string | null;
+  status: "suspended" | "active";
+  reason?: string | null;
+};

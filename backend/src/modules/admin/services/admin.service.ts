@@ -17,6 +17,8 @@ import { WalletModel } from "../../wallet/models/wallet.model";
 import { Types } from "mongoose";
 import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
 import { authRepository } from "../../auth/repositories/auth.repository";
+import { emailService } from "../../email/services/email.service";
+import { logger } from "../../../config/logger";
 
 type PopulatedAdminUser = {
   _id?: unknown;
@@ -1476,7 +1478,12 @@ export class AdminService {
     };
   }
 
-  async editUser(userId: string, update: { username?: string; role?: string; status?: string }) {
+  async editUser(
+    userId: string,
+    update: { username?: string; role?: string; status?: string; reason?: string },
+    actorUserId?: string,
+    ipAddress?: string,
+  ) {
     const user = await UserModel.findOne({ _id: userId, isDeleted: { $ne: true } });
     if (!user) {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
@@ -1499,11 +1506,47 @@ export class AdminService {
       user.role = update.role as any;
     }
 
+    const previousStatus = user.status;
+
     if (update.status) {
+      if (actorUserId && actorUserId === userId && update.status === "suspended") {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, "You cannot suspend your own account.");
+      }
       user.status = update.status as any;
     }
 
     await user.save();
+
+    if (previousStatus !== user.status && (user.status === "suspended" || user.status === "active")) {
+      if (user.status === "suspended") {
+        await authRepository.revokeUserSessions(userId);
+      }
+
+      await adminRepository.recordAuditLog({
+        actorUserId: actorUserId ?? userId,
+        action: user.status === "suspended" ? "admin.user.suspended" : "admin.user.reinstated",
+        entityType: "user",
+        entityId: userId,
+        metadata: {
+          email: user.email,
+          previousStatus,
+          status: user.status,
+          reason: update.reason?.trim() || null,
+        },
+        ipAddress,
+      });
+
+      try {
+        await emailService.sendAccountStatusEmail({
+          reason: update.reason,
+          status: user.status,
+          to: user.email,
+          username: user.username,
+        });
+      } catch (error) {
+        logger.warn({ error, userId, status: user.status }, "Account status email delivery failed");
+      }
+    }
 
     return user.toObject();
   }

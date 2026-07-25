@@ -152,4 +152,5 @@ export const editAdminUserBodySchema = z.object({
     .optional(),
   role: z.enum(USER_ROLES).optional(),
   status: z.enum(USER_STATUSES).optional(),
+  reason: z.string().trim().max(500, "Security reason cannot exceed 500 characters.").optional(),
 });
