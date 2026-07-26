@@ -58,6 +58,7 @@ type OtpDispatchResult = {
 };
 
 const OTP_EXPIRES_IN_MINUTES = 10;
+const OTP_RESEND_COOLDOWN_MS = 60_000;
 const MAX_OTP_ATTEMPTS = 5;
 const REFRESH_TOKEN_CONCURRENCY_GRACE_MS = 30_000;
 
@@ -330,6 +331,20 @@ export class AuthService {
       return {
         accepted: true,
       };
+    }
+
+    const existingOtpExpiresAt = user.emailVerificationOtpExpiresAt
+      ? new Date(user.emailVerificationOtpExpiresAt).getTime()
+      : 0;
+    const existingOtpIssuedAt = existingOtpExpiresAt - OTP_EXPIRES_IN_MINUTES * 60_000;
+    const elapsedSinceIssue = Date.now() - existingOtpIssuedAt;
+
+    if (existingOtpExpiresAt > Date.now() && elapsedSinceIssue < OTP_RESEND_COOLDOWN_MS) {
+      const retryAfterSeconds = Math.ceil((OTP_RESEND_COOLDOWN_MS - elapsedSinceIssue) / 1000);
+      throw new ApiError(
+        HTTP_STATUS.TOO_MANY_REQUESTS,
+        `Please wait ${retryAfterSeconds} seconds before requesting another OTP.`,
+      );
     }
 
     const emailVerification = await this.createEmailVerificationOtp(String(user._id), email);

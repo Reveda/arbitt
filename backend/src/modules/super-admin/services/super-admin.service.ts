@@ -4,7 +4,10 @@ import { AuditLogModel } from "../../admin/models/audit-log.model";
 import { PlatformSettingModel } from "../../admin/models/platform-setting.model";
 import { NotificationModel } from "../../notifications/models/notification.model";
 import { PlanRuleSetModel } from "../../plans/models/plan-rule-set.model";
-import { TransactionModel } from "../../transactions/models/transaction.model";
+import {
+  TRANSACTION_STATUSES,
+  TransactionModel,
+} from "../../transactions/models/transaction.model";
 import { UserModel } from "../../users/models/user.model";
 import { WalletModel } from "../../wallet/models/wallet.model";
 import { ApiActivityModel } from "../models/api-activity.model";
@@ -73,6 +76,14 @@ type AuditRecord = {
 type UserWalletCountAggregate = {
   total: number;
 };
+
+type RewardPrincipalTotal = { _id: unknown; principalUsdt?: number };
+type RewardAmountTotal = { _id: unknown; amountUsdt?: number };
+type PopulatedPayoutUser = { username?: string | null; email?: string | null };
+
+function toOptionalIsoDate(value: Date | null) {
+  return value ? value.toISOString() : null;
+}
 
 type WorkflowStepStatus = "attention" | "blocked" | "healthy" | "idle";
 
@@ -1194,7 +1205,12 @@ export class SuperAdminService {
     };
   }
 
-  async fixTransactionStatus(transactionId: string, status: string, notes?: string, adminUserId?: string) {
+  async fixTransactionStatus(
+    transactionId: string,
+    status: string,
+    notes?: string,
+    adminUserId?: string,
+  ) {
     return mongoose.connection.transaction(async (session) => {
       const transaction = await TransactionModel.findById(transactionId).session(session);
       if (!transaction) {
@@ -1203,48 +1219,89 @@ export class SuperAdminService {
 
       const previousStatus = transaction.status;
       if (previousStatus === status) {
-        throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Transaction is already in the requested status.");
+        throw new ApiError(
+          HTTP_STATUS.BAD_REQUEST,
+          "Transaction is already in the requested status.",
+        );
       }
 
       if (transaction.type === "deposit") {
         if (status === "completed" && previousStatus !== "completed") {
-          await walletRepository.creditDeposit(String(transaction.userId), transaction.amountUsdt, session);
+          await walletRepository.creditDeposit(
+            String(transaction.userId),
+            transaction.amountUsdt,
+            session,
+          );
         } else if (previousStatus === "completed" && status !== "completed") {
-          await walletRepository.creditDeposit(String(transaction.userId), -transaction.amountUsdt, session);
+          await walletRepository.creditDeposit(
+            String(transaction.userId),
+            -transaction.amountUsdt,
+            session,
+          );
         }
       } else if (transaction.type === "withdrawal") {
         const lockedAmount = transaction.payoutPrincipalUsdt ?? transaction.amountUsdt;
-        if (status === "completed" && previousStatus === "pending") {
-          await walletRepository.completeWithdrawalAmount(String(transaction.userId), lockedAmount, session);
-        } else if ((status === "rejected" || status === "failed") && previousStatus === "pending") {
-          await walletRepository.unlockWithdrawalAmount(String(transaction.userId), lockedAmount, session);
+        if (
+          status === "completed" &&
+          (previousStatus === "pending" || previousStatus === "processing")
+        ) {
+          await walletRepository.completeWithdrawalAmount(
+            String(transaction.userId),
+            lockedAmount,
+            session,
+          );
+        } else if (
+          (status === "rejected" || status === "failed") &&
+          (previousStatus === "pending" || previousStatus === "processing")
+        ) {
+          await walletRepository.unlockWithdrawalAmount(
+            String(transaction.userId),
+            lockedAmount,
+            session,
+          );
         } else if (status === "pending" && previousStatus === "completed") {
           const wallet = await walletRepository.reverseCompletedWithdrawalAmount(
             String(transaction.userId),
             lockedAmount,
             session,
           );
-          if (!wallet || !(await walletRepository.lockWithdrawalAmount(String(transaction.userId), lockedAmount, session))) {
-            throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Unable to restore the withdrawal ledger state.");
+          if (
+            !wallet ||
+            !(await walletRepository.lockWithdrawalAmount(
+              String(transaction.userId),
+              lockedAmount,
+              session,
+            ))
+          ) {
+            throw new ApiError(
+              HTTP_STATUS.BAD_REQUEST,
+              "Unable to restore the withdrawal ledger state.",
+            );
           }
-        } else if ((status === "rejected" || status === "failed") && previousStatus === "completed") {
+        } else if (
+          (status === "rejected" || status === "failed") &&
+          previousStatus === "completed"
+        ) {
           const wallet = await walletRepository.reverseCompletedWithdrawalAmount(
             String(transaction.userId),
             lockedAmount,
             session,
           );
           if (!wallet) {
-            throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Unable to reverse the completed withdrawal.");
+            throw new ApiError(
+              HTTP_STATUS.BAD_REQUEST,
+              "Unable to reverse the completed withdrawal.",
+            );
           }
         }
       }
 
-      transaction.status = status as any;
+      transaction.status = status as (typeof TRANSACTION_STATUSES)[number];
       if (notes) {
         transaction.notes = `${transaction.notes || ""}\n[SUPER_ADMIN Override]: ${notes}`.trim();
       }
       if (adminUserId) {
-        transaction.reviewedBy = adminUserId as any;
+        transaction.reviewedBy = new Types.ObjectId(adminUserId);
         transaction.reviewedAt = new Date();
       }
 
@@ -1260,14 +1317,35 @@ export class SuperAdminService {
       .lean();
 
     const now = new Date();
-    const filterDate = latestReward && latestReward.createdAt ? new Date(latestReward.createdAt) : now;
+    const filterDate =
+      latestReward && latestReward.createdAt ? new Date(latestReward.createdAt) : now;
 
-    const startOfToday = new Date(Date.UTC(filterDate.getUTCFullYear(), filterDate.getUTCMonth(), filterDate.getUTCDate(), 0, 0, 0, 0));
-    const endOfToday = new Date(Date.UTC(filterDate.getUTCFullYear(), filterDate.getUTCMonth(), filterDate.getUTCDate(), 23, 59, 59, 999));
+    const startOfToday = new Date(
+      Date.UTC(
+        filterDate.getUTCFullYear(),
+        filterDate.getUTCMonth(),
+        filterDate.getUTCDate(),
+        0,
+        0,
+        0,
+        0,
+      ),
+    );
+    const endOfToday = new Date(
+      Date.UTC(
+        filterDate.getUTCFullYear(),
+        filterDate.getUTCMonth(),
+        filterDate.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
 
     const rewards = await TransactionModel.find({
       type: "reward",
-      createdAt: { $gte: startOfToday, $lte: endOfToday }
+      createdAt: { $gte: startOfToday, $lte: endOfToday },
     }).lean();
 
     let totalAmountGenerated = 0;
@@ -1281,8 +1359,8 @@ export class SuperAdminService {
     let royaltyCount = 0;
     let royaltyAmount = 0;
 
-    let latestCreated: any = null;
-    let latestCredited: any = null;
+    let latestCreated: Date | null = null;
+    let latestCredited: Date | null = null;
 
     rewards.forEach((r) => {
       totalAmountGenerated += r.amountUsdt;
@@ -1332,9 +1410,9 @@ export class SuperAdminService {
         royalty: { count: royaltyCount, amount: roundUsdt(royaltyAmount) },
       },
       timing: {
-        createdTime: latestCreated ? latestCreated.toISOString() : null,
-        creditedTime: latestCredited ? latestCredited.toISOString() : null,
-      }
+        createdTime: toOptionalIsoDate(latestCreated),
+        creditedTime: toOptionalIsoDate(latestCredited),
+      },
     };
   }
 
@@ -1352,7 +1430,7 @@ export class SuperAdminService {
       }
       const userObjectIds = uniqueUserIds.map(toObjectId);
       const [principalTotals, rewardTotals] = await Promise.all([
-        UserPlanPurchaseModel.aggregate<any>([
+        UserPlanPurchaseModel.aggregate<RewardPrincipalTotal>([
           {
             $match: {
               amountUsdt: { $gt: 0 },
@@ -1367,7 +1445,7 @@ export class SuperAdminService {
             },
           },
         ]),
-        TransactionModel.aggregate<any>([
+        TransactionModel.aggregate<RewardAmountTotal>([
           {
             $match: {
               payoutKind: { $in: TOTAL_REWARD_PAYOUT_KINDS },
@@ -1385,10 +1463,10 @@ export class SuperAdminService {
         ]),
       ]);
       const principalByUserId = new Map(
-        principalTotals.map((total: any) => [String(total._id), total.principalUsdt ?? 0]),
+        principalTotals.map((total) => [String(total._id), total.principalUsdt ?? 0]),
       );
       const rewardsByUserId = new Map(
-        rewardTotals.map((total: any) => [String(total._id), total.amountUsdt ?? 0]),
+        rewardTotals.map((total) => [String(total._id), total.amountUsdt ?? 0]),
       );
 
       return new Map<string, number>(
@@ -1401,20 +1479,34 @@ export class SuperAdminService {
     };
 
     // 1. Get recent Friday for ROI
-    const now = new Date();
     const payoutDate = new Date();
     const day = payoutDate.getUTCDay();
     const diffToFriday = day >= 5 ? day - 5 : day + 2;
     payoutDate.setUTCDate(payoutDate.getUTCDate() - diffToFriday);
 
-    const periodStart = new Date(Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate()));
-    const periodEnd = new Date(Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate(), 23, 59, 59, 999));
+    const periodStart = new Date(
+      Date.UTC(payoutDate.getUTCFullYear(), payoutDate.getUTCMonth(), payoutDate.getUTCDate()),
+    );
+    const periodEnd = new Date(
+      Date.UTC(
+        payoutDate.getUTCFullYear(),
+        payoutDate.getUTCMonth(),
+        payoutDate.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
     const eligibleUntil = new Date(periodStart.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    const skippedList: any[] = [];
+    const skippedList: Array<Record<string, unknown>> = [];
 
     // --- A. Weekly ROI Skipped ---
-    const activePurchases = await UserPlanPurchaseModel.find({ status: "active", purchasedAt: { $lte: eligibleUntil } })
+    const activePurchases = await UserPlanPurchaseModel.find({
+      status: "active",
+      purchasedAt: { $lte: eligibleUntil },
+    })
       .populate("userId", "username email")
       .lean();
 
@@ -1423,14 +1515,16 @@ export class SuperAdminService {
       payoutKind: "weekly",
       payoutPeriodEnd: periodEnd,
     }).lean();
-    const generatedRoiSourceIds = new Set(generatedRoiTxns.map(t => String(t.payoutSourceTransactionId)));
+    const generatedRoiSourceIds = new Set(
+      generatedRoiTxns.map((t) => String(t.payoutSourceTransactionId)),
+    );
 
-    const allUserIds = [...new Set(activePurchases.map(p => String(p.userId)))];
+    const allUserIds = [...new Set(activePurchases.map((p) => String(p.userId)))];
     const userCaps = await getRemainingRewardCapacityByUserId(allUserIds);
 
     for (const p of activePurchases) {
       const uId = String(p.userId);
-      const user = p.userId as any;
+      const user = p.userId as unknown as PopulatedPayoutUser | null;
       if (!user) continue;
 
       const remainingCap = userCaps.get(uId) ?? 0;
@@ -1443,33 +1537,38 @@ export class SuperAdminService {
           email: user.email || "No email",
           payoutKind: "weekly",
           description: `Skipped Weekly ROI for plan "${p.name || p.tier}" ($${p.amountUsdt} USDT)`,
-          amountUsdt: roundUsdt(Math.min((p.amountUsdt * p.weeklyReturnPercent) / 100, remainingCap)),
+          amountUsdt: roundUsdt(
+            Math.min((p.amountUsdt * p.weeklyReturnPercent) / 100, remainingCap),
+          ),
           sourceId: String(p.sourceTransactionId),
-          details: `Plan purchased: ${new Date(p.purchasedAt).toLocaleDateString()}, ROI %: ${p.weeklyReturnPercent}%, Remaining Cap: $${remainingCap} USDT`
+          details: `Plan purchased: ${new Date(p.purchasedAt).toLocaleDateString()}, ROI %: ${p.weeklyReturnPercent}%, Remaining Cap: $${remainingCap} USDT`,
         });
       }
     }
 
     // --- B. Level Income Skipped ---
-    const completedPurchases = await TransactionModel.find({ type: "plan_purchase", status: "completed" })
+    const completedPurchases = await TransactionModel.find({
+      type: "plan_purchase",
+      status: "completed",
+    })
       .populate("userId", "username")
       .lean();
 
     const recentPurchases = completedPurchases.slice(-100);
 
     for (const pur of recentPurchases) {
-      const purchaseUser = pur.userId as any;
+      const purchaseUser = pur.userId as unknown as PopulatedPayoutUser | null;
       const ref = await ReferralModel.findOne({ userId: pur.userId }).lean();
       if (!ref || !ref.path || !ref.path.length) continue;
 
       const generatedLevelTxns = await TransactionModel.find({
         type: "reward",
         payoutKind: "level",
-        payoutSourceTransactionId: pur._id
+        payoutSourceTransactionId: pur._id,
       }).lean();
-      const generatedSponsorIds = new Set(generatedLevelTxns.map(t => String(t.userId)));
+      const generatedSponsorIds = new Set(generatedLevelTxns.map((t) => String(t.userId)));
 
-      const path = ref.path.map(id => String(id)).reverse();
+      const path = ref.path.map((id) => String(id)).reverse();
       const ruleSet = await planRepository.ensureDefaultRuleSet();
       const levelRules = [...ruleSet.levelIncomeRules]
         .filter((rule) => rule.isActive !== false)
@@ -1479,19 +1578,19 @@ export class SuperAdminService {
       const activeSponsors = await UserModel.find({
         _id: { $in: path.slice(0, maxLevel).map(toObjectId) },
         role: "user",
-        status: "active"
+        status: "active",
       }).lean();
-      const activeSponsorIds = new Set(activeSponsors.map(u => String(u._id)));
+      const activeSponsorIds = new Set(activeSponsors.map((u) => String(u._id)));
       const sponsorCaps = await getRemainingRewardCapacityByUserId([...activeSponsorIds]);
 
       for (let i = 0; i < Math.min(path.length, maxLevel); i++) {
         const sponsorId = path[i];
         const levelNum = i + 1;
-        const rule = levelRules.find(r => r.level === levelNum);
+        const rule = levelRules.find((r) => r.level === levelNum);
         if (!rule) continue;
 
         if (activeSponsorIds.has(sponsorId) && !generatedSponsorIds.has(sponsorId)) {
-          const sponsorUser = activeSponsors.find(u => String(u._id) === sponsorId);
+          const sponsorUser = activeSponsors.find((u) => String(u._id) === sponsorId);
           const remainingCap = sponsorCaps.get(sponsorId) ?? 0;
           const levelAmount = roundUsdt((pur.amountUsdt * rule.percent) / 100);
           const claimableAmount = roundUsdt(Math.min(levelAmount, remainingCap));
@@ -1502,10 +1601,10 @@ export class SuperAdminService {
               username: sponsorUser?.username || "Unknown",
               email: sponsorUser?.email || "No email",
               payoutKind: "level",
-              description: `Skipped Level L${levelNum} Income from downline "${purchaseUser?.username || 'user'}" purchase ($${pur.amountUsdt} USDT)`,
+              description: `Skipped Level L${levelNum} Income from downline "${purchaseUser?.username || "user"}" purchase ($${pur.amountUsdt} USDT)`,
               amountUsdt: claimableAmount,
               sourceId: String(pur._id),
-              details: `Level %: ${rule.percent}%, Downline Purchase Date: ${new Date(pur.createdAt).toLocaleDateString()}, Remaining Cap: $${remainingCap} USDT`
+              details: `Level %: ${rule.percent}%, Downline Purchase Date: ${new Date(pur.createdAt).toLocaleDateString()}, Remaining Cap: $${remainingCap} USDT`,
             });
           }
         }
@@ -1515,7 +1614,9 @@ export class SuperAdminService {
     // --- C. Salary & Royalty Skipped ---
     const royaltyPeriod = getSalaryRoyaltyPeriod();
     const { userRoyaltyRankMap } = await calculateUserRoyaltyRanks();
-    const qualifiedUserIds = [...userRoyaltyRankMap.keys()].filter(id => (userRoyaltyRankMap.get(id) ?? 0) >= 1);
+    const qualifiedUserIds = [...userRoyaltyRankMap.keys()].filter(
+      (id) => (userRoyaltyRankMap.get(id) ?? 0) >= 1,
+    );
 
     if (qualifiedUserIds.length > 0) {
       const existingSalaryRewards = await TransactionModel.find({
@@ -1523,14 +1624,25 @@ export class SuperAdminService {
         payoutPeriodStart: { $gte: royaltyPeriod.start, $lte: royaltyPeriod.end },
         type: "reward",
       }).lean();
-      const rewardedUserIds = new Set(existingSalaryRewards.map(t => String(t.userId)));
+      const rewardedUserIds = new Set(existingSalaryRewards.map((t) => String(t.userId)));
 
       const ruleSet = await planRepository.ensureDefaultRuleSet();
-      const activeSalaryRules = [...ruleSet.salaryRoyaltyRules].filter(rule => rule.isActive !== false);
+      const activeSalaryRules = [...ruleSet.salaryRoyaltyRules].filter(
+        (rule) => rule.isActive !== false,
+      );
 
-      const daysInPeriod = Math.round((royaltyPeriod.end.getTime() - royaltyPeriod.start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-      const qualifiedUsers = await UserModel.find({ _id: { $in: qualifiedUserIds.map(toObjectId) }, role: "user", status: "active" }).lean();
-      const userCaps = await getRemainingRewardCapacityByUserId(qualifiedUsers.map(u => String(u._id)));
+      const daysInPeriod =
+        Math.round(
+          (royaltyPeriod.end.getTime() - royaltyPeriod.start.getTime()) / (1000 * 60 * 60 * 24),
+        ) + 1;
+      const qualifiedUsers = await UserModel.find({
+        _id: { $in: qualifiedUserIds.map(toObjectId) },
+        role: "user",
+        status: "active",
+      }).lean();
+      const userCaps = await getRemainingRewardCapacityByUserId(
+        qualifiedUsers.map((u) => String(u._id)),
+      );
 
       for (const u of qualifiedUsers) {
         const uId = String(u._id);
@@ -1554,7 +1666,7 @@ export class SuperAdminService {
               description: `Skipped Monthly Salary/Royalty for rank "M${rank}"`,
               amountUsdt: claimableAmount,
               sourceId: `SR-${royaltyPeriod.start.toISOString().slice(0, 7)}`,
-              details: `Monthly Rank: M${rank}, Qualified Days: ${daysInPeriod}, Remaining Cap: $${remainingCap} USDT`
+              details: `Monthly Rank: M${rank}, Qualified Days: ${daysInPeriod}, Remaining Cap: $${remainingCap} USDT`,
             });
           }
         }
@@ -1577,7 +1689,7 @@ export class SuperAdminService {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
     }
 
-    let notes = input.notes || `Manually processed missing payout (${input.payoutKind})`;
+    const notes = input.notes || `Manually processed missing payout (${input.payoutKind})`;
     let payoutTier: string | null = null;
 
     if (input.payoutKind === "level") {
@@ -1594,11 +1706,11 @@ export class SuperAdminService {
       notes,
       reviewedBy: input.adminUserId,
       reviewedAt: new Date(),
-      txnHash: `SYS-MAN-${new Types.ObjectId().toString().toUpperCase()}`
+      txnHash: `SYS-MAN-${new Types.ObjectId().toString().toUpperCase()}`,
     });
 
     if (input.payoutKind === "weekly" || input.payoutKind === "level") {
-      tx.payoutSourceTransactionId = input.sourceId as any;
+      tx.payoutSourceTransactionId = new Types.ObjectId(input.sourceId);
     }
 
     await tx.save();

@@ -31,7 +31,10 @@ const PURPOSE_COPY = {
 class EmailService {
   async sendAccountStatusEmail(input: SendAccountStatusEmailInput): Promise<EmailDeliveryResult> {
     if (!env.EMAIL_ENABLED) {
-      logger.info({ status: input.status, to: input.to }, "Email service disabled; account status email skipped");
+      logger.info(
+        { status: input.status, to: input.to },
+        "Email service disabled; account status email skipped",
+      );
       return { sent: false, queued: false, skipped: true };
     }
 
@@ -41,7 +44,8 @@ class EmailService {
       : "Your Arbitrum account access has been restored";
     const heading = isSuspended ? "Account temporarily suspended" : "Account access restored";
     const username = input.username?.trim() || "Member";
-    const reason = input.reason?.trim() || "Our security team identified activity that requires review.";
+    const reason =
+      input.reason?.trim() || "Our security team identified activity that requires review.";
     const description = isSuspended
       ? `Your Arbitrum account (${username}) has been temporarily suspended as a precaution while this matter is reviewed.`
       : `Your Arbitrum account (${username}) has been reviewed and access has been restored. You can sign in again using your existing credentials.`;
@@ -56,7 +60,9 @@ class EmailService {
         : "For your security, please review your recent account activity after signing in.",
       "",
       "Arbitrum Security Team",
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
     const html = this.buildAccountStatusHtml({
       description,
       heading,
@@ -76,7 +82,10 @@ class EmailService {
       if (queued) {
         return { sent: true, queued: true };
       }
-      logger.warn({ to: input.to, status: input.status }, "Account status email queue unavailable; falling back to direct send");
+      logger.warn(
+        { to: input.to, status: input.status },
+        "Account status email queue unavailable; falling back to direct send",
+      );
     }
 
     await this.sendDirect(message);
@@ -261,13 +270,17 @@ class EmailService {
 }
 
 function escapeHtml(value: string) {
-  return value.replace(/[&<>'"]/g, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    "'": "&#39;",
-    '"': "&quot;",
-  })[character] ?? character);
+  return value.replace(
+    /[&<>'"]/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "'": "&#39;",
+        '"': "&quot;",
+      })[character] ?? character,
+  );
 }
 
 export const emailService = new EmailService();

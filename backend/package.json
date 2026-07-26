@@ -22,6 +22,8 @@
     "auth:set-test-otp": "tsx src/scripts/setLocalTestOtp.ts",
     "seed:payout-test": "tsx src/scripts/seedPayoutTestData.ts",
     "test:payout-logic": "tsx src/scripts/testPayoutLogic.ts",
+    "test:payout-approval-atomicity": "tsx src/scripts/testPayoutApprovalAtomicity.ts",
+    "test:financial-integrity": "tsx src/scripts/testFinancialIntegrity.ts",
     "db:indexes": "node dist/scripts/setupDatabaseIndexes.js",
     "db:normalize-hashes": "tsx src/scripts/normalizeOnChainHashes.ts",
     "lint": "eslint \"src/**/*.ts\"",

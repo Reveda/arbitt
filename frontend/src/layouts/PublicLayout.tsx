@@ -4,7 +4,11 @@ import { Headset } from "lucide-react";
 import { APP_ROUTES } from "@/api/endpoints";
 import { LandingScrollProgress } from "@/components/common/LandingScrollProgress";
 import { PublicFooter } from "@/components/layout/public/PublicFooter";
-import { PublicNavbar, type PublicAuthNavState, type PublicNavItem } from "@/components/layout/public/PublicNavbar";
+import {
+  PublicNavbar,
+  type PublicAuthNavState,
+  type PublicNavItem,
+} from "@/components/layout/public/PublicNavbar";
 import { getDashboardRouteForUser } from "@/lib/authNavigation";
 import { authService } from "@/services/auth.service";
 
@@ -12,7 +16,7 @@ const navItems: PublicNavItem[] = [
   { id: "home", label: "Home" },
   { id: "about", label: "About" },
   { id: "how-it-works", label: "How It Works" },
-  { id: "features", label: "Features" }
+  { id: "features", label: "Features" },
 ];
 
 export function PublicLayout() {
@@ -21,8 +25,15 @@ export function PublicLayout() {
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [keyboardOpen, setKeyboardOpen] = useState(false);
-  const [authNavState, setAuthNavState] = useState<PublicAuthNavState>({ status: "checking" });
-  const isAuthPage = ["/login", "/register", "/forgot-password", "/verify-email"].includes(location.pathname);
+  const [authNavState, setAuthNavState] = useState<PublicAuthNavState>({
+    status: "checking",
+  });
+  const isAuthPage = [
+    "/login",
+    "/register",
+    "/forgot-password",
+    "/verify-email",
+  ].includes(location.pathname);
   const isHomePage = location.pathname === "/";
 
   const scrollToSection = useCallback((sectionId: string) => {
@@ -32,12 +43,14 @@ export function PublicLayout() {
     }
 
     const header = document.querySelector("header");
-    const headerOffset = header instanceof HTMLElement ? header.offsetHeight + 12 : 88;
-    const targetTop = section.getBoundingClientRect().top + window.scrollY - headerOffset;
+    const headerOffset =
+      header instanceof HTMLElement ? header.offsetHeight + 12 : 88;
+    const targetTop =
+      section.getBoundingClientRect().top + window.scrollY - headerOffset;
 
     window.scrollTo({
       top: Math.max(targetTop, 0),
-      behavior: "smooth"
+      behavior: "smooth",
     });
   }, []);
 
@@ -52,7 +65,7 @@ export function PublicLayout() {
 
       scrollToSection(sectionId);
     },
-    [location.pathname, navigate, scrollToSection]
+    [location.pathname, navigate, scrollToSection],
   );
 
   useEffect(() => {
@@ -74,14 +87,14 @@ export function PublicLayout() {
         if (!user.emailVerified) {
           setAuthNavState({
             dashboardPath: APP_ROUTES.public.verifyEmail,
-            status: "authenticated"
+            status: "authenticated",
           });
           return;
         }
 
         setAuthNavState({
           dashboardPath: getDashboardRouteForUser(user),
-          status: "authenticated"
+          status: "authenticated",
         });
       })
       .catch(() => {
@@ -168,28 +181,43 @@ export function PublicLayout() {
 
     const pendingTimers: number[] = [];
 
-    const isMobileViewport = () => window.matchMedia("(max-width: 1023px)").matches;
+    const isMobileViewport = () =>
+      window.matchMedia("(max-width: 1023px)").matches;
 
-    const isInputField = (element: EventTarget | null): element is HTMLElement => {
+    const isInputField = (
+      element: EventTarget | null,
+    ): element is HTMLElement => {
       if (!(element instanceof HTMLElement)) {
         return false;
       }
       const tagName = element.tagName.toLowerCase();
-      return tagName === "input" || tagName === "textarea" || element.isContentEditable;
+      return (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        element.isContentEditable
+      );
     };
 
-    const ensureFieldVisible = (target: HTMLElement, behavior: ScrollBehavior = "smooth") => {
+    const ensureFieldVisible = (
+      target: HTMLElement,
+      behavior: ScrollBehavior = "smooth",
+    ) => {
       if (!isMobileViewport()) {
         return;
       }
 
-      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const viewportHeight =
+        window.visualViewport?.height ?? window.innerHeight;
       const rect = target.getBoundingClientRect();
       const topSafe = 86;
       const bottomSafe = 18;
 
       if (rect.bottom > viewportHeight - bottomSafe || rect.top < topSafe) {
-        target.scrollIntoView({ block: "nearest", inline: "nearest", behavior });
+        target.scrollIntoView({
+          block: "nearest",
+          inline: "nearest",
+          behavior,
+        });
       }
     };
 
@@ -200,9 +228,13 @@ export function PublicLayout() {
       }
 
       // First pass: immediate focus adjustment.
-      pendingTimers.push(window.setTimeout(() => ensureFieldVisible(target, "smooth"), 120));
+      pendingTimers.push(
+        window.setTimeout(() => ensureFieldVisible(target, "smooth"), 120),
+      );
       // Second pass: after keyboard resize settles (fixes last-field overlap).
-      pendingTimers.push(window.setTimeout(() => ensureFieldVisible(target, "smooth"), 320));
+      pendingTimers.push(
+        window.setTimeout(() => ensureFieldVisible(target, "smooth"), 320),
+      );
     };
 
     const onViewportChange = () => {
@@ -230,12 +262,21 @@ export function PublicLayout() {
     const enableTouchActive = () => {
       // No-op listener enables :active feedback reliability on iOS Safari.
     };
-    document.body.addEventListener("touchstart", enableTouchActive, { passive: true });
-    return () => document.body.removeEventListener("touchstart", enableTouchActive);
+    document.body.addEventListener("touchstart", enableTouchActive, {
+      passive: true,
+    });
+    return () =>
+      document.body.removeEventListener("touchstart", enableTouchActive);
   }, []);
 
   return (
-    <div className={isAuthPage ? "h-[100dvh] overflow-hidden lg:min-h-screen lg:h-auto lg:overflow-visible" : "min-h-screen"}>
+    <div
+      className={
+        isAuthPage
+          ? "h-[100dvh] overflow-hidden lg:min-h-screen lg:h-auto lg:overflow-visible"
+          : "min-h-screen"
+      }
+    >
       <PublicNavbar
         authState={authNavState}
         mobileOpen={mobileOpen}
@@ -251,7 +292,7 @@ export function PublicLayout() {
             ? "flex h-[calc(100dvh-5rem)] min-h-0 items-start justify-center overflow-y-auto overscroll-contain py-3 pb-4 sm:items-center sm:py-6 sm:pb-6 md:py-8 lg:h-auto lg:min-h-[calc(100dvh-5rem)] lg:items-center lg:overflow-visible lg:pb-8"
             : isHomePage
               ? "pt-0 pb-6 sm:pt-0 sm:pb-8 md:pt-1 md:pb-8"
-              : "py-5 sm:py-6 md:py-8"
+              : "pb-5 pt-20 sm:pb-6 sm:pt-24 md:pb-8 md:pt-28"
         }`}
       >
         <Outlet />
@@ -271,7 +312,9 @@ export function PublicLayout() {
         </a>
       ) : null}
 
-      {location.pathname === "/" ? <PublicFooter navItems={navItems} onNavClick={handleNavClick} /> : null}
+      {location.pathname === "/" ? (
+        <PublicFooter navItems={navItems} onNavClick={handleNavClick} />
+      ) : null}
     </div>
   );
 }

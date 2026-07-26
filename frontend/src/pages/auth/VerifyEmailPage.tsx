@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Link,
   useLocation,
@@ -43,6 +43,14 @@ export function VerifyEmailPage() {
   const verifyEmailMutation = useVerifyEmail();
   const resendOtpMutation = useEmailVerificationRequest();
   const [testOtp, setTestOtp] = useState(routeState?.testOtp ?? null);
+  const initialCooldownUntil = routeState?.expiresAt
+    ? new Date(routeState.expiresAt).getTime() - 10 * 60_000 + 60_000
+    : 0;
+  const [resendCooldownUntil, setResendCooldownUntil] =
+    useState(initialCooldownUntil);
+  const [resendCooldownSeconds, setResendCooldownSeconds] = useState(() =>
+    Math.max(0, Math.ceil((initialCooldownUntil - Date.now()) / 1000)),
+  );
 
   const {
     register,
@@ -56,6 +64,22 @@ export function VerifyEmailPage() {
       otp: "",
     },
   });
+
+  useEffect(() => {
+    const updateCooldown = () => {
+      setResendCooldownSeconds(
+        Math.max(0, Math.ceil((resendCooldownUntil - Date.now()) / 1000)),
+      );
+    };
+
+    updateCooldown();
+    if (resendCooldownUntil <= Date.now()) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(updateCooldown, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [resendCooldownUntil]);
 
   const onSubmit = handleSubmit(async (values) => {
     try {
@@ -80,6 +104,7 @@ export function VerifyEmailPage() {
     try {
       const result = await resendOtpMutation.mutate({ email });
       setTestOtp(result.data.testOtp ?? null);
+      setResendCooldownUntil(Date.now() + 60_000);
     } catch {
       // Error state is handled by the shared API mutation hook.
     }
@@ -177,12 +202,16 @@ export function VerifyEmailPage() {
           </Button>
           <Button
             className="w-full"
-            disabled={resendOtpMutation.isLoading}
+            disabled={resendOtpMutation.isLoading || resendCooldownSeconds > 0}
             onClick={handleResendOtp}
             type="button"
             variant="secondary"
           >
-            {resendOtpMutation.isLoading ? "Sending OTP..." : "Resend OTP"}
+            {resendOtpMutation.isLoading
+              ? "Sending OTP..."
+              : resendCooldownSeconds > 0
+                ? `Resend OTP (${resendCooldownSeconds}s)`
+                : "Resend OTP"}
           </Button>
         </form>
         <p className="mt-4 text-sm text-muted-foreground">

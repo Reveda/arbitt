@@ -19,7 +19,10 @@ export function GuestRoute({ children }: GuestRouteProps) {
 
   if (user && !currentUserQuery.error) {
     if (!user.emailVerified) {
-      if (location.pathname === APP_ROUTES.public.verifyEmail) {
+      if (
+        location.pathname === APP_ROUTES.public.verifyEmail ||
+        location.pathname === APP_ROUTES.public.login
+      ) {
         const routeState = (location.state ?? null) as {
           email?: string;
         } | null;

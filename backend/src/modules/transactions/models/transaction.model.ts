@@ -9,6 +9,7 @@ export const TRANSACTION_TYPES = [
 ] as const;
 export const TRANSACTION_STATUSES = [
   "pending",
+  "processing",
   "approved",
   "rejected",
   "completed",

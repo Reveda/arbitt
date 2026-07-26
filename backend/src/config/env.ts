@@ -122,6 +122,14 @@ const envSchema = z
       });
     }
 
+    if (!value.MONGODB_TRANSACTIONS_ENABLED) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "MONGODB_TRANSACTIONS_ENABLED must be true in production.",
+        path: ["MONGODB_TRANSACTIONS_ENABLED"],
+      });
+    }
+
     if (value.FRONTEND_URL.split(",").some((origin) => !origin.trim().startsWith("https://"))) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

@@ -1,8 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { Edit3, Search, ShieldAlert, ShieldCheck, Trash2, X, Loader2 } from "lucide-react";
+import {
+  Edit3,
+  Search,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  X,
+  Loader2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAdminUsers } from "@/hooks/useAdminQueries";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { adminService } from "@/services/admin.service";
 import { cn } from "@/lib/utils";
 import { AdminPageHeader, ManagementPanel } from "./admin.components";
@@ -18,7 +27,7 @@ function formatDate(value: string | null) {
     day: "2-digit",
     month: "short",
     year: "numeric",
-    timeZone: "UTC"
+    timeZone: "UTC",
   }).format(new Date(value));
 }
 
@@ -28,7 +37,10 @@ function getUserName(username: string | null) {
 
 function getVisiblePages(currentPage: number, totalPages: number) {
   const windowSize = 5;
-  const start = Math.max(1, Math.min(currentPage - 2, totalPages - windowSize + 1));
+  const start = Math.max(
+    1,
+    Math.min(currentPage - 2, totalPages - windowSize + 1),
+  );
   const length = Math.min(windowSize, totalPages);
 
   return Array.from({ length }, (_, index) => start + index);
@@ -69,11 +81,15 @@ export function AdminUsersPage() {
   const usersQuery = useAdminUsers({
     page,
     limit,
-    search: debouncedSearch || undefined
+    search: debouncedSearch || undefined,
   });
+  const { user: currentUser } = useCurrentUser();
   const users = usersQuery.data?.data.users ?? [];
   const pagination = usersQuery.data?.data.pagination;
-  const visiblePages = useMemo(() => getVisiblePages(page, pagination?.totalPages ?? 1), [page, pagination?.totalPages]);
+  const visiblePages = useMemo(
+    () => getVisiblePages(page, pagination?.totalPages ?? 1),
+    [page, pagination?.totalPages],
+  );
 
   const handleEditSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -85,14 +101,19 @@ export function AdminUsersPage() {
         username: editUsername.trim() || undefined,
         role: editRole,
         status: editStatus,
-        reason: editStatus === "suspended" ? securityReason.trim() || undefined : undefined,
+        reason:
+          editStatus === "suspended"
+            ? securityReason.trim() || undefined
+            : undefined,
       });
       setSuccessMessage("User updated successfully.");
       setSelectedEditUser(null);
       usersQuery.refetch();
       setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err: any) {
-      setEditError(err instanceof Error ? err.message : "Failed to update user.");
+      setEditError(
+        err instanceof Error ? err.message : "Failed to update user.",
+      );
     } finally {
       setIsSaving(false);
     }
@@ -109,7 +130,9 @@ export function AdminUsersPage() {
       usersQuery.refetch();
       setTimeout(() => setSuccessMessage(""), 4000);
     } catch (err: any) {
-      setDeleteError(err instanceof Error ? err.message : "Failed to delete user.");
+      setDeleteError(
+        err instanceof Error ? err.message : "Failed to delete user.",
+      );
     } finally {
       setIsDeleting(false);
     }
@@ -162,7 +185,10 @@ export function AdminUsersPage() {
             <tbody>
               {usersQuery.isLoading ? (
                 Array.from({ length: 5 }, (_, index) => (
-                  <tr className="border-b border-slate-100 last:border-0" key={index}>
+                  <tr
+                    className="border-b border-slate-100 last:border-0"
+                    key={index}
+                  >
                     <td className="py-4">
                       <div className="h-4 w-28 animate-pulse rounded bg-slate-100" />
                     </td>
@@ -182,13 +208,20 @@ export function AdminUsersPage() {
                 ))
               ) : users.length ? (
                 users.map((user) => (
-                  <tr key={user.id} className="border-b border-slate-100 last:border-0 hover:bg-cyan-50/20">
-                    <td className="py-4 font-semibold text-slate-800">{getUserName(user.username)}</td>
+                  <tr
+                    key={user.id}
+                    className="border-b border-slate-100 last:border-0 hover:bg-cyan-50/20"
+                  >
+                    <td className="py-4 font-semibold text-slate-800">
+                      {getUserName(user.username)}
+                    </td>
                     <td className="py-4">
                       <span
                         className={cn(
                           "rounded-full px-2.5 py-1 font-bold capitalize",
-                          user.role === "admin" ? "bg-violet-50 text-violet-700" : "bg-cyan-50 text-cyan-700"
+                          user.role === "admin"
+                            ? "bg-violet-50 text-violet-700"
+                            : "bg-cyan-50 text-cyan-700",
                         )}
                       >
                         {user.role}
@@ -199,49 +232,56 @@ export function AdminUsersPage() {
                         "py-4 font-bold capitalize",
                         user.status === "active" && "text-emerald-600",
                         user.status === "pending" && "text-amber-600",
-                        user.status === "suspended" && "text-rose-500"
+                        user.status === "suspended" && "text-rose-500",
                       )}
                     >
                       {user.status}
                     </td>
-                    <td className="py-4 text-slate-400">{formatDate(user.createdAt)}</td>
+                    <td className="py-4 text-slate-400">
+                      {formatDate(user.createdAt)}
+                    </td>
                     <td className="whitespace-nowrap py-3 pl-3">
-                      <div className="flex items-center justify-end gap-2.5">
-                        <button
-                          aria-label={`Edit ${getUserName(user.username)}`}
-                          className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-600 shadow-sm transition-all hover:border-cyan-300 hover:bg-cyan-100 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 active:scale-95 sm:size-8"
-                          onClick={() => {
-                            setEditUsername(user.username || "");
-                            setEditRole(user.role);
-                            setEditStatus(user.status);
-                            setSecurityReason("");
-                            setEditError("");
-                            setSelectedEditUser(user);
-                          }}
-                          title="Edit user"
-                          type="button"
-                        >
-                          <Edit3 className="size-4" strokeWidth={2.2} />
-                        </button>
-                        <button
-                          aria-label={`Delete ${getUserName(user.username)}`}
-                          className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 active:scale-95 sm:size-8"
-                          onClick={() => {
-                            setDeleteError("");
-                            setSelectedDeleteUser(user);
-                          }}
-                          title="Delete user"
-                          type="button"
-                        >
-                          <Trash2 className="size-4" strokeWidth={2.2} />
-                        </button>
-                      </div>
+                      {currentUser && currentUser.id !== user.id ? (
+                        <div className="flex items-center justify-end gap-2.5">
+                          <button
+                            aria-label={`Edit ${getUserName(user.username)}`}
+                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-600 shadow-sm transition-all hover:border-cyan-300 hover:bg-cyan-100 hover:text-cyan-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-200 active:scale-95 sm:size-8"
+                            onClick={() => {
+                              setEditUsername(user.username || "");
+                              setEditRole(user.role);
+                              setEditStatus(user.status);
+                              setSecurityReason("");
+                              setEditError("");
+                              setSelectedEditUser(user);
+                            }}
+                            title="Edit user"
+                            type="button"
+                          >
+                            <Edit3 className="size-4" strokeWidth={2.2} />
+                          </button>
+                          <button
+                            aria-label={`Delete ${getUserName(user.username)}`}
+                            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 shadow-sm transition-all hover:border-rose-300 hover:bg-rose-100 hover:text-rose-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-200 active:scale-95 sm:size-8"
+                            onClick={() => {
+                              setDeleteError("");
+                              setSelectedDeleteUser(user);
+                            }}
+                            title="Delete user"
+                            type="button"
+                          >
+                            <Trash2 className="size-4" strokeWidth={2.2} />
+                          </button>
+                        </div>
+                      ) : null}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td className="py-8 text-center text-sm font-semibold text-slate-500" colSpan={5}>
+                  <td
+                    className="py-8 text-center text-sm font-semibold text-slate-500"
+                    colSpan={5}
+                  >
                     No users found.
                   </td>
                 </tr>
@@ -252,8 +292,11 @@ export function AdminUsersPage() {
 
         <div className="mt-5 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs font-semibold text-slate-500">
-            Showing page {pagination?.page ?? page} of {pagination?.totalPages ?? 1}
-            {typeof pagination?.total === "number" ? ` · ${pagination.total} total users` : ""}
+            Showing page {pagination?.page ?? page} of{" "}
+            {pagination?.totalPages ?? 1}
+            {typeof pagination?.total === "number"
+              ? ` · ${pagination.total} total users`
+              : ""}
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mr-2">
@@ -287,7 +330,7 @@ export function AdminUsersPage() {
                   "h-9 min-w-9 px-3 text-xs",
                   pageNumber === page
                     ? "bg-gradient-to-r from-cyan-500 to-blue-500 text-slate-950 hover:from-cyan-400 hover:to-blue-400"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
                 )}
                 disabled={usersQuery.isLoading}
                 key={pageNumber}
@@ -316,7 +359,9 @@ export function AdminUsersPage() {
         <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl">
             <div className="flex items-center justify-between border-b px-5 py-4 bg-slate-50/50">
-              <h3 className="text-sm font-black text-slate-900">Edit User Details</h3>
+              <h3 className="text-sm font-black text-slate-900">
+                Edit User Details
+              </h3>
               <button
                 onClick={() => setSelectedEditUser(null)}
                 className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-900 transition-colors"
@@ -333,7 +378,9 @@ export function AdminUsersPage() {
               )}
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-slate-600">Username</span>
+                <span className="mb-1.5 block text-xs font-bold text-slate-600">
+                  Username
+                </span>
                 <Input
                   className="h-10 rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:border-cyan-300 focus-visible:ring-cyan-100"
                   onChange={(e) => setEditUsername(e.target.value)}
@@ -344,7 +391,9 @@ export function AdminUsersPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-slate-600">Role</span>
+                <span className="mb-1.5 block text-xs font-bold text-slate-600">
+                  Role
+                </span>
                 <select
                   className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 shadow-sm outline-none transition-colors focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
                   onChange={(e) => setEditRole(e.target.value)}
@@ -357,7 +406,9 @@ export function AdminUsersPage() {
               </label>
 
               <label className="block">
-                <span className="mb-1.5 block text-xs font-bold text-slate-600">Status</span>
+                <span className="mb-1.5 block text-xs font-bold text-slate-600">
+                  Status
+                </span>
                 <select
                   className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 shadow-sm outline-none transition-colors focus:border-cyan-300 focus:ring-2 focus:ring-cyan-100"
                   onChange={(e) => setEditStatus(e.target.value)}
@@ -369,12 +420,14 @@ export function AdminUsersPage() {
                 </select>
               </label>
 
-              <div className={cn(
-                "rounded-xl border px-3.5 py-3",
-                editStatus === "suspended"
-                  ? "border-rose-200 bg-rose-50"
-                  : "border-emerald-200 bg-emerald-50"
-              )}>
+              <div
+                className={cn(
+                  "rounded-xl border px-3.5 py-3",
+                  editStatus === "suspended"
+                    ? "border-rose-200 bg-rose-50"
+                    : "border-emerald-200 bg-emerald-50",
+                )}
+              >
                 <div className="flex items-start gap-2.5">
                   {editStatus === "suspended" ? (
                     <ShieldAlert className="mt-0.5 size-4 shrink-0 text-rose-600" />
@@ -382,34 +435,43 @@ export function AdminUsersPage() {
                     <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className={cn(
-                      "text-xs font-black",
-                      editStatus === "suspended" ? "text-rose-800" : "text-emerald-800"
-                    )}>
-                      {editStatus === "suspended" ? "Suspend account access" : "Account access is active"}
+                    <p
+                      className={cn(
+                        "text-xs font-black",
+                        editStatus === "suspended"
+                          ? "text-rose-800"
+                          : "text-emerald-800",
+                      )}
+                    >
+                      {editStatus === "suspended"
+                        ? "Suspend account access"
+                        : "Account access is active"}
                     </p>
                     <p className="mt-1 text-[11px] font-medium leading-relaxed text-slate-600">
                       {editStatus === "suspended"
                         ? "The user will be signed out, blocked from login and notified by email after saving."
-                        : "Restoring the account will allow the user to sign in again after saving."
-                      }
+                        : "Restoring the account will allow the user to sign in again after saving."}
                     </p>
                     <button
                       className={cn(
                         "mt-2 inline-flex items-center rounded-lg px-2.5 py-1.5 text-[11px] font-black transition-colors",
                         editStatus === "suspended"
                           ? "bg-emerald-600 text-white hover:bg-emerald-700"
-                          : "bg-rose-600 text-white hover:bg-rose-700"
+                          : "bg-rose-600 text-white hover:bg-rose-700",
                       )}
                       onClick={() => {
-                        setEditStatus(editStatus === "suspended" ? "active" : "suspended");
+                        setEditStatus(
+                          editStatus === "suspended" ? "active" : "suspended",
+                        );
                         if (editStatus === "suspended") {
                           setSecurityReason("");
                         }
                       }}
                       type="button"
                     >
-                      {editStatus === "suspended" ? "Restore account" : "Suspend account"}
+                      {editStatus === "suspended"
+                        ? "Restore account"
+                        : "Suspend account"}
                     </button>
                   </div>
                 </div>
@@ -474,9 +536,14 @@ export function AdminUsersPage() {
               )}
 
               <p className="text-xs font-semibold text-slate-600 leading-relaxed">
-                Are you sure you want to delete user <span className="font-bold text-slate-800">{getUserName(selectedDeleteUser.username)}</span>?
+                Are you sure you want to delete user{" "}
+                <span className="font-bold text-slate-800">
+                  {getUserName(selectedDeleteUser.username)}
+                </span>
+                ?
                 <br />
-                This action will perform a **soft delete** and revoke all active login sessions for this user immediately.
+                This action will perform a **soft delete** and revoke all active
+                login sessions for this user immediately.
               </p>
 
               <div className="flex justify-end gap-2 pt-2">

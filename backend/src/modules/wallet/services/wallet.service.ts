@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { logger } from "../../../config/logger";
 import { env } from "../../../config/env";
 import { blockchainService } from "./blockchain.service";
@@ -36,7 +36,10 @@ const USDT_SCALE = 10n ** BigInt(USDT_DECIMALS);
 function decimalToTokenUnits(value: string | number) {
   const normalized = String(value).trim();
   const [whole, fraction = ""] = normalized.split(".");
-  return BigInt(whole) * USDT_SCALE + BigInt((fraction + "0".repeat(USDT_DECIMALS)).slice(0, USDT_DECIMALS));
+  return (
+    BigInt(whole) * USDT_SCALE +
+    BigInt((fraction + "0".repeat(USDT_DECIMALS)).slice(0, USDT_DECIMALS))
+  );
 }
 
 function tokenUnitsToNumber(value: bigint) {
@@ -223,6 +226,9 @@ export class WalletService {
       );
     }
 
+    let transactionId: string | undefined;
+    let broadcastAttempted = false;
+
     try {
       let status = "pending";
       let txnHash: string | undefined = undefined;
@@ -236,6 +242,23 @@ export class WalletService {
         if (isQueueEnabled) {
           initialNotes += ` [Queued for background processing]`;
         } else {
+          const processingTransaction = await TransactionModel.create({
+            amountUsdt: netAmountUsdt,
+            network: input.network,
+            walletAddress: input.walletAddress,
+            notes: [initialNotes, input.notes].filter(Boolean).join(" "),
+            payoutPercent: WITHDRAWAL_CHARGE_PERCENT,
+            payoutPrincipalUsdt: grossAmountUsdt,
+            grossAmountTokenUnits: grossAmountTokenUnits.toString(),
+            netAmountTokenUnits: netAmountTokenUnits.toString(),
+            status: "processing",
+            type: "withdrawal",
+            userId,
+            ...(idempotencyKey ? { idempotencyKey } : {}),
+          });
+          transactionId = processingTransaction._id.toString();
+          broadcastAttempted = true;
+
           logger.info(
             `[Auto-Withdrawal] Queue disabled. Attempting synchronous transfer for user: ${userId}, gross amount: ${grossAmountUsdt} USDT (net: ${netAmountUsdt} USDT)`,
           );
@@ -247,47 +270,92 @@ export class WalletService {
             logger.info(
               `[Auto-Withdrawal] Synchronous withdrawal succeeded. TxHash: ${autoTxHash}`,
             );
+            const completedAt = new Date();
+            await mongoose.connection.transaction(async (session) => {
+              const settledWallet = await walletRepository.completeWithdrawalAmount(
+                userId,
+                grossAmountUsdt,
+                session,
+              );
+              if (!settledWallet) {
+                throw new Error("Unable to settle the locked withdrawal amount.");
+              }
+
+              const adminWallet = await walletRepository.debitAdminWithdrawal(
+                netAmountUsdt,
+                session,
+              );
+              if (!adminWallet) {
+                throw new Error("Unable to debit the platform withdrawal reserve.");
+              }
+
+              const completedTransaction = await TransactionModel.findOneAndUpdate(
+                { _id: transactionId, status: "processing" },
+                {
+                  $set: {
+                    status: "completed",
+                    txnHash: autoTxHash,
+                    reviewedAt: completedAt,
+                    notes: `Auto-approved withdrawal: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`,
+                  },
+                },
+                { new: true, session },
+              );
+              if (!completedTransaction) {
+                throw new Error("Unable to mark the withdrawal completed.");
+              }
+            });
+
             status = "completed";
             txnHash = autoTxHash;
-            reviewedAt = new Date();
-            initialNotes = `Auto-approved withdrawal: gross ${grossAmountUsdt} USDT, 10% charge ${chargeUsdt} USDT, net payout ${netAmountUsdt} USDT.`;
-
-            // Settle the balances
-            await walletRepository.completeWithdrawalAmount(userId, grossAmountUsdt);
-            await walletRepository.debitAdminWithdrawal(netAmountUsdt);
+            reviewedAt = completedAt;
           } else {
             logger.warn(
-              `[Auto-Withdrawal] Synchronous transfer failed/skipped for user: ${userId}. Reverting to manual approval.`,
+              `[Auto-Withdrawal] Synchronous transfer did not confirm for user: ${userId}. Keeping funds locked for manual reconciliation.`,
             );
+            initialNotes +=
+              " [Automatic transfer did not confirm; manual reconciliation required.]";
+            await TransactionModel.updateOne(
+              { _id: transactionId },
+              { $set: { notes: initialNotes, status: "pending" } },
+            );
+            // The transfer service only returns a hash after confirmation. A
+            // null result is treated as a failed automatic attempt and kept
+            // in the normal manual-review queue; errors after a confirmed
+            // broadcast are handled by the catch path and remain processing.
+            status = "pending";
           }
         }
       }
 
-      const transaction = await TransactionModel.create({
-        amountUsdt: netAmountUsdt,
-        network: input.network,
-        walletAddress: input.walletAddress,
-        notes: [initialNotes, input.notes].filter(Boolean).join(" "),
-        payoutPercent: WITHDRAWAL_CHARGE_PERCENT,
-        payoutPrincipalUsdt: grossAmountUsdt,
-        grossAmountTokenUnits: grossAmountTokenUnits.toString(),
-        netAmountTokenUnits: netAmountTokenUnits.toString(),
-        status,
-        txnHash,
-        reviewedAt,
-        type: "withdrawal",
-        userId,
-        ...(idempotencyKey ? { idempotencyKey } : {}),
-      });
+      if (!transactionId) {
+        const transaction = await TransactionModel.create({
+          amountUsdt: netAmountUsdt,
+          network: input.network,
+          walletAddress: input.walletAddress,
+          notes: [initialNotes, input.notes].filter(Boolean).join(" "),
+          payoutPercent: WITHDRAWAL_CHARGE_PERCENT,
+          payoutPrincipalUsdt: grossAmountUsdt,
+          grossAmountTokenUnits: grossAmountTokenUnits.toString(),
+          netAmountTokenUnits: netAmountTokenUnits.toString(),
+          status,
+          txnHash,
+          reviewedAt,
+          type: "withdrawal",
+          userId,
+          ...(idempotencyKey ? { idempotencyKey } : {}),
+        });
+        transactionId = transaction._id.toString();
+      }
+
+      const transaction = await TransactionModel.findById(transactionId).lean();
+      if (!transaction) {
+        throw new Error("Withdrawal transaction could not be loaded after creation.");
+      }
 
       // Queue the background job if eligible and queue is enabled
       if (grossAmountUsdt <= 200 && isQueueEnabled) {
-        await addWithdrawalJob(
-          transaction._id.toString(),
-          input.walletAddress,
-          netAmountUsdt,
-          grossAmountUsdt,
-        );
+        await addWithdrawalJob(transactionId, input.walletAddress, netAmountUsdt, grossAmountUsdt);
       }
 
       // Get latest wallet state after potential automatic settlements
@@ -302,7 +370,18 @@ export class WalletService {
         withdrawalChargePercent: WITHDRAWAL_CHARGE_PERCENT,
       };
     } catch (caughtError) {
-      await walletRepository.unlockWithdrawalAmount(userId, grossAmountUsdt);
+      if (!broadcastAttempted) {
+        await walletRepository.unlockWithdrawalAmount(userId, grossAmountUsdt);
+      } else if (transactionId) {
+        await TransactionModel.updateOne(
+          { _id: transactionId, status: "processing" },
+          {
+            $set: {
+              notes: `[Automatic withdrawal requires manual reconciliation: ${caughtError instanceof Error ? caughtError.message : "unknown error"}]`,
+            },
+          },
+        );
+      }
       throw caughtError;
     }
   }

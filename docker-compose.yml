@@ -32,13 +32,20 @@ services:
   redis:
     image: redis:7-alpine
     container_name: arbitrum-redis-local
+    restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes"]
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 
   backend:
     image: node:22-alpine
     container_name: arbitrum-backend-local
+    restart: unless-stopped
     working_dir: /app
     command: sh -c "npm install --no-audit --no-fund && npm run dev"
     ports:
@@ -50,19 +57,29 @@ services:
       - ./backend/.env
     environment:
       - MONGODB_URI=mongodb://mongo:27017/arbitrum?replicaSet=rs0
+      - FRONTEND_URL=http://localhost:8080,http://localhost:5173
+      - COOKIE_SECURE=false
+      - MONGODB_TRANSACTIONS_ENABLED=true
       - REDIS_URL=redis://redis:6379
       - REDIS_ENABLED=true
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/api/v1/health').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     depends_on:
       mongo:
         condition: service_healthy
       mongo-init-replica:
         condition: service_completed_successfully
       redis:
-        condition: service_started
+        condition: service_healthy
 
   frontend:
     image: node:22-alpine
     container_name: arbitrum-frontend-local
+    restart: unless-stopped
     working_dir: /app
     command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host"
     ports:
@@ -72,8 +89,15 @@ services:
       - /app/node_modules
     env_file:
       - ./frontend/.env
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5173').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   nginx:
     image: nginx:1.27-alpine
@@ -83,8 +107,10 @@ services:
     volumes:
       - ./nginx/local.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - frontend
-      - backend
+      frontend:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
 
 volumes:
   mongo-data:

@@ -65,7 +65,7 @@ export const superAdminTransactionParamsSchema = z.object({
 });
 
 export const superAdminTransactionStatusBodySchema = z.object({
-  status: z.enum(["pending", "approved", "rejected", "completed", "failed"]),
+  status: z.enum(["pending", "processing", "approved", "rejected", "completed", "failed"]),
   notes: z.string().trim().min(1).max(500).optional(),
 });
 

@@ -7,14 +7,20 @@ import { UserPlanPurchaseModel } from "../../plans/models/user-plan-purchase.mod
 import { rewardService, calculateUserRoyaltyRanks } from "../../rewards/services/reward.service";
 import { getSalaryRoyaltyPeriod } from "../../rewards/utils/salaryRoyalty";
 import { adminRepository } from "../repositories/admin.repository";
-import { getPlatformPaymentWallet, requestPaymentWalletOtp, updatePlatformPaymentWallet, verifyPaymentWalletOtp } from "./payment-wallet.service";
+import {
+  getPlatformPaymentWallet,
+  requestPaymentWalletOtp,
+  updatePlatformPaymentWallet,
+  verifyPaymentWalletOtp,
+} from "./payment-wallet.service";
 import { toSafeUser } from "../../auth/dtos/auth.dto";
 import { ReferralModel } from "../../referrals/models/referral.model";
 import { getTeamBusinessMap, getSelfBusinessMap } from "../../referrals/services/referral.service";
 import { UserModel } from "../../users/models/user.model";
 import { TransactionModel } from "../../transactions/models/transaction.model";
 import { WalletModel } from "../../wallet/models/wallet.model";
-import { Types } from "mongoose";
+import mongoose, { Types, type ClientSession } from "mongoose";
+import { env } from "../../../config/env";
 import { cleanTransactionNotes } from "../../transactions/dtos/transaction.dto";
 import { authRepository } from "../../auth/repositories/auth.repository";
 import { emailService } from "../../email/services/email.service";
@@ -261,6 +267,21 @@ function toWalletNode(record: AdminWalletRecord) {
 
 function roundUsdt(value: number) {
   return Math.round(value * 100) / 100;
+}
+
+async function runWithOptionalTransaction<T>(
+  work: (session?: ClientSession) => Promise<T>,
+): Promise<T> {
+  if (!env.MONGODB_TRANSACTIONS_ENABLED) {
+    return work();
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    return await session.withTransaction(() => work(session));
+  } finally {
+    await session.endSession();
+  }
 }
 
 async function ensurePlatformReserveForDebit(amountUsdt: number, actionLabel: string) {
@@ -1181,30 +1202,57 @@ export class AdminService {
 
     if (input.action === "approve") {
       await ensurePlatformReserveForDebit(netAmountUsdt, "withdrawal");
-
-      const wallet = await walletRepository.completeWithdrawalAmount(userId, grossAmountUsdt);
-
-      if (!wallet) {
-        throw new ApiError(
-          HTTP_STATUS.BAD_REQUEST,
-          "Withdrawal amount is no longer locked in the user wallet.",
-        );
-      }
-
-      await walletRepository.debitAdminWithdrawal(netAmountUsdt);
-      reviewedWithdrawal = await adminRepository.approvePendingWithdrawal(input);
-    } else {
-      const wallet = await walletRepository.unlockWithdrawalAmount(userId, grossAmountUsdt);
-
-      if (!wallet) {
-        throw new ApiError(
-          HTTP_STATUS.BAD_REQUEST,
-          "Withdrawal amount is no longer locked in the user wallet.",
-        );
-      }
-
-      reviewedWithdrawal = await adminRepository.rejectPendingWithdrawal(input);
     }
+
+    reviewedWithdrawal = await runWithOptionalTransaction(async (session) => {
+      if (input.action === "approve") {
+        const wallet = await walletRepository.completeWithdrawalAmount(
+          userId,
+          grossAmountUsdt,
+          session,
+        );
+
+        if (!wallet) {
+          throw new ApiError(
+            HTTP_STATUS.BAD_REQUEST,
+            "Withdrawal amount is no longer locked in the user wallet.",
+          );
+        }
+
+        const adminWallet = await walletRepository.debitAdminWithdrawal(netAmountUsdt, session);
+        if (!adminWallet) {
+          throw new ApiError(
+            HTTP_STATUS.BAD_REQUEST,
+            "Platform withdrawal reserve could not be debited.",
+          );
+        }
+
+        const approved = await adminRepository.approvePendingWithdrawal(input, session);
+        if (!approved) {
+          throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Withdrawal request is no longer pending.");
+        }
+        return approved;
+      }
+
+      const wallet = await walletRepository.unlockWithdrawalAmount(
+        userId,
+        grossAmountUsdt,
+        session,
+      );
+
+      if (!wallet) {
+        throw new ApiError(
+          HTTP_STATUS.BAD_REQUEST,
+          "Withdrawal amount is no longer locked in the user wallet.",
+        );
+      }
+
+      const rejected = await adminRepository.rejectPendingWithdrawal(input, session);
+      if (!rejected) {
+        throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Withdrawal request is no longer pending.");
+      }
+      return rejected;
+    });
 
     if (!reviewedWithdrawal) {
       throw new ApiError(
@@ -1291,7 +1339,32 @@ export class AdminService {
       // For internal system reward payouts, we do not require platform reserve check because they are internal credits.
       // Platform reserve is checked at withdrawal time.
 
-      reviewedPayout = await adminRepository.approvePendingPayout(input);
+      reviewedPayout = await runWithOptionalTransaction(async (session) => {
+        const approved = await adminRepository.approvePendingPayout(input, session);
+        if (!approved) {
+          throw new ApiError(HTTP_STATUS.BAD_REQUEST, "Payout request is no longer pending.");
+        }
+
+        const amountUsdt = approved.amountUsdt ?? 0;
+        const creditedWallet = await walletRepository.creditReward(
+          String(approved.userId),
+          amountUsdt,
+          session,
+        );
+        if (!creditedWallet) {
+          throw new ApiError(HTTP_STATUS.INTERNAL_SERVER_ERROR, "Unable to credit payout wallet.");
+        }
+
+        const debitedAdminWallet = await walletRepository.debitAdminPayout(amountUsdt, session);
+        if (!debitedAdminWallet) {
+          throw new ApiError(
+            HTTP_STATUS.INTERNAL_SERVER_ERROR,
+            "Unable to debit the platform payout ledger.",
+          );
+        }
+
+        return approved;
+      });
     } else {
       reviewedPayout = await adminRepository.rejectPendingPayout(input);
     }
@@ -1304,13 +1377,6 @@ export class AdminService {
     }
 
     const reviewedPayoutAmountUsdt = reviewedPayout.amountUsdt ?? 0;
-
-    if (input.action === "approve") {
-      await Promise.all([
-        walletRepository.creditReward(String(reviewedPayout.userId), reviewedPayoutAmountUsdt),
-        walletRepository.debitAdminPayout(reviewedPayoutAmountUsdt),
-      ]);
-    }
 
     await adminRepository.recordAuditLog({
       actorUserId: input.adminUserId,
@@ -1489,6 +1555,10 @@ export class AdminService {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");
     }
 
+    if (actorUserId && actorUserId === userId) {
+      throw new ApiError(HTTP_STATUS.FORBIDDEN, "You cannot edit your own admin account here.");
+    }
+
     if (update.username) {
       const usernameLower = update.username.toLowerCase().trim();
       const existing = await UserModel.findOne({
@@ -1517,7 +1587,10 @@ export class AdminService {
 
     await user.save();
 
-    if (previousStatus !== user.status && (user.status === "suspended" || user.status === "active")) {
+    if (
+      previousStatus !== user.status &&
+      (user.status === "suspended" || user.status === "active")
+    ) {
       if (user.status === "suspended") {
         await authRepository.revokeUserSessions(userId);
       }
@@ -1552,6 +1625,10 @@ export class AdminService {
   }
 
   async deleteUser(userId: string, adminUserId: string) {
+    if (adminUserId === userId) {
+      throw new ApiError(HTTP_STATUS.FORBIDDEN, "You cannot delete your own admin account.");
+    }
+
     const user = await UserModel.findOne({ _id: userId, isDeleted: { $ne: true } });
     if (!user) {
       throw new ApiError(HTTP_STATUS.NOT_FOUND, "User not found.");

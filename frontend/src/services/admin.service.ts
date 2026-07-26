@@ -405,7 +405,7 @@ export type AdminTransaction = {
   id: string;
   userId: string;
   type: "deposit" | "withdrawal" | "reward" | "adjustment" | "plan_purchase";
-  status: "pending" | "approved" | "rejected" | "completed" | "failed";
+  status: "pending" | "processing" | "approved" | "rejected" | "completed" | "failed";
   amountUsdt: number;
   amountTokenUnits: string | null;
   chargeUsdt: number;

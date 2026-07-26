@@ -6,6 +6,7 @@ import { TransactionModel } from "../../transactions/models/transaction.model";
 import { UserModel } from "../../users/models/user.model";
 import type { UserRepositoryRecord } from "../../users/types/user.repository.types";
 import { WalletModel } from "../../wallet/models/wallet.model";
+import type { ClientSession } from "mongoose";
 import { AuditLogModel } from "../models/audit-log.model";
 import type {
   AdminAuditLogRepositoryRecord,
@@ -375,7 +376,8 @@ export class AdminRepository {
       };
     });
     const flowTotal = totalDepositsUsdt + totalWithdrawalsUsdt;
-    const depositsPercent = flowTotal > 0 ? Number(((totalDepositsUsdt / flowTotal) * 100).toFixed(2)) : 0;
+    const depositsPercent =
+      flowTotal > 0 ? Number(((totalDepositsUsdt / flowTotal) * 100).toFixed(2)) : 0;
     const platformEarningsUsdt = totalDepositsUsdt - totalWithdrawalsUsdt - earningsPaidUsdt;
 
     const platformReserveHistory = [];
@@ -387,22 +389,22 @@ export class AdminRepository {
         sumTransactionAmount({
           type: "deposit",
           status: { $in: completedStatuses },
-          createdAt: { $lte: bucket.end }
+          createdAt: { $lte: bucket.end },
         }),
         sumTransactionAmount({
           type: "withdrawal",
           status: { $in: completedStatuses },
-          createdAt: { $lte: bucket.end }
+          createdAt: { $lte: bucket.end },
         }),
         sumTransactionAmount({
           type: "reward",
           status: { $in: completedStatuses },
-          createdAt: { $lte: bucket.end }
-        })
+          createdAt: { $lte: bucket.end },
+        }),
       ]);
       platformReserveHistory.push({
         month: bucket.month,
-        reserve: depSum - witSum - rewSum
+        reserve: depSum - witSum - rewSum,
       });
 
       // 2. Calculate monthly activity inside this bucket
@@ -410,24 +412,24 @@ export class AdminRepository {
         sumTransactionAmount({
           type: "deposit",
           status: { $in: completedStatuses },
-          createdAt: { $gte: bucket.start, $lte: bucket.end }
+          createdAt: { $gte: bucket.start, $lte: bucket.end },
         }),
         sumTransactionAmount({
           type: "withdrawal",
           status: { $in: completedStatuses },
-          createdAt: { $gte: bucket.start, $lte: bucket.end }
+          createdAt: { $gte: bucket.start, $lte: bucket.end },
         }),
         sumTransactionAmount({
           type: "reward",
           status: { $in: completedStatuses },
-          createdAt: { $gte: bucket.start, $lte: bucket.end }
-        })
+          createdAt: { $gte: bucket.start, $lte: bucket.end },
+        }),
       ]);
       transactionActivity.push({
         month: bucket.month,
         deposits: depAct,
         withdrawals: witAct,
-        payouts: rewAct
+        payouts: rewAct,
       });
     }
 
@@ -1184,11 +1186,14 @@ export class AdminRepository {
     }).lean() as Promise<AdminTransactionRepositoryRecord | null>;
   }
 
-  approvePendingWithdrawal(input: {
-    transactionId: string;
-    adminUserId: string;
-    notes?: string;
-  }): Promise<AdminTransactionRepositoryRecord | null> {
+  approvePendingWithdrawal(
+    input: {
+      transactionId: string;
+      adminUserId: string;
+      notes?: string;
+    },
+    session?: ClientSession,
+  ): Promise<AdminTransactionRepositoryRecord | null> {
     return TransactionModel.findOneAndUpdate(
       { _id: input.transactionId, status: "pending", type: "withdrawal" },
       {
@@ -1199,15 +1204,18 @@ export class AdminRepository {
           ...(input.notes ? { notes: input.notes } : {}),
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean() as Promise<AdminTransactionRepositoryRecord | null>;
   }
 
-  rejectPendingWithdrawal(input: {
-    transactionId: string;
-    adminUserId: string;
-    notes?: string;
-  }): Promise<AdminTransactionRepositoryRecord | null> {
+  rejectPendingWithdrawal(
+    input: {
+      transactionId: string;
+      adminUserId: string;
+      notes?: string;
+    },
+    session?: ClientSession,
+  ): Promise<AdminTransactionRepositoryRecord | null> {
     return TransactionModel.findOneAndUpdate(
       { _id: input.transactionId, status: "pending", type: "withdrawal" },
       {
@@ -1218,7 +1226,7 @@ export class AdminRepository {
           ...(input.notes ? { notes: input.notes } : {}),
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean() as Promise<AdminTransactionRepositoryRecord | null>;
   }
 
@@ -1464,11 +1472,14 @@ export class AdminRepository {
     ).lean() as Promise<AdminTransactionRepositoryRecord | null>;
   }
 
-  approvePendingPayout(input: {
-    transactionId: string;
-    adminUserId: string;
-    notes?: string;
-  }): Promise<AdminTransactionRepositoryRecord | null> {
+  approvePendingPayout(
+    input: {
+      transactionId: string;
+      adminUserId: string;
+      notes?: string;
+    },
+    session?: ClientSession,
+  ): Promise<AdminTransactionRepositoryRecord | null> {
     return TransactionModel.findOneAndUpdate(
       { _id: input.transactionId, status: "pending", type: "reward" },
       {
@@ -1479,7 +1490,7 @@ export class AdminRepository {
           ...(input.notes ? { notes: input.notes } : {}),
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean() as Promise<AdminTransactionRepositoryRecord | null>;
   }
 

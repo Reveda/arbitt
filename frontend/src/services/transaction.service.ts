@@ -4,7 +4,7 @@ import { API_ENDPOINTS } from "@/api/endpoints";
 export type UserTransaction = {
   id: string;
   type: "deposit" | "withdrawal" | "reward" | "adjustment" | "plan_purchase";
-  status: "pending" | "approved" | "rejected" | "completed" | "failed";
+  status: "pending" | "processing" | "approved" | "rejected" | "completed" | "failed";
   amountUsdt: number;
   network: string;
   txnHash: string | null;

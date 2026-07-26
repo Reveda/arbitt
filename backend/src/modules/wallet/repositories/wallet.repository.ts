@@ -30,7 +30,11 @@ export class WalletRepository {
     return wallet.toObject() as WalletRepositoryRecord;
   }
 
-  creditDeposit(userId: string, amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
+  creditDeposit(
+    userId: string,
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       { userId },
       {
@@ -44,7 +48,11 @@ export class WalletRepository {
     ).lean();
   }
 
-  creditReward(userId: string, amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
+  creditReward(
+    userId: string,
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       { userId },
       {
@@ -58,7 +66,11 @@ export class WalletRepository {
     ).lean();
   }
 
-  lockPlanAmount(userId: string, amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+  lockPlanAmount(
+    userId: string,
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       {
         availableUsdt: { $gte: amountUsdt },
@@ -70,11 +82,15 @@ export class WalletRepository {
           lockedUsdt: amountUsdt,
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
-  unlockPlanAmount(userId: string, amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+  unlockPlanAmount(
+    userId: string,
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       { userId },
       {
@@ -83,11 +99,15 @@ export class WalletRepository {
           lockedUsdt: -amountUsdt,
         },
       },
-      { new: true },
+      { new: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
-  lockWithdrawalAmount(userId: string, amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
+  lockWithdrawalAmount(
+    userId: string,
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
     return WalletModel.findOneAndUpdate(
       {
         availableUsdt: { $gte: amountUsdt },
@@ -163,7 +183,10 @@ export class WalletRepository {
     ).lean();
   }
 
-  async creditAdminPlanPurchase(amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
+  async creditAdminPlanPurchase(
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
     const adminUserId = await this.findPrimaryAdminUserId();
 
     if (!adminUserId) {
@@ -183,7 +206,10 @@ export class WalletRepository {
     ).lean();
   }
 
-  async debitAdminPayout(amountUsdt: number): Promise<WalletRepositoryRecord | null> {
+  async debitAdminPayout(
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
     const adminUserId = await this.findPrimaryAdminUserId();
 
     if (!adminUserId) {
@@ -199,7 +225,7 @@ export class WalletRepository {
         },
         $setOnInsert: { userId: adminUserId },
       },
-      { new: true, upsert: true },
+      { new: true, upsert: true, ...(session ? { session } : {}) },
     ).lean();
   }
 
@@ -217,7 +243,10 @@ export class WalletRepository {
     return wallet?.availableUsdt ?? 0;
   }
 
-  async debitAdminWithdrawal(amountUsdt: number, session?: ClientSession): Promise<WalletRepositoryRecord | null> {
+  async debitAdminWithdrawal(
+    amountUsdt: number,
+    session?: ClientSession,
+  ): Promise<WalletRepositoryRecord | null> {
     const adminUserId = await this.findPrimaryAdminUserId();
 
     if (!adminUserId) {

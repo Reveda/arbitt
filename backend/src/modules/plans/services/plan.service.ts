@@ -1,5 +1,7 @@
 import { planRepository } from "../repositories/plan.repository";
+import mongoose, { type ClientSession } from "mongoose";
 import type { PlanRuleSetDocument } from "../models/plan-rule-set.model";
+import { env } from "../../../config/env";
 import { HTTP_STATUS } from "../../../constants/http";
 import { ApiError } from "../../../utils/ApiError";
 import { TransactionModel } from "../../transactions/models/transaction.model";
@@ -26,6 +28,21 @@ type PlanRuleSetRecord = PlanRuleSetDocument & {
   updatedAt?: Date | string | null;
 };
 type PurchasePlanInput = z.infer<typeof purchasePlanSchema>;
+
+async function runWithOptionalTransaction<T>(
+  work: (session?: ClientSession) => Promise<T>,
+): Promise<T> {
+  if (!env.MONGODB_TRANSACTIONS_ENABLED) {
+    return work();
+  }
+
+  const session = await mongoose.startSession();
+  try {
+    return await session.withTransaction(() => work(session));
+  } finally {
+    await session.endSession();
+  }
+}
 
 const defaultTerms = {
   withdrawalDay: "Weekly",
@@ -249,56 +266,70 @@ export class PlanService {
       );
     }
 
-    const wallet = await walletRepository.lockPlanAmount(userId, amountUsdt);
-
-    if (!wallet) {
-      throw new ApiError(
-        HTTP_STATUS.BAD_REQUEST,
-        "Insufficient wallet balance for this plan purchase.",
-      );
-    }
-
+    let planAmountLocked = false;
     try {
-      const purchasedAt = new Date();
-      const transaction = await TransactionModel.create({
-        amountUsdt,
-        network: "SYSTEM",
-        notes: `Plan purchase: ${tier.name}`,
-        payoutPercent: tier.weeklyReturnMaxPercent,
-        payoutPrincipalUsdt: amountUsdt,
-        payoutTier: tier.tier,
-        reviewedAt: purchasedAt,
-        status: "completed",
-        type: "plan_purchase",
-        userId,
-      });
-      const [purchase] = await Promise.all([
-        UserPlanPurchaseModel.findOneAndUpdate(
-          { sourceTransactionId: transaction._id },
-          {
-            $set: {
-              amountUsdt,
-              name: tier.name,
-              sourceTransactionId: transaction._id,
-              status: "active",
-              tier: tier.tier,
-              userId,
-              weeklyReturnPercent: tier.weeklyReturnMaxPercent,
-            },
-            $setOnInsert: {
-              purchasedAt,
-            },
-          },
-          { new: true, upsert: true },
-        ),
-        walletRepository.creditAdminPlanPurchase(amountUsdt),
-      ]);
+      const { wallet, transaction, purchase } = await runWithOptionalTransaction(
+        async (session) => {
+          const wallet = await walletRepository.lockPlanAmount(userId, amountUsdt, session);
 
-      await rewardService.createLevelIncomeRewardsForPlanPurchase({
-        amountUsdt,
-        transactionId: String(transaction._id),
-        userId,
-      });
+          if (!wallet) {
+            throw new ApiError(
+              HTTP_STATUS.BAD_REQUEST,
+              "Insufficient wallet balance for this plan purchase.",
+            );
+          }
+          planAmountLocked = true;
+
+          const purchasedAt = new Date();
+          const transaction = new TransactionModel({
+            amountUsdt,
+            network: "SYSTEM",
+            notes: `Plan purchase: ${tier.name}`,
+            payoutPercent: tier.weeklyReturnMaxPercent,
+            payoutPrincipalUsdt: amountUsdt,
+            payoutTier: tier.tier,
+            reviewedAt: purchasedAt,
+            status: "completed",
+            type: "plan_purchase",
+            userId,
+          });
+          await transaction.save(session ? { session } : undefined);
+
+          const purchaseQuery = UserPlanPurchaseModel.findOneAndUpdate(
+            { sourceTransactionId: transaction._id },
+            {
+              $set: {
+                amountUsdt,
+                name: tier.name,
+                sourceTransactionId: transaction._id,
+                status: "active",
+                tier: tier.tier,
+                userId,
+                weeklyReturnPercent: tier.weeklyReturnMaxPercent,
+              },
+              $setOnInsert: {
+                purchasedAt,
+              },
+            },
+            { new: true, upsert: true, ...(session ? { session } : {}) },
+          );
+          const purchase = await purchaseQuery.exec();
+          const adminWallet = await walletRepository.creditAdminPlanPurchase(amountUsdt, session);
+
+          if (!adminWallet) {
+            throw new Error("Primary admin wallet is unavailable for plan purchase.");
+          }
+
+          await rewardService.createLevelIncomeRewardsForPlanPurchase({
+            amountUsdt,
+            session,
+            transactionId: String(transaction._id),
+            userId,
+          });
+
+          return { purchase, transaction, wallet };
+        },
+      );
 
       await adminService.approveAllPendingPayouts({});
 
@@ -321,7 +352,9 @@ export class PlanService {
         },
       };
     } catch (caughtError) {
-      await walletRepository.unlockPlanAmount(userId, amountUsdt);
+      if (!env.MONGODB_TRANSACTIONS_ENABLED && planAmountLocked) {
+        await walletRepository.unlockPlanAmount(userId, amountUsdt);
+      }
       throw caughtError;
     }
   }
