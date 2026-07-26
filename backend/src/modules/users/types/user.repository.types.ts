@@ -16,6 +16,10 @@ export type UserRepositoryRecord = {
   transactionPasswordHash?: string | null;
   transactionPasswordUpdatedAt?: Date | string | null;
   emailVerifiedAt?: Date | string | null;
+  emailVerificationOtpExpiresAt?: Date | string | null;
+  emailVerificationOtpAttempts?: number | null;
+  passwordResetOtpExpiresAt?: Date | string | null;
+  passwordResetOtpAttempts?: number | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;
 };
